@@ -1,0 +1,20 @@
+{
+  "name": "event-probability-terminal",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "dev": "pnpm dev:web",
+    "dev:web": "pnpm --filter @ept/web dev",
+    "dev:api": "pnpm --filter @ept/api-gateway dev",
+    "dev:pricing": "PYTHONPATH=services/pricing-engine/src .venv/bin/python -m pricing_engine.main --healthz",
+    "build": "pnpm -r build",
+    "check": "pnpm typecheck && pnpm build && pnpm test",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "lint:python": ".venv/bin/python -m ruff check services/pricing-engine && .venv/bin/python -m mypy services/pricing-engine/src",
+    "test": "pnpm test:js && pnpm test:python",
+    "test:js": "pnpm -r test",
+    "test:python": "PYTHONPATH=services/pricing-engine/src .venv/bin/python -m pytest services/pricing-engine/tests"
+  }
+}

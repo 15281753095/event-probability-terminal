@@ -1,0 +1,4 @@
+# Project-local Codex configuration.
+# Keep this file intentionally minimal because supported config keys can vary by Codex runtime.
+# Behavioral constraints for this repository are defined in ../AGENTS.md.
+

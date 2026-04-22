@@ -1,0 +1,305 @@
+{
+  "metadata": {
+    "fixtureKind": "live_public_promoted_sample",
+    "capturedAt": "2026-04-21T22:07:09+08:00/2026-04-21T22:08:31+08:00",
+    "promotedAt": "2026-04-21",
+    "sourceIds": [
+      "polymarket-events-keyset",
+      "polymarket-markets-keyset",
+      "polymarket-tags",
+      "polymarket-public-search"
+    ],
+    "sourceUrls": [
+      "https://gamma-api.polymarket.com/events/keyset?closed=false&limit=50",
+      "https://gamma-api.polymarket.com/markets/keyset?closed=false&limit=50&include_tag=true",
+      "https://gamma-api.polymarket.com/tags?limit=200",
+      "https://gamma-api.polymarket.com/public-search?q=Bitcoin",
+      "https://gamma-api.polymarket.com/public-search?q=Ethereum"
+    ],
+    "redaction": "Public market/event/tag data only. No auth headers, cookies, wallet data, private keys, signatures, or credentials are present.",
+    "classificationStatus": "partial_asset_evidence_only_window_unconfirmed",
+    "uncertainty": [
+      "TODO: public-search samples show Bitcoin/Ethereum daily price-threshold markets, not 10m or 1h markets.",
+      "TODO: BTC tag appears in first 200 tags, but ETH/Ethereum tag was not confirmed in this capture.",
+      "TODO: these samples must not open live adapter classification for BTC/ETH 10m/1h until window evidence is confirmed."
+    ]
+  },
+  "observations": {
+    "eventsKeyset": {
+      "count": 50,
+      "hasNextCursor": true,
+      "firstEvent": {
+        "id": "16167",
+        "slug": "microstrategy-sell-any-bitcoin-in-2025",
+        "title": "MicroStrategy sells any Bitcoin by ___ ?",
+        "active": true,
+        "closed": false,
+        "marketCount": 4
+      }
+    },
+    "marketsKeyset": {
+      "count": 50,
+      "hasNextCursor": true,
+      "firstMarket": {
+        "id": "540816",
+        "slug": "russia-ukraine-ceasefire-before-gta-vi-554",
+        "question": "Russia-Ukraine Ceasefire before GTA VI?",
+        "conditionId": "0x9c1a953fe92c8357f1b646ba25d983aa83e90c525992db14fb726fa895cb5763",
+        "questionID": "0x74dcd73f29877722e217723e10f2e8f9a888976f7cfc796234b75a3d3214d1c8",
+        "active": true,
+        "closed": false,
+        "enableOrderBook": true,
+        "startDate": "2025-05-02T15:48:00.174Z",
+        "startDateIso": "2025-05-02",
+        "endDate": "2026-07-31T12:00:00Z",
+        "endDateIso": "2026-07-31",
+        "clobTokenIds": "[\"8501497159083948713316135768103773293754490207922884688769443031624417212426\", \"2527312495175492857904889758552137141356236738032676480522356889996545113869\"]",
+        "outcomes": "[\"Yes\", \"No\"]",
+        "outcomePrices": "[\"0.535\", \"0.465\"]",
+        "bestBid": 0.53,
+        "bestAsk": 0.54,
+        "lastTradePrice": 0.53,
+        "spread": 0.01,
+        "liquidityNum": 64831.2967,
+        "volumeNum": 1575087.831542989,
+        "tags": [
+          {
+            "id": "2",
+            "label": "Politics",
+            "slug": "politics"
+          },
+          {
+            "id": "596",
+            "label": "Culture",
+            "slug": "pop-culture"
+          },
+          {
+            "id": "100215",
+            "label": "All",
+            "slug": "all"
+          },
+          {
+            "id": "102109",
+            "label": "GTA VI",
+            "slug": "gta-vi"
+          }
+        ]
+      }
+    },
+    "tags": {
+      "count": 200,
+      "btcTag": {
+        "id": "620",
+        "label": "btc",
+        "slug": "btc"
+      },
+      "ethereumTagObserved": false
+    },
+    "publicSearchBitcoin": {
+      "count": 5,
+      "pagination": {
+        "hasMore": true,
+        "totalResults": 64905
+      },
+      "firstEvent": {
+        "id": "378825",
+        "slug": "bitcoin-above-on-april-21",
+        "title": "Bitcoin above ___ on April 21?",
+        "active": true,
+        "closed": false,
+        "startDate": "2026-04-14T16:18:24.822391Z",
+        "endDate": "2026-04-21T16:00:00Z",
+        "tags": [
+          {
+            "id": "235",
+            "label": "Bitcoin",
+            "slug": "bitcoin"
+          },
+          {
+            "id": "102264",
+            "label": "Weekly",
+            "slug": "weekly"
+          },
+          {
+            "id": "102516",
+            "label": "Multi Strikes",
+            "slug": "multi-strikes"
+          },
+          {
+            "id": "21",
+            "label": "Crypto",
+            "slug": "crypto"
+          },
+          {
+            "id": "1312",
+            "label": "Crypto Prices",
+            "slug": "crypto-prices"
+          },
+          {
+            "id": "101757",
+            "label": "Recurring",
+            "slug": "recurring"
+          },
+          {
+            "id": "102169",
+            "label": "Hide From New",
+            "slug": "hide-from-new"
+          }
+        ],
+        "markets": [
+          {
+            "id": "1981815",
+            "slug": "bitcoin-above-66k-on-april-21",
+            "question": "Will the price of Bitcoin be above $66,000 on April 21?",
+            "conditionId": "0x7e90e1f82ed35360962c86af29eaab77a6b199ed3748f99bc7bdc5cdcda39808",
+            "questionID": "0xea93347a3702acecd1eaaa5e5b75051083097a1eb92eabc33f2e0aa81b16384c",
+            "active": true,
+            "closed": false,
+            "enableOrderBook": true,
+            "startDate": "2026-04-14T16:08:39.416669Z",
+            "startDateIso": "2026-04-14",
+            "endDate": "2026-04-21T16:00:00Z",
+            "endDateIso": "2026-04-21",
+            "clobTokenIds": "[\"104314453998005741825852234916600344872486225129306759867175256290680266357179\", \"9465098236122773897756746862002964264600964781983336873642787174416026499819\"]",
+            "outcomes": "[\"Yes\", \"No\"]",
+            "outcomePrices": "[\"0.9995\", \"0.0005\"]",
+            "bestBid": 0.999,
+            "bestAsk": 1,
+            "lastTradePrice": 0.999,
+            "spread": 0.001,
+            "liquidityNum": 112570.44427,
+            "volumeNum": 494273.65248599986,
+            "tags": []
+          },
+          {
+            "id": "1981819",
+            "slug": "bitcoin-above-68k-on-april-21",
+            "question": "Will the price of Bitcoin be above $68,000 on April 21?",
+            "conditionId": "0xc6f68e3d5ce9efabbba7123bcceba0316b81e07707390869587a967ad4f87b16",
+            "questionID": "0x97cfbd8d66e19893bba9381fc50a5a3e9c1bdafae8c404bebe08f2c7c8beca3c",
+            "active": true,
+            "closed": false,
+            "enableOrderBook": true,
+            "startDate": "2026-04-14T16:09:28.461897Z",
+            "startDateIso": "2026-04-14",
+            "endDate": "2026-04-21T16:00:00Z",
+            "endDateIso": "2026-04-21",
+            "clobTokenIds": "[\"74305928589581463857233862128562927075507410846748252869858427807277915219131\", \"25474815111076362581543360639983646833865013043469734345665289603603251161435\"]",
+            "outcomes": "[\"Yes\", \"No\"]",
+            "outcomePrices": "[\"0.9995\", \"0.0005\"]",
+            "bestBid": 0.999,
+            "bestAsk": 1,
+            "lastTradePrice": 0.999,
+            "spread": 0.001,
+            "liquidityNum": 119895.68248,
+            "volumeNum": 135797.153073,
+            "tags": []
+          }
+        ]
+      }
+    },
+    "publicSearchEthereum": {
+      "count": 5,
+      "pagination": {
+        "hasMore": true,
+        "totalResults": 61981
+      },
+      "firstEvent": {
+        "id": "378806",
+        "slug": "ethereum-above-on-april-21",
+        "title": "Ethereum above ___ on April 21?",
+        "active": true,
+        "closed": false,
+        "startDate": "2026-04-14T16:07:13.075543Z",
+        "endDate": "2026-04-21T16:00:00Z",
+        "tags": [
+          {
+            "id": "39",
+            "label": "Ethereum",
+            "slug": "ethereum"
+          },
+          {
+            "id": "102264",
+            "label": "Weekly",
+            "slug": "weekly"
+          },
+          {
+            "id": "102516",
+            "label": "Multi Strikes",
+            "slug": "multi-strikes"
+          },
+          {
+            "id": "21",
+            "label": "Crypto",
+            "slug": "crypto"
+          },
+          {
+            "id": "1312",
+            "label": "Crypto Prices",
+            "slug": "crypto-prices"
+          },
+          {
+            "id": "101757",
+            "label": "Recurring",
+            "slug": "recurring"
+          },
+          {
+            "id": "102169",
+            "label": "Hide From New",
+            "slug": "hide-from-new"
+          }
+        ],
+        "markets": [
+          {
+            "id": "1981761",
+            "slug": "ethereum-above-1900-on-april-21",
+            "question": "Will the price of Ethereum be above $1,900 on April 21?",
+            "conditionId": "0x21c4a93f8aa6c2f11ae333e4326744f230c5c27011888e81eac146529c12a42c",
+            "questionID": "0xb90d191d6031b2d405dbbc3a4f555f493b202adf79ea62fb56a16103776fba66",
+            "active": true,
+            "closed": false,
+            "enableOrderBook": true,
+            "startDate": "2026-04-14T16:02:41.860802Z",
+            "startDateIso": "2026-04-14",
+            "endDate": "2026-04-21T16:00:00Z",
+            "endDateIso": "2026-04-21",
+            "clobTokenIds": "[\"29183759717184714390414766963279692179362488634478187231863214724732155746373\", \"83124382567305988365822574853349320585150205002181438180286437945764489142079\"]",
+            "outcomes": "[\"Yes\", \"No\"]",
+            "outcomePrices": "[\"0.9995\", \"0.0005\"]",
+            "bestBid": 0.999,
+            "bestAsk": 1,
+            "lastTradePrice": 0.999,
+            "spread": 0.001,
+            "liquidityNum": 57368.07287,
+            "volumeNum": 51739.73177,
+            "tags": []
+          },
+          {
+            "id": "1981762",
+            "slug": "ethereum-above-2000-on-april-21",
+            "question": "Will the price of Ethereum be above $2,000 on April 21?",
+            "conditionId": "0xfd4c61a4db8dc8cf2b9e61d63d9ee7126b32d2434e03a3f4b09a998a16958ff5",
+            "questionID": "0x2fbade88f9fe1bc83b66e10844b7653ca826d9cfff477f2e332afb67a52161f7",
+            "active": true,
+            "closed": false,
+            "enableOrderBook": true,
+            "startDate": "2026-04-14T16:02:43.895351Z",
+            "startDateIso": "2026-04-14",
+            "endDate": "2026-04-21T16:00:00Z",
+            "endDateIso": "2026-04-21",
+            "clobTokenIds": "[\"37400306249344382043674321334916360193519331159896005056337535274567679732007\", \"109852609254507260437463417670172932826817698801209648375018248048733560984955\"]",
+            "outcomes": "[\"Yes\", \"No\"]",
+            "outcomePrices": "[\"0.9995\", \"0.0005\"]",
+            "bestBid": 0.999,
+            "bestAsk": 1,
+            "lastTradePrice": 0.999,
+            "spread": 0.001,
+            "liquidityNum": 60329.3419,
+            "volumeNum": 25440.771226999997,
+            "tags": []
+          }
+        ]
+      }
+    }
+  }
+}

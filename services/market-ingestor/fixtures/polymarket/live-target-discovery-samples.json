@@ -1,0 +1,318 @@
+{
+  "metadata": {
+    "fixtureKind": "live_public_target_discovery_sample",
+    "capturedAt": "2026-04-22",
+    "sourceIds": [
+      "polymarket-events-keyset",
+      "polymarket-public-search"
+    ],
+    "sourceUrls": [
+      "https://gamma-api.polymarket.com/public-search?q=Bitcoin%20Up%20or%20Down",
+      "https://gamma-api.polymarket.com/public-search?q=Ethereum%20Up%20or%20Down",
+      "https://gamma-api.polymarket.com/public-search?q=Bitcoin%20hourly",
+      "https://gamma-api.polymarket.com/public-search?q=Ethereum%20hourly",
+      "https://gamma-api.polymarket.com/public-search?q=BTC%20hourly",
+      "https://gamma-api.polymarket.com/public-search?q=ETH%20hourly",
+      "https://gamma-api.polymarket.com/public-search?q=Bitcoin%2010%20minute",
+      "https://gamma-api.polymarket.com/public-search?q=Ethereum%2010%20minute",
+      "https://gamma-api.polymarket.com/public-search?q=BTC%2010m",
+      "https://gamma-api.polymarket.com/public-search?q=ETH%2010m",
+      "https://gamma-api.polymarket.com/events/keyset?closed=false&limit=100&title_search=Bitcoin%20Up%20or%20Down",
+      "https://gamma-api.polymarket.com/events/keyset?closed=false&limit=100&title_search=Ethereum%20Up%20or%20Down"
+    ],
+    "redaction": "Public event and market data only. No auth headers, cookies, wallet data, private keys, signatures, or credentials are present.",
+    "classificationStatus": "target_window_unconfirmed",
+    "conclusion": "Observed BTC/ETH short-window Up/Down market family evidence for 5M and a closed 1H Bitcoin sample. Did not observe a live 10m or live 1h BTC/ETH target market in the approved request set.",
+    "uncertainty": [
+      "TODO: Confirm whether Polymarket currently offers BTC/ETH 10m markets through Gamma/public-search.",
+      "TODO: Confirm whether active 1h BTC/ETH markets are discoverable through Gamma/public-search, or whether the observed 1H sample is historical only.",
+      "TODO: Current EventMarket token contract assumes Yes/No tokens; observed 5M and 15M Up/Down samples use outcomes [\"Up\", \"Down\"]."
+    ]
+  },
+  "executedRequests": [
+    {
+      "file": "public-search-bitcoin-up-or-down.raw.json",
+      "endpoint": "/public-search",
+      "query": "q=Bitcoin Up or Down"
+    },
+    {
+      "file": "public-search-ethereum-up-or-down.raw.json",
+      "endpoint": "/public-search",
+      "query": "q=Ethereum Up or Down"
+    },
+    {
+      "file": "public-search-bitcoin-hourly.raw.json",
+      "endpoint": "/public-search",
+      "query": "q=Bitcoin hourly"
+    },
+    {
+      "file": "public-search-ethereum-hourly.raw.json",
+      "endpoint": "/public-search",
+      "query": "q=Ethereum hourly"
+    },
+    {
+      "file": "public-search-btc-hourly.raw.json",
+      "endpoint": "/public-search",
+      "query": "q=BTC hourly"
+    },
+    {
+      "file": "public-search-eth-hourly.raw.json",
+      "endpoint": "/public-search",
+      "query": "q=ETH hourly"
+    },
+    {
+      "file": "public-search-bitcoin-10-minute.raw.json",
+      "endpoint": "/public-search",
+      "query": "q=Bitcoin 10 minute"
+    },
+    {
+      "file": "public-search-ethereum-10-minute.raw.json",
+      "endpoint": "/public-search",
+      "query": "q=Ethereum 10 minute"
+    },
+    {
+      "file": "public-search-btc-10m.raw.json",
+      "endpoint": "/public-search",
+      "query": "q=BTC 10m"
+    },
+    {
+      "file": "public-search-eth-10m.raw.json",
+      "endpoint": "/public-search",
+      "query": "q=ETH 10m"
+    },
+    {
+      "file": "events-keyset-title-bitcoin-up-or-down.raw.json",
+      "endpoint": "/events/keyset",
+      "query": "closed=false&limit=100&title_search=Bitcoin Up or Down"
+    },
+    {
+      "file": "events-keyset-title-ethereum-up-or-down.raw.json",
+      "endpoint": "/events/keyset",
+      "query": "closed=false&limit=100&title_search=Ethereum Up or Down"
+    }
+  ],
+  "observations": {
+    "btc5mActive": {
+      "id": "109968",
+      "slug": "btc-updown-5m-1766162100",
+      "title": "Bitcoin Up or Down - December 19, 11:35AM-11:40AM ET",
+      "active": true,
+      "closed": false,
+      "tags": [
+        {
+          "id": "102127",
+          "label": "Up or Down",
+          "slug": "up-or-down"
+        },
+        {
+          "id": "1312",
+          "label": "Crypto Prices",
+          "slug": "crypto-prices"
+        },
+        {
+          "id": "21",
+          "label": "Crypto",
+          "slug": "crypto"
+        },
+        {
+          "id": "235",
+          "label": "Bitcoin",
+          "slug": "bitcoin"
+        },
+        {
+          "id": "102892",
+          "label": "5M",
+          "slug": "5M"
+        }
+      ],
+      "market": {
+        "id": "964335",
+        "slug": "btc-updown-5m-1766162100",
+        "question": "Bitcoin Up or Down - December 19, 11:35AM-11:40AM ET",
+        "conditionId": "0x33f2f9edc51b2f6f92f2636b6fce7ee468770a581e6951c301b932fd7a3fd127",
+        "questionID": "0xf5704ffb9f50b9638cf3dce992f075e41a38f9837fca11cd6c81d932f63fca29",
+        "active": true,
+        "closed": false,
+        "enableOrderBook": false,
+        "endDate": "2025-12-19T16:40:00Z",
+        "clobTokenIds": "[\"44594613733704690315394897227759662521183429824282007907633921479634990989260\", \"89077455060153802984632332231552501115671307713789066937817034009529706763206\"]",
+        "outcomes": "[\"Up\", \"Down\"]",
+        "bestBid": 0,
+        "bestAsk": 1,
+        "lastTradePrice": 0,
+        "spread": 1,
+        "liquidityNum": 0,
+        "volumeNum": 0
+      }
+    },
+    "eth5mActive": {
+      "id": "109965",
+      "slug": "eth-updown-5m-1766161800",
+      "title": "Ethereum Up or Down - December 19, 11:30AM-11:35AM ET",
+      "active": true,
+      "closed": false,
+      "tags": [
+        {
+          "id": "102127",
+          "label": "Up or Down",
+          "slug": "up-or-down"
+        },
+        {
+          "id": "21",
+          "label": "Crypto",
+          "slug": "crypto"
+        },
+        {
+          "id": "39",
+          "label": "Ethereum",
+          "slug": "ethereum"
+        },
+        {
+          "id": "102892",
+          "label": "5M",
+          "slug": "5M"
+        }
+      ],
+      "market": {
+        "id": "964332",
+        "slug": "eth-updown-5m-1766161800",
+        "question": "Ethereum Up or Down - December 19, 11:30AM-11:35AM ET",
+        "conditionId": "0x2586c9ae289141b3688d0fe27cdca4ec39e6b18db416c112d38292911a70ee21",
+        "questionID": "0x3fdf3d9760ac047455f6518a21c314199e2c2c6f0cef98fc5e431b1192857fe0",
+        "active": true,
+        "closed": false,
+        "enableOrderBook": false,
+        "endDate": "2025-12-19T16:35:00Z",
+        "clobTokenIds": "[\"51135880987390410545082540867088285556184709753913066543508010106858038418471\", \"8147340325802207351630542448538241866035001085575658933844567173354424206850\"]",
+        "outcomes": "[\"Up\", \"Down\"]",
+        "bestBid": 0,
+        "bestAsk": 1,
+        "lastTradePrice": 0,
+        "spread": 1,
+        "liquidityNum": 0,
+        "volumeNum": 0
+      }
+    },
+    "btc1hClosed": {
+      "id": "314731",
+      "slug": "will-at-least-2-of-the-next-3-bitcoin-hourly-candles-be-up",
+      "title": "Will at least 2 of the next 3 Bitcoin hourly candles be up?",
+      "active": true,
+      "closed": true,
+      "tags": [
+        {
+          "id": "101757",
+          "label": "Recurring",
+          "slug": "recurring"
+        },
+        {
+          "id": "21",
+          "label": "Crypto",
+          "slug": "crypto"
+        },
+        {
+          "id": "1312",
+          "label": "Crypto Prices",
+          "slug": "crypto-prices"
+        },
+        {
+          "id": "235",
+          "label": "Bitcoin",
+          "slug": "bitcoin"
+        },
+        {
+          "id": "102127",
+          "label": "Up or Down",
+          "slug": "up-or-down"
+        },
+        {
+          "id": "102175",
+          "label": "1H",
+          "slug": "1H"
+        }
+      ],
+      "market": {
+        "id": "1745111",
+        "slug": "will-at-least-2-of-the-next-3-bitcoin-hourly-candles-be-up",
+        "question": "Will at least 2 of the next 3 Bitcoin hourly candles be up?",
+        "conditionId": "0x178ada30994699d3f7e5cd026248617c4f5756cc5d5b67bf2c5399baaaa86f2c",
+        "questionID": "0xf2f4542cff5df84121b2b11c6bc45aca1d93c67dfc6cf56f0465fa57c97a551d",
+        "active": true,
+        "closed": true,
+        "enableOrderBook": true,
+        "clobTokenIds": "[\"64819462146677772990556245349421048030070056064553594973674417837578325593941\", \"37482490625669569175015571706358599112333018433446256118699287723738972318275\"]",
+        "outcomes": "[\"Yes\", \"No\"]",
+        "outcomePrices": "[\"1\", \"0\"]",
+        "bestBid": 0.999,
+        "bestAsk": 1,
+        "lastTradePrice": 0.999,
+        "spread": 0.001,
+        "volumeNum": 940.320346
+      }
+    },
+    "eth15mClosed": {
+      "id": "400222",
+      "slug": "eth-updown-15m-1776795300",
+      "title": "Ethereum Up or Down - April 21, 2:15PM-2:30PM ET",
+      "active": true,
+      "closed": true,
+      "tags": [
+        {
+          "id": "102127",
+          "label": "Up or Down",
+          "slug": "up-or-down"
+        },
+        {
+          "id": "39",
+          "label": "Ethereum",
+          "slug": "ethereum"
+        },
+        {
+          "id": "102467",
+          "label": "15M",
+          "slug": "15M"
+        }
+      ],
+      "market": {
+        "id": "2035960",
+        "slug": "eth-updown-15m-1776795300",
+        "question": "Ethereum Up or Down - April 21, 2:15PM-2:30PM ET",
+        "conditionId": "0x0735a6151751075532eec24ecee584d02b6486df5d85f527e3b1ffdef173fbdc",
+        "questionID": "0x7787b421dfd7dcd01d1804cddd29378a232568518892856a8093fc02aee70538",
+        "active": true,
+        "closed": true,
+        "enableOrderBook": true,
+        "clobTokenIds": "[\"56042786063156803222377912391256053769074761245714875241234472346633506800252\", \"66495399239082344459183855794589085652379812871011696172320299630220740738448\"]",
+        "outcomes": "[\"Up\", \"Down\"]",
+        "outcomePrices": "[\"0\", \"1\"]",
+        "bestBid": 0.02,
+        "bestAsk": 0.03,
+        "lastTradePrice": 0.001,
+        "spread": 0.01,
+        "volumeNum": 82334.498897
+      }
+    },
+    "no10mSearches": [
+      {
+        "file": "public-search-bitcoin-10-minute.raw.json",
+        "events": 3,
+        "targetHits": 0
+      },
+      {
+        "file": "public-search-ethereum-10-minute.raw.json",
+        "events": 5,
+        "targetHits": 0
+      },
+      {
+        "file": "public-search-btc-10m.raw.json",
+        "events": 5,
+        "targetHits": 0
+      },
+      {
+        "file": "public-search-eth-10m.raw.json",
+        "events": 5,
+        "targetHits": 0
+      }
+    ]
+  }
+}

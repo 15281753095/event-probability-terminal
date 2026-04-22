@@ -1,0 +1,19 @@
+{
+  "name": "@ept/shared-types",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo \"shared-types lint not configured yet\"",
+    "test": "echo \"shared-types tests not added yet\""
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
+

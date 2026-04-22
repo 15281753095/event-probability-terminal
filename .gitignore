@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# Build output
+.next/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.*
+!.env.example
+.env.local
+
+# Data and local state
+research/datasets/*
+!research/datasets/README.md
+services/market-ingestor/fixtures/polymarket/live-capture-tmp/
+services/market-ingestor/fixtures/polymarket/live-target-discovery-tmp/
+*.sqlite
+*.db
+*.log
+logs/
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
