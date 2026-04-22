@@ -75,7 +75,13 @@ Install dependencies:
 make install
 ```
 
-Start the API gateway:
+Start the pricing-engine placeholder service:
+
+```bash
+make dev-pricing
+```
+
+Start the API gateway in another shell:
 
 ```bash
 make dev-api
@@ -101,12 +107,6 @@ make infra-down
 ```
 
 PostgreSQL and Redis are available for local development but are not wired into the current read-only fixture slice.
-
-Pricing-engine placeholder service:
-
-```bash
-make dev-pricing
-```
 
 Default pricing-engine URL:
 

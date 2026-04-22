@@ -91,13 +91,13 @@ The current CI does not need package publishing, deployments, write tokens, or s
 
 ## Tags And Releases
 
-Do not create a release tag until the first live public fixture capture and contract-test tightening are complete.
+Do not create a tag or release as part of the RC-0 repository publish flow.
 
-Suggested first tag later:
+If a release tag is needed later, choose it deliberately after a separate release decision:
 
 ```bash
 git tag v0.1.0-fixture-readonly
 git push origin v0.1.0-fixture-readonly
 ```
 
-This is a later manual step, not part of the current publish preparation.
+This is a later manual step, not part of the current GitHub publish preparation.
