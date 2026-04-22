@@ -30,6 +30,14 @@ export interface SourceProvenance {
   evidence: string[];
 }
 
+export type BinaryOutcomeRole = "primary" | "secondary";
+
+export interface BinaryOutcome {
+  role: BinaryOutcomeRole;
+  label: string;
+  tokenId: string;
+}
+
 export interface EventMarket {
   id: string;
   venue: PrimaryVenueId;
@@ -54,9 +62,10 @@ export interface EventMarket {
     closed: boolean;
     enableOrderBook: boolean;
   };
-  tokens: {
-    yes: string;
-    no: string;
+  outcomeType: "binary";
+  outcomes: {
+    primary: BinaryOutcome;
+    secondary: BinaryOutcome;
   };
   metrics: {
     liquidity?: number;
@@ -98,7 +107,8 @@ export interface FairValueSnapshot {
 
 export interface TradeCandidate {
   marketId: string;
-  side: "YES" | "NO";
+  outcomeRole: BinaryOutcomeRole;
+  outcomeLabel: string;
   edge: number | null;
   isPlaceholder: true;
   reason: string;

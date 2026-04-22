@@ -67,7 +67,7 @@ export default async function Home() {
                     <TableHead>Question</TableHead>
                     <TableHead>Venue</TableHead>
                     <TableHead>Expiry</TableHead>
-                    <TableHead>YES bid / ask</TableHead>
+                    <TableHead>Outcome bid / ask</TableHead>
                     <TableHead>MarketProb</TableHead>
                     <TableHead>Liquidity</TableHead>
                     <TableHead>Spread</TableHead>
@@ -85,9 +85,7 @@ export default async function Home() {
                       </TableCell>
                       <TableCell>{market.venue}</TableCell>
                       <TableCell>{countdown(market.market.endAt)}</TableCell>
-                      <TableCell>
-                        {formatProb(market.metrics.bestBid)} / {formatProb(market.metrics.bestAsk)}
-                      </TableCell>
+                      <TableCell>{primaryOutcomeQuote(market)}</TableCell>
                       <TableCell>{marketProbability(market)}</TableCell>
                       <TableCell>{formatNumber(market.metrics.liquidity)}</TableCell>
                       <TableCell>{formatProb(market.metrics.spread)}</TableCell>
@@ -233,6 +231,11 @@ function marketProbability(market: EventMarket) {
     return "n/a";
   }
   return formatProb((bid + ask) / 2);
+}
+
+function primaryOutcomeQuote(market: EventMarket) {
+  const label = market.outcomes.primary.label;
+  return `${label} ${formatProb(market.metrics.bestBid)} / ${formatProb(market.metrics.bestAsk)}`;
 }
 
 function countdown(value?: string) {

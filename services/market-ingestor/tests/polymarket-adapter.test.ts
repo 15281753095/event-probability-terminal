@@ -4,9 +4,9 @@ import { readFileSync } from "node:fs";
 import {
   createPolymarketPublicReadAdapter,
   normalizeEventMarket,
+  parseBinaryOutcomes,
   parseOutcomeLabels,
-  parseTokenIds,
-  parseYesNoTokenIds
+  parseTokenIds
 } from "../src/index.js";
 
 const liveGammaSamples = JSON.parse(
@@ -107,8 +107,11 @@ describe("Polymarket public read adapter", () => {
     assert.equal(btc.window, "1h");
     assert.equal(btc.venue, "polymarket");
     assert.equal(btc.market.enableOrderBook, true);
-    assert.equal(btc.tokens.yes.length > 0, true);
-    assert.equal(btc.tokens.no.length > 0, true);
+    assert.equal(btc.outcomeType, "binary");
+    assert.equal(btc.outcomes.primary.label, "Yes");
+    assert.equal(btc.outcomes.secondary.label, "No");
+    assert.equal(btc.outcomes.primary.tokenId.length > 0, true);
+    assert.equal(btc.outcomes.secondary.tokenId.length > 0, true);
     assert.equal(btc.provenance.sourceMode, "fixture");
     assert.equal(btc.provenance.classificationSource, "fixture_metadata");
   });
@@ -131,7 +134,7 @@ describe("Polymarket public read adapter", () => {
       assets: ["BTC"],
       windows: ["1h"]
     });
-    const tokenId = result.markets[0]?.tokens.yes;
+    const tokenId = result.markets[0]?.outcomes.primary.tokenId;
     assert.ok(tokenId);
 
     const book = await adapter.getOrderBook(tokenId);
@@ -149,16 +152,18 @@ describe("Polymarket public read adapter", () => {
     ]);
   });
 
-  it("parses observed live public Gamma token and outcome string shapes", () => {
+  it("parses observed live public Gamma binary outcome string shapes", () => {
     const market = liveGammaSamples.observations.publicSearchBitcoin.firstEvent.markets[0];
     assert.ok(market);
 
     const tokenIds = parseTokenIds(market.clobTokenIds);
     assert.equal(tokenIds?.length, 2);
     assert.deepEqual(parseOutcomeLabels(market.outcomes), ["Yes", "No"]);
-    assert.deepEqual(parseYesNoTokenIds(market.clobTokenIds, market.outcomes), tokenIds);
-    assert.equal(parseYesNoTokenIds(market.clobTokenIds, "[\"No\", \"Yes\"]"), undefined);
-    assert.equal(parseYesNoTokenIds(market.clobTokenIds, undefined), undefined);
+    const outcomes = parseBinaryOutcomes(market.clobTokenIds, market.outcomes);
+    assert.equal(outcomes?.[0].label, "Yes");
+    assert.equal(outcomes?.[1].label, "No");
+    assert.deepEqual(outcomes?.map((outcome) => outcome.tokenId), tokenIds);
+    assert.equal(parseBinaryOutcomes(market.clobTokenIds, undefined), undefined);
   });
 
   it("keeps promoted live public search samples out of EventMarket without classification", () => {
@@ -200,11 +205,19 @@ describe("Polymarket public read adapter", () => {
     assert.equal(observations.no10mSearches.every((item) => item.targetHits === 0), true);
   });
 
-  it("fails closed for observed Up/Down target-family samples under the current Yes/No contract", () => {
+  it("parses observed Up/Down target-family outcomes as binary labels", () => {
     const btc5m = liveTargetDiscoverySamples.observations.btc5mActive;
 
     assert.deepEqual(parseOutcomeLabels(btc5m.market.outcomes), ["Up", "Down"]);
-    assert.equal(parseYesNoTokenIds(btc5m.market.clobTokenIds, btc5m.market.outcomes), undefined);
+    const outcomes = parseBinaryOutcomes(btc5m.market.clobTokenIds, btc5m.market.outcomes);
+    assert.equal(outcomes?.[0].role, "primary");
+    assert.equal(outcomes?.[0].label, "Up");
+    assert.equal(outcomes?.[1].role, "secondary");
+    assert.equal(outcomes?.[1].label, "Down");
+  });
+
+  it("keeps observed Up/Down target-family samples fail-closed when order book or live classification is not proven", () => {
+    const btc5m = liveTargetDiscoverySamples.observations.btc5mActive;
 
     const normalized = normalizeEventMarket({
       event: btc5m,
@@ -213,13 +226,13 @@ describe("Polymarket public read adapter", () => {
         asset: "BTC",
         window: "10m",
         source: "fixture_metadata",
-        evidence: ["Deliberately forced in test to prove non-Yes/No outcomes stay rejected."]
+        evidence: ["Deliberately forced in test to prove binary outcome parsing does not open discovery."]
       },
       sourceMode: "live_public",
       sourceIds: ["polymarket-target-discovery-2026-04-22"]
     });
 
     assert.equal(normalized.candidate, undefined);
-    assert.equal(normalized.rejection, "ambiguous or missing Yes/No token mapping");
+    assert.equal(normalized.rejection, "enableOrderBook is not true");
   });
 });

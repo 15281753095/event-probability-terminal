@@ -26,7 +26,7 @@
     "uncertainty": [
       "TODO: Confirm whether Polymarket currently offers BTC/ETH 10m markets through Gamma/public-search.",
       "TODO: Confirm whether active 1h BTC/ETH markets are discoverable through Gamma/public-search, or whether the observed 1H sample is historical only.",
-      "TODO: Current EventMarket token contract assumes Yes/No tokens; observed 5M and 15M Up/Down samples use outcomes [\"Up\", \"Down\"]."
+      "TODO: Confirm binary outcome ordering for actual BTC/ETH 10m/1h markets; observed 5M and 15M Up/Down samples use outcomes [\"Up\", \"Down\"]."
     ]
   },
   "executedRequests": [

@@ -11,6 +11,7 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - Venue: Polymarket as the primary research venue.
 - Current mode: read-only market discovery and display.
 - Scanner: minimal endpoint and page with placeholder fair-value and edge fields.
+- Market contract: binary outcome markets only. Outcome labels are preserved from upstream, so `Yes`/`No` and observed `Up`/`Down` labels can be represented. Multi-outcome markets are out of scope.
 
 ## Current User Workflow
 
@@ -29,13 +30,14 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - No paper broker.
 - No replay engine.
 - No market detail page.
+- No multi-outcome market support.
 - No full historical signal overlay on the primary chart.
 
 ## Acceptance Criteria For Current Slice
 
 - Web page loads from the local API gateway.
 - API gateway returns fixture-backed Polymarket markets.
-- Contract tests prove token parsing and fail-closed behavior.
+- Contract tests prove binary outcome parsing and fail-closed behavior.
 - Placeholder scanner fields are clearly marked.
 - Documentation explains current limitations.
 

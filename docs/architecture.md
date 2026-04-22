@@ -53,6 +53,8 @@ Live public mode exists as an adapter transport path, but BTC/ETH and 10m/1h cla
 
 The types intentionally avoid encoding unconfirmed upstream Polymarket fields as stable domain contracts.
 
+`EventMarket` currently models only binary markets. It preserves upstream outcome labels and token IDs as `outcomes.primary` and `outcomes.secondary`, so both `Yes`/`No` and observed `Up`/`Down` labels can be represented without creating a general multi-outcome model. The contract does not infer pricing, trading direction, or strategy side from those labels.
+
 ### Pricing Engine
 
 `services/pricing-engine` is a Python health shell. It does not compute fair probability, edge, or trade recommendations.
@@ -75,12 +77,12 @@ The types intentionally avoid encoding unconfirmed upstream Polymarket fields as
 - No private/authenticated vendor endpoints.
 - No business-layer raw vendor HTTP requests.
 - No Predict.fun or Binance Wallet implementation in the current slice.
+- No multi-outcome market support in the current domain contract.
 - All unconfirmed external details must remain marked `TODO`.
 
 ## TODO
 
-- TODO: Capture approved live public Polymarket fixtures.
-- TODO: Replace synthetic classification evidence with fixture-backed evidence where confirmed.
+- TODO: Confirm BTC/ETH 10m/1h live discovery rules before opening live classification.
 - TODO: Add persistence ADR before using PostgreSQL.
 - TODO: Add cache/data freshness ADR before using Redis.
 - TODO: Design pricing-engine service contract before adding any model implementation.

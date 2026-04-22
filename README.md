@@ -23,6 +23,7 @@ Supported research scope:
 - Primary venue: Polymarket
 - Secondary/reference venues: Predict.fun and Binance Wallet Prediction Markets are documented only; they are not implemented.
 - Mode: read-only market discovery and display, with placeholder scanner/pricing fields.
+- Market contract: binary outcome markets only. The shared contract preserves upstream outcome labels, including fixture-backed `Yes`/`No` and observed `Up`/`Down`; it does not support multi-outcome markets.
 
 Explicit exclusions:
 
@@ -30,6 +31,7 @@ Explicit exclusions:
 - No private/authenticated Polymarket adapter.
 - No Predict.fun or Binance Wallet adapter.
 - No real pricing model, paper broker, replay engine, or news-signal business implementation.
+- No multi-outcome market model.
 - No inferred external API fields, schemas, authentication, signatures, or endpoint behavior.
 
 ## Technology Stack

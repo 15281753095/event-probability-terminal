@@ -216,7 +216,7 @@ Confirmed by promoted fixture:
 - Public-search responses carry pagination metadata.
 - Sampled market objects include `conditionId`, `questionID`, `enableOrderBook`, date fields, top-of-book style fields, liquidity, volume, `clobTokenIds`, `outcomes`, and `outcomePrices`.
 - Sampled `clobTokenIds`, `outcomes`, and `outcomePrices` are JSON-encoded strings.
-- Sampled `outcomes` parse as `["Yes", "No"]`.
+- Sampled `outcomes` parse as binary label arrays. Promoted samples include `["Yes", "No"]` and observed target-family samples include `["Up", "Down"]`.
 - Public-search samples include Bitcoin and Ethereum asset evidence in event tags.
 
 Not confirmed:
@@ -231,7 +231,7 @@ Not confirmed:
 After review, promoted fixtures should tighten:
 
 - `services/market-ingestor/tests/polymarket-adapter.test.ts`
-- token extraction tests for observed `clobTokenIds` and `outcomes` string shapes;
+- binary outcome extraction tests for observed `clobTokenIds` and `outcomes` string shapes;
 - classification tests for BTC/ETH evidence;
 - classification tests for 10m/1h evidence;
 - negative tests proving unsupported or unclassified markets fail closed.
@@ -241,7 +241,7 @@ After review, promoted fixtures should tighten:
 - TODO: Confirm canonical BTC and ETH identification source: tag, search result type, slug/title/question text, or other metadata.
 - TODO: Confirm canonical 10m and 1h identification source: tag, market text, event text, date interval, or other metadata.
 - TODO: Confirm whether `events/keyset` alone is sufficient or whether `markets/keyset`, tags, and search must be combined.
-- TODO: Confirm runtime `clobTokenIds` shape and whether ordering maps safely to Yes/No for the relevant markets.
+- TODO: Confirm runtime `clobTokenIds` shape and whether ordering maps safely to Gamma outcome labels for the relevant markets.
 - TODO: Confirm whether order-book top-of-book should supersede Gamma `bestBid` / `bestAsk` for scanner display.
 
 ## 2026-04-22 Target Discovery Result
@@ -277,5 +277,5 @@ Not confirmed:
 
 - No BTC/ETH 10m target hit was found in the approved request set.
 - No active BTC/ETH 1h target market was found in the approved request set.
-- Current Yes/No `EventMarket` token contract is not sufficient for Up/Down markets.
-- Therefore the live BTC/ETH 10m/1h discovery rule remains fail closed.
+- The `EventMarket` contract now preserves generic binary outcome labels, so `Up`/`Down` can be represented without renaming those labels to Yes/No.
+- The live BTC/ETH 10m/1h discovery rule still remains fail closed because the approved evidence did not confirm active target 10m/1h discovery.

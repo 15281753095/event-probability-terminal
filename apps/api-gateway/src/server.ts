@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import { createPolymarketPublicReadAdapter } from "@ept/market-ingestor";
 import type {
+  BinaryOutcome,
   EventMarket,
   FairValueSnapshot,
   OrderBookSnapshot,
@@ -68,7 +69,8 @@ export function buildServer() {
       });
     }
 
-    const book = await polymarket.getOrderBook(market.tokens.yes);
+    const primaryOutcome = market.outcomes.primary;
+    const book = await polymarket.getOrderBook(primaryOutcome.tokenId);
     const snapshot: OrderBookSnapshot = {
       marketId: market.id,
       tokenId: book.asset_id,
@@ -98,7 +100,7 @@ export function buildServer() {
       candidates: stripRaw(result.markets).map((market) => ({
         market,
         fairValue: placeholderFairValue(market.id, now),
-        tradeCandidate: placeholderTradeCandidate(market.id),
+        tradeCandidate: placeholderTradeCandidate(market.id, market.outcomes.primary),
         isPlaceholder: true
       })),
       meta: {
@@ -133,10 +135,11 @@ function placeholderFairValue(marketId: string, createdAt: string): FairValueSna
   };
 }
 
-function placeholderTradeCandidate(marketId: string): TradeCandidate {
+function placeholderTradeCandidate(marketId: string, outcome: BinaryOutcome): TradeCandidate {
   return {
     marketId,
-    side: "YES",
+    outcomeRole: outcome.role,
+    outcomeLabel: outcome.label,
     edge: null,
     isPlaceholder: true,
     reason: "No real edge calculation is implemented in this slice."

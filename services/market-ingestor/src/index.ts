@@ -6,9 +6,9 @@ export { PolymarketFixtureTransport, loadPolymarketFixture } from "./polymarket/
 export { PolymarketHttpTransport } from "./polymarket/http-transport.js";
 export {
   normalizeEventMarket,
+  parseBinaryOutcomes,
   parseOutcomeLabels,
-  parseTokenIds,
-  parseYesNoTokenIds
+  parseTokenIds
 } from "./polymarket/normalizer.js";
 export type {
   DiscoverEventMarketsInput,

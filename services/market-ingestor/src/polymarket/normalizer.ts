@@ -1,3 +1,4 @@
+import type { BinaryOutcome } from "@ept/shared-types";
 import type {
   EventMarketCandidate,
   GammaEvent,
@@ -25,9 +26,9 @@ export function normalizeEventMarket(input: {
     };
   }
 
-  const tokenIds = parseYesNoTokenIds(input.market.clobTokenIds, input.market.outcomes);
-  if (!tokenIds) {
-    return { rejection: "ambiguous or missing Yes/No token mapping" };
+  const outcomes = parseBinaryOutcomes(input.market.clobTokenIds, input.market.outcomes);
+  if (!outcomes) {
+    return { rejection: "ambiguous or missing binary outcome mapping" };
   }
 
   const conditionId = stringValue(input.market.conditionId);
@@ -91,9 +92,10 @@ export function normalizeEventMarket(input: {
       question,
       event: eventInfo,
       market: marketInfo,
-      tokens: {
-        yes: tokenIds[0],
-        no: tokenIds[1]
+      outcomeType: "binary",
+      outcomes: {
+        primary: outcomes[0],
+        secondary: outcomes[1]
       },
       metrics,
       provenance: {
@@ -105,7 +107,7 @@ export function normalizeEventMarket(input: {
       },
       uncertainty: [
         "TODO: replace fixture_metadata classification with confirmed official Polymarket BTC/ETH and 10m/1h taxonomy before live use",
-        "TODO: confirm raw clobTokenIds shape with approved public-read fixture capture"
+        "TODO: confirm raw clobTokenIds shape across the target BTC/ETH 10m/1h market family"
       ],
       raw: {
         event: input.event,
@@ -137,17 +139,34 @@ export function parseOutcomeLabels(value: unknown): [string, string] | undefined
   return yes && no ? [yes, no] : undefined;
 }
 
-export function parseYesNoTokenIds(
+export function parseBinaryOutcomes(
   tokenIdsValue: unknown,
   outcomesValue: unknown
-): [string, string] | undefined {
+): [BinaryOutcome, BinaryOutcome] | undefined {
   const tokenIds = parseTokenIds(tokenIdsValue);
-  const outcomes = parseOutcomeLabels(outcomesValue);
-  if (!tokenIds || !outcomes) {
+  const labels = parseOutcomeLabels(outcomesValue);
+  if (!tokenIds || !labels) {
     return undefined;
   }
 
-  return outcomes[0] === "Yes" && outcomes[1] === "No" ? tokenIds : undefined;
+  const [primaryTokenId, secondaryTokenId] = tokenIds;
+  const [primaryLabel, secondaryLabel] = labels;
+  if (!primaryTokenId || !secondaryTokenId || !primaryLabel || !secondaryLabel) {
+    return undefined;
+  }
+
+  return [
+    {
+      role: "primary",
+      label: primaryLabel,
+      tokenId: primaryTokenId
+    },
+    {
+      role: "secondary",
+      label: secondaryLabel,
+      tokenId: secondaryTokenId
+    }
+  ];
 }
 
 function stringValue(value: unknown): string | undefined {

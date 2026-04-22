@@ -29,4 +29,5 @@ Reviewed fixtures can be promoted into tracked JSON files only after redaction a
 - No API keys, cookies, auth headers, signatures, wallet data, or private credentials.
 - Keep raw public IDs, token IDs, condition IDs, prices, sizes, and timestamps only when needed for contract tests.
 - Mark classification as `TODO` unless BTC/ETH and 10m/1h evidence is explicit and documented.
-- Adapter tests must fail closed when classification or token mapping is ambiguous.
+- Adapter tests must fail closed when classification or binary outcome mapping is ambiguous.
+- Upstream binary labels are preserved as fixture evidence. `Up`/`Down` support in the domain contract does not open live BTC/ETH 10m/1h discovery by itself.

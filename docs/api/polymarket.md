@@ -69,7 +69,7 @@ Observed facts from the 2026-04-21 approved public capture:
 
 Project decisions from the fixture review:
 
-- Token extraction now requires both parseable two-token `clobTokenIds` and parseable `outcomes` equal to `["Yes", "No"]`.
+- Token extraction now requires both parseable two-token `clobTokenIds` and parseable two-label binary `outcomes`.
 - The live fixture does not open BTC/ETH 10m/1h classification. The adapter must still fail closed without explicit classification.
 - No CLOB price, book, midpoint, or history behavior was updated because those endpoints were not captured in this approved run.
 
@@ -89,7 +89,7 @@ Project decisions from the target-discovery review:
 
 - Live BTC/ETH 10m/1h classification remains closed.
 - The observed `5M` / `15M` / closed `1H` evidence is useful taxonomy evidence, but it is not sufficient for Phase 1 target scope.
-- The current domain contract maps Yes/No tokens. Observed Up/Down outcomes must not be forced into Yes/No until a separate outcome-model decision is made.
+- The internal `EventMarket` contract uses generic binary outcomes rather than Yes/No-only tokens. Observed Up/Down outcomes can be represented as labeled binary outcomes, but this does not by itself open live BTC/ETH 10m/1h discovery.
 - No live adapter classification rule was added.
 
 ### Minimum discovery objects
@@ -97,7 +97,7 @@ Project decisions from the target-discovery review:
 Verified upstream objects:
 
 - Event: container grouping one or more related markets. Official responses include fields such as `id`, `slug`, `title`, `description`, `startDate`, `endDate`, `active`, `closed`, `archived`, `liquidity`, `volume`, and nested `markets`.
-- Market: fundamental tradable unit with Yes/No outcomes. Official responses include fields such as `id`, `question`, `conditionId`, `slug`, `startDate`, `endDate`, `active`, `closed`, `enableOrderBook`, `questionID`, `clobTokenIds`, `outcomes`, `outcomePrices`, `bestBid`, `bestAsk`, `lastTradePrice`, `spread`, `volumeNum`, `liquidityNum`, and nested relations.
+- Market: fundamental tradable unit. Official concept docs describe Yes/No token IDs, while approved runtime fixtures also show target-family markets with `["Up","Down"]` labels. Official responses include fields such as `id`, `question`, `conditionId`, `slug`, `startDate`, `endDate`, `active`, `closed`, `enableOrderBook`, `questionID`, `clobTokenIds`, `outcomes`, `outcomePrices`, `bestBid`, `bestAsk`, `lastTradePrice`, `spread`, `volumeNum`, `liquidityNum`, and nested relations.
 - Tag: categorization object with `id`, `label`, and `slug`.
 - CLOB token/asset ID: ERC1155 token ID used for CLOB order book and pricing reads.
 - CLOB order book snapshot: public read response keyed by token ID, including `market`, `asset_id`, `timestamp`, `bids`, `asks`, `min_order_size`, `tick_size`, `neg_risk`, and `last_trade_price`.
@@ -160,9 +160,10 @@ This table is a draft contract for the future adapter. It records source candida
 | `marketClosed` | Gamma Market `closed` | Confirmed field exists |
 | `marketStartAt` | Gamma Market `startDate` or `startDateIso` | Confirmed fields exist; canonical choice TODO |
 | `marketEndAt` | Gamma Market `endDate` or `endDateIso` | Confirmed fields exist; canonical choice TODO |
-| `yesTokenId` | Gamma Market `clobTokenIds`; CLOB market-by-token `primary_token_id` | Token IDs confirmed; approved sample observed `clobTokenIds` as JSON-encoded string. Adapter requires `outcomes=["Yes","No"]` before mapping first token to YES. Stability across target 10m/1h markets TODO |
-| `noTokenId` | Gamma Market `clobTokenIds`; CLOB market-by-token `secondary_token_id` | Token IDs confirmed; approved sample observed `clobTokenIds` as JSON-encoded string. Adapter requires `outcomes=["Yes","No"]` before mapping second token to NO. Stability across target 10m/1h markets TODO |
-| `outcomes` | Gamma Market `outcomes` or `shortOutcomes` | Approved sample observed `outcomes` as JSON-encoded string `["Yes","No"]`; stability across target 10m/1h markets TODO |
+| `outcomeType` | Internal project contract | Project decision: `EventMarket` currently supports only `"binary"` markets. This is not a general multi-outcome model. |
+| `outcomes.primary.tokenId` | Gamma Market `clobTokenIds`; CLOB market-by-token `primary_token_id` later TODO | Token IDs confirmed; approved samples observed `clobTokenIds` as JSON-encoded strings. Adapter maps the first parsed token to the first parsed outcome label without renaming it to YES. Stability across target 10m/1h markets TODO |
+| `outcomes.secondary.tokenId` | Gamma Market `clobTokenIds`; CLOB market-by-token `secondary_token_id` later TODO | Token IDs confirmed; approved samples observed `clobTokenIds` as JSON-encoded strings. Adapter maps the second parsed token to the second parsed outcome label without renaming it to NO. Stability across target 10m/1h markets TODO |
+| `outcomes.primary.label` / `outcomes.secondary.label` | Gamma Market `outcomes` or `shortOutcomes` | Approved samples observed labels as JSON-encoded strings including `["Yes","No"]` and `["Up","Down"]`. The adapter preserves labels; it does not infer trading direction, fair value semantics, or strategy side from the label. |
 | `outcomePrices` | Gamma Market `outcomePrices` | Approved sample observed `outcomePrices` as JSON-encoded string; canonical use TODO |
 | `liquidity` | Gamma Event `liquidity`; Gamma Market `liquidity`, `liquidityNum`, `liquidityClob`; CLOB order book depth | Confirmed fields exist; canonical metric TODO |
 | `volume` | Gamma Event `volume`, `volume24hr`; Gamma Market `volume`, `volumeNum`, `volume24hr`, `volumeClob` | Confirmed fields exist; canonical metric TODO |
@@ -176,8 +177,8 @@ This table is a draft contract for the future adapter. It records source candida
 
 Important conflict to resolve:
 
-- The API reference examples show `clobTokenIds` as a string field in market responses, while the official quickstart describes `clobTokenIds` as a Yes/No token ID array. The 2026-04-21 promoted Gamma samples observed JSON-encoded strings. The adapter accepts both direct arrays and JSON-encoded arrays, but only maps tokens after outcomes parse as `["Yes", "No"]`.
-- The 2026-04-22 target-discovery samples observed Up/Down markets where `outcomes` parse as `["Up", "Down"]`. These are not mapped into the current `EventMarket.tokens.yes/no` contract.
+- The API reference examples show `clobTokenIds` as a string field in market responses, while the official quickstart describes `clobTokenIds` as a Yes/No token ID array. The 2026-04-21 and 2026-04-22 promoted Gamma samples observed JSON-encoded strings. The adapter accepts both direct arrays and JSON-encoded arrays, but only maps tokens after exactly two outcome labels parse successfully.
+- The 2026-04-22 target-discovery samples observed Up/Down markets where `outcomes` parse as `["Up", "Down"]`. These can now be represented by `EventMarket.outcomes.primary/secondary`, but classification remains fail closed until BTC/ETH and 10m/1h evidence is confirmed.
 
 ## Public read adapter interface draft
 
@@ -251,9 +252,9 @@ Fixture capture plan: see `docs/runbooks/polymarket-fixture-capture.md`.
 - Discovery marks candidates uncertain instead of guessing asset/window from weak text evidence.
 - Event/market ID, slug, question, condition ID, active/closed status, and order-book availability are preserved.
 - Markets with `enableOrderBook !== true` are rejected or marked not tradable for CLOB public reads.
-- Token extraction succeeds only when exactly two Yes/No token IDs are confirmed.
-- Token extraction fails closed when `clobTokenIds`, `outcomes`, or their ordering is ambiguous. This is now covered by promoted live public Gamma samples.
-- Observed Up/Down target-family samples remain rejected under the current Yes/No contract.
+- Binary outcome extraction succeeds only when exactly two token IDs and exactly two outcome labels are parseable.
+- Binary outcome extraction fails closed when `clobTokenIds`, `outcomes`, or their two-item shape is ambiguous. This is now covered by promoted live public Gamma samples.
+- Observed Up/Down target-family samples parse as binary outcomes, but remain rejected from live discovery when order-book availability, active/open status, or BTC/ETH 10m/1h classification is not proven.
 - CLOB read snapshots are attached only after a candidate has token IDs.
 - No adapter contract exposes order placement, cancellation, wallet, private-key, or authenticated user operations.
 - Pagination contract supports keyset `nextCursor` without offset.
@@ -281,11 +282,10 @@ Fixture capture plan: see `docs/runbooks/polymarket-fixture-capture.md`.
 - TODO: Confirm the official way to identify BTC and ETH event markets. Candidate sources are tags, slugs, titles, questions, and search results, but none is confirmed as canonical.
 - TODO: Confirm the official way to identify 10m and 1h windows. Candidate sources are event/market text and dates, but no canonical interval field has been confirmed.
 - TODO: Confirm whether `GET /events/keyset` supports all filters needed for active BTC/ETH 10m/1h discovery or whether `GET /events` / `GET /markets/keyset` is required.
-- TODO: Confirm whether the observed JSON-string runtime shape and `["Yes","No"]` ordering for `clobTokenIds`, `outcomes`, and `outcomePrices` holds for the actual BTC/ETH 10m/1h market family.
+- TODO: Confirm whether the observed JSON-string runtime shape and binary ordering for `clobTokenIds`, `outcomes`, and `outcomePrices` holds for the actual BTC/ETH 10m/1h market family.
 - TODO: Confirm whether Polymarket currently exposes BTC/ETH 10m markets through Gamma/public-search. The 2026-04-22 approved request set found no 10m target hits.
 - TODO: Confirm whether active BTC/ETH 1h target markets are discoverable through Gamma/public-search. The 2026-04-22 approved request set found a closed Bitcoin `1H` sample only.
-- TODO: Decide whether Up/Down outcome markets need a separate normalized domain type or an expanded outcome model.
-- TODO: Confirm if `primary_token_id` and `secondary_token_id` from CLOB market-by-token always correspond to Yes/No in all relevant binary markets.
+- TODO: Confirm whether CLOB `primary_token_id` and `secondary_token_id` ordering aligns with Gamma `clobTokenIds` and `outcomes` for all relevant binary markets before using CLOB market-by-token for normalization.
 - TODO: Confirm canonical liquidity and volume fields for opportunity scanning later.
 - TODO: Confirm if `bestBid`, `bestAsk`, `lastTradePrice`, and `spread` from Gamma are sufficiently fresh, or if CLOB public reads must be mandatory for live opportunity scans.
 - TODO: Confirm price history granularity and retention for replay/stats before any replay implementation.
