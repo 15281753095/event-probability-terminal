@@ -49,4 +49,4 @@ Keeping a Yes/No-only contract would reduce immediate code changes, but it would
 
 - TODO: Confirm whether Gamma `clobTokenIds` ordering and `outcomes` ordering remain aligned across actual BTC/ETH 10m/1h markets.
 - TODO: Confirm active BTC/ETH 10m/1h discovery rules before enabling live classification.
-- TODO: Define the pricing-engine v0 interface against `outcomes.primary/secondary` before implementing any model logic.
+- TODO: Define real pricing-model inputs against `outcomes.primary/secondary` before returning non-null probabilities.

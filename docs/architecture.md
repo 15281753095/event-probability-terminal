@@ -10,12 +10,14 @@ apps/web
     -> services/market-ingestor
       -> Polymarket public-read adapter boundary
         -> local fixtures by default
+    -> services/pricing-engine
+      -> placeholder fair-value contract
 
 packages/shared-types
   -> shared contracts used by web, api-gateway, and market-ingestor
 
 services/pricing-engine
-  -> Python health shell only
+  -> Python placeholder fair-value service
 ```
 
 ## Service Boundaries
@@ -34,7 +36,7 @@ services/pricing-engine
 - `GET /markets/:id/book`
 - `GET /scanner/top`
 
-Scanner output currently includes explicit placeholder fair-value and edge fields.
+Scanner output currently calls the pricing-engine v0 placeholder contract for fair-value shape and still marks edge fields as placeholders.
 
 ### Market Ingestor
 
@@ -57,7 +59,9 @@ The types intentionally avoid encoding unconfirmed upstream Polymarket fields as
 
 ### Pricing Engine
 
-`services/pricing-engine` is a Python health shell. It does not compute fair probability, edge, or trade recommendations.
+`services/pricing-engine` is a Python placeholder HTTP service. It exposes `GET /healthz` and `POST /v0/fair-value`.
+
+The v0 fair-value endpoint consumes normalized binary `EventMarket` input, including `outcomes.primary` and `outcomes.secondary`, and returns `null` probabilities with explicit placeholder metadata. It does not compute fair probability, confidence, edge, or trade recommendations.
 
 ## Data Flow
 
@@ -65,7 +69,8 @@ The types intentionally avoid encoding unconfirmed upstream Polymarket fields as
 2. API gateway calls the Polymarket public-read adapter.
 3. Adapter reads local fixtures by default.
 4. Adapter normalizes accepted markets into `EventMarket`.
-5. API gateway strips raw upstream payloads before returning API responses.
+5. API gateway calls pricing-engine v0 for placeholder fair-value shape when serving scanner output.
+6. API gateway strips raw upstream payloads before returning API responses.
 
 ## Current Infrastructure
 
@@ -78,6 +83,7 @@ The types intentionally avoid encoding unconfirmed upstream Polymarket fields as
 - No business-layer raw vendor HTTP requests.
 - No Predict.fun or Binance Wallet implementation in the current slice.
 - No multi-outcome market support in the current domain contract.
+- No real pricing model; pricing-engine v0 is contract plus placeholder output only.
 - All unconfirmed external details must remain marked `TODO`.
 
 ## TODO
@@ -85,4 +91,4 @@ The types intentionally avoid encoding unconfirmed upstream Polymarket fields as
 - TODO: Confirm BTC/ETH 10m/1h live discovery rules before opening live classification.
 - TODO: Add persistence ADR before using PostgreSQL.
 - TODO: Add cache/data freshness ADR before using Redis.
-- TODO: Design pricing-engine service contract before adding any model implementation.
+- TODO: Design real pricing-model inputs, calibration, and validation before replacing placeholder probabilities.

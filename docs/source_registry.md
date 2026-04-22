@@ -34,7 +34,7 @@ This registry is the gate for external-source usage. A new adapter or external d
 - Binance Wallet Prediction Markets are product-semantics reference only until an official developer API surface is confirmed.
 - The current Polymarket adapter implementation is fixture-first and must fail closed for live BTC/ETH 10m/1h classification until approved public fixtures confirm the mapping.
 - `EventMarket` uses a minimal binary-outcome contract rather than a Yes/No-only token contract. Upstream labels such as `Yes`/`No` and `Up`/`Down` can be preserved, but they do not by themselves prove Phase 1 asset/window classification.
-- Scanner fair probability and edge fields are placeholders until a researched pricing-engine contract is implemented.
+- Scanner fair probability, confidence, and edge fields are placeholders. Pricing-engine v0 defines the local placeholder contract but does not compute real probabilities.
 
 ## Reasonable inferences
 

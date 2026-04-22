@@ -1,27 +1,30 @@
-import type { EventMarket } from "@ept/shared-types";
+import type { EventMarket, ScannerCandidate } from "@ept/shared-types";
 
 export const dynamic = "force-dynamic";
 
-type MarketsResponse = {
-  markets: EventMarket[];
+type ScannerResponse = {
+  candidates: ScannerCandidate[];
   meta?: {
     mode?: string;
+    pricing?: string;
+    message?: string;
     rejectedCount?: number;
     uncertainty?: string[];
   };
 };
 
 type PageState = {
-  markets: EventMarket[];
+  candidates: ScannerCandidate[];
   error?: string;
-  meta?: MarketsResponse["meta"];
+  meta?: ScannerResponse["meta"];
 };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
 export default async function Home() {
-  const state = await loadMarkets();
-  const markets = state.markets;
+  const state = await loadScanner();
+  const candidates = state.candidates;
+  const markets = candidates.map((candidate) => candidate.market);
   const highestLiquidity = maxBy(markets, (market) => market.metrics.liquidity ?? 0);
   const widestSpread = maxBy(markets, (market) => market.metrics.spread ?? 0);
   const expiringSoon = minBy(markets, (market) =>
@@ -75,25 +78,28 @@ export default async function Home() {
                   </tr>
                 </thead>
                 <tbody>
-                  {markets.map((market) => (
-                    <tr className="border-t border-border" key={market.id}>
-                      <TableCell className="min-w-[260px] font-medium">
-                        <div>{market.question}</div>
-                        <div className="mt-1 text-xs text-slate-500">
-                          {market.asset} / {market.window}
-                        </div>
-                      </TableCell>
-                      <TableCell>{market.venue}</TableCell>
-                      <TableCell>{countdown(market.market.endAt)}</TableCell>
-                      <TableCell>{primaryOutcomeQuote(market)}</TableCell>
-                      <TableCell>{marketProbability(market)}</TableCell>
-                      <TableCell>{formatNumber(market.metrics.liquidity)}</TableCell>
-                      <TableCell>{formatProb(market.metrics.spread)}</TableCell>
-                      <TableCell>
-                        <span className="text-xs font-semibold text-amber-700">placeholder</span>
-                      </TableCell>
-                    </tr>
-                  ))}
+                  {candidates.map((candidate) => {
+                    const market = candidate.market;
+                    return (
+                      <tr className="border-t border-border" key={market.id}>
+                        <TableCell className="min-w-[260px] font-medium">
+                          <div>{market.question}</div>
+                          <div className="mt-1 text-xs text-slate-500">
+                            {market.asset} / {market.window}
+                          </div>
+                        </TableCell>
+                        <TableCell>{market.venue}</TableCell>
+                        <TableCell>{countdown(market.market.endAt)}</TableCell>
+                        <TableCell>{primaryOutcomeQuote(market)}</TableCell>
+                        <TableCell>{marketProbability(market)}</TableCell>
+                        <TableCell>{formatNumber(market.metrics.liquidity)}</TableCell>
+                        <TableCell>{formatProb(market.metrics.spread)}</TableCell>
+                        <TableCell>
+                          <PlaceholderPricing fairValue={candidate.fairValue} />
+                        </TableCell>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -124,6 +130,7 @@ export default async function Home() {
             <ul className="mt-3 grid gap-2 text-sm leading-6 text-slate-700">
               <li>Fair probability: placeholder</li>
               <li>Edge: placeholder</li>
+              <li>Pricing: {state.meta?.pricing ?? "placeholder"}</li>
               <li>Rejected fixture rows: {state.meta?.rejectedCount ?? 0}</li>
             </ul>
           </section>
@@ -133,25 +140,25 @@ export default async function Home() {
   );
 }
 
-async function loadMarkets(): Promise<PageState> {
+async function loadScanner(): Promise<PageState> {
   try {
-    const response = await fetch(`${apiBaseUrl}/markets`, {
+    const response = await fetch(`${apiBaseUrl}/scanner/top`, {
       cache: "no-store"
     });
     if (!response.ok) {
       return {
-        markets: [],
+        candidates: [],
         error: `API returned HTTP ${response.status}.`
       };
     }
-    const payload = (await response.json()) as MarketsResponse;
+    const payload = (await response.json()) as ScannerResponse;
     return {
-      markets: payload.markets ?? [],
+      candidates: payload.candidates ?? [],
       ...(payload.meta ? { meta: payload.meta } : {})
     };
   } catch (error) {
     return {
-      markets: [],
+      candidates: [],
       error: error instanceof Error ? error.message : "API request failed."
     };
   }
@@ -222,6 +229,16 @@ function TableCell({
   className?: string;
 }) {
   return <td className={`border-b border-border px-3 py-3 align-top ${className}`}>{children}</td>;
+}
+
+function PlaceholderPricing({ fairValue }: { fairValue: ScannerCandidate["fairValue"] }) {
+  return (
+    <div className="grid gap-1 text-xs">
+      <span className="font-semibold text-amber-700">placeholder</span>
+      <span className="text-slate-500">{fairValue.modelVersion}</span>
+      <span className="text-slate-500">confidence: n/a</span>
+    </div>
+  );
 }
 
 function marketProbability(market: EventMarket) {

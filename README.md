@@ -8,9 +8,9 @@ This repository is in Phase 1 foundation work. It has a minimal local end-to-end
 
 - `services/market-ingestor`: Polymarket public-read adapter boundary, fixture-first by default.
 - `packages/shared-types`: first shared contracts for `EventMarket`, `OrderBookSnapshot`, and placeholder scanner/pricing objects.
-- `apps/api-gateway`: Fastify read-only API for fixture-backed markets and scanner placeholders.
+- `apps/api-gateway`: Fastify read-only API for fixture-backed markets and pricing placeholders.
 - `apps/web`: Next.js Markets Scanner v0 that reads from the API gateway.
-- `services/pricing-engine`: Python health shell only.
+- `services/pricing-engine`: Python placeholder contract for fair-value output shape.
 
 The current app market data is synthetic fixture data unless explicitly configured otherwise. A limited Polymarket Gamma/public-search live fixture capture was completed on 2026-04-21 to tighten contract tests, but it did not confirm BTC/ETH 10m/1h live classification.
 
@@ -22,7 +22,7 @@ Supported research scope:
 - Windows: `10m`, `1h`
 - Primary venue: Polymarket
 - Secondary/reference venues: Predict.fun and Binance Wallet Prediction Markets are documented only; they are not implemented.
-- Mode: read-only market discovery and display, with placeholder scanner/pricing fields.
+- Mode: read-only market discovery and display, with pricing-engine v0 placeholder outputs.
 - Market contract: binary outcome markets only. The shared contract preserves upstream outcome labels, including fixture-backed `Yes`/`No` and observed `Up`/`Down`; it does not support multi-outcome markets.
 
 Explicit exclusions:
@@ -51,7 +51,7 @@ apps/
   api-gateway/         Fastify read-only API
 services/
   market-ingestor/     Polymarket public-read adapter boundary and fixtures
-  pricing-engine/      Python health shell
+  pricing-engine/      Python placeholder fair-value contract
   paper-broker/        Placeholder only
   replay-engine/       Placeholder only
   news-signal/         Placeholder only
@@ -102,11 +102,19 @@ make infra-down
 
 PostgreSQL and Redis are available for local development but are not wired into the current read-only fixture slice.
 
-Pricing-engine health shell:
+Pricing-engine placeholder service:
 
 ```bash
 make dev-pricing
 ```
+
+Default pricing-engine URL:
+
+```text
+http://127.0.0.1:4100
+```
+
+The pricing-engine v0 endpoint is a placeholder contract only. It consumes binary outcomes and returns `null` fair probabilities with explicit placeholder metadata.
 
 ## Current API
 
@@ -120,7 +128,15 @@ curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo/book
 curl http://localhost:4000/scanner/top
 ```
 
-`/scanner/top` is read-only and returns explicit placeholder `fairValue` and `tradeCandidate` fields. It does not compute a real model edge.
+Default pricing-engine base URL: `http://127.0.0.1:4100`
+
+```bash
+curl http://127.0.0.1:4100/healthz
+```
+
+`POST /v0/fair-value` accepts JSON; see `docs/api/pricing-engine.md` for the request body.
+
+`/scanner/top` is read-only and returns explicit pricing-engine v0 placeholder `fairValue` and `tradeCandidate` fields. It does not compute a real fair probability or model edge.
 
 ## Current Page
 
@@ -158,6 +174,7 @@ make lint-python
 - Architecture: `docs/architecture.md`
 - Phase 1 scope: `docs/prd/phase1.md`
 - Polymarket notes: `docs/api/polymarket.md`
+- Pricing-engine v0 contract: `docs/api/pricing-engine.md`
 - Fixture capture plan: `docs/runbooks/polymarket-fixture-capture.md`
 - Source registry: `docs/source_registry.md`
 - Collaboration rules: `AGENTS.md`

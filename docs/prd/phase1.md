@@ -10,15 +10,16 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - Windows: 10m and 1h.
 - Venue: Polymarket as the primary research venue.
 - Current mode: read-only market discovery and display.
-- Scanner: minimal endpoint and page with placeholder fair-value and edge fields.
+- Scanner: minimal endpoint and page with pricing-engine v0 placeholder fair-value and edge fields.
 - Market contract: binary outcome markets only. Outcome labels are preserved from upstream, so `Yes`/`No` and observed `Up`/`Down` labels can be represented. Multi-outcome markets are out of scope.
 
 ## Current User Workflow
 
 1. Start the API gateway in fixture mode.
-2. Start the web app.
-3. View fixture-backed BTC/ETH markets in the Markets Scanner page.
-4. Inspect API responses for normalized market and order-book shape.
+2. Start the pricing-engine placeholder service if testing scanner placeholder integration.
+3. Start the web app.
+4. View fixture-backed BTC/ETH markets in the Markets Scanner page.
+5. Inspect API responses for normalized market, order-book, and placeholder fair-value shape.
 
 ## Non-Goals
 
@@ -26,7 +27,7 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - No automated bot.
 - No private/authenticated vendor APIs.
 - No Predict.fun or Binance Wallet implementation.
-- No real pricing model.
+- No real pricing model; pricing-engine v0 returns `null` fair probabilities and placeholder metadata.
 - No paper broker.
 - No replay engine.
 - No market detail page.
@@ -38,7 +39,7 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - Web page loads from the local API gateway.
 - API gateway returns fixture-backed Polymarket markets.
 - Contract tests prove binary outcome parsing and fail-closed behavior.
-- Placeholder scanner fields are clearly marked.
+- Placeholder scanner fields are clearly marked and sourced from the pricing-engine v0 placeholder contract where available.
 - Documentation explains current limitations.
 
 ## TODO

@@ -1,6 +1,7 @@
 PNPM ?= npx --yes pnpm@10.0.0
 PYTHON ?= .venv/bin/python
 API_GATEWAY_PORT ?= 4000
+PRICING_ENGINE_PORT ?= 4100
 
 .PHONY: install infra-up infra-down dev-web dev-api dev-pricing pricing-health health typecheck build test test-js test-python lint lint-js lint-python format-python
 
@@ -21,14 +22,15 @@ dev-web:
 dev-api:
 	$(PNPM) dev:api
 
-dev-pricing: pricing-health
+dev-pricing:
+	PYTHONPATH=services/pricing-engine/src $(PYTHON) -m pricing_engine.main --serve --host 127.0.0.1 --port $(PRICING_ENGINE_PORT)
 
 pricing-health:
-	PYTHONPATH=services/pricing-engine/src $(PYTHON) -m pricing_engine.main --healthz
+	@curl -fsS http://localhost:$(PRICING_ENGINE_PORT)/healthz 2>/dev/null || PYTHONPATH=services/pricing-engine/src $(PYTHON) -m pricing_engine.main --healthz
 
 health:
 	@echo "pricing-engine:"
-	@PYTHONPATH=services/pricing-engine/src $(PYTHON) -m pricing_engine.main --healthz
+	@curl -fsS http://localhost:$(PRICING_ENGINE_PORT)/healthz || echo "pricing-engine not running on :$(PRICING_ENGINE_PORT)"
 	@echo "api-gateway:"
 	@curl -fsS http://localhost:$(API_GATEWAY_PORT)/healthz || echo "api-gateway not running on :$(API_GATEWAY_PORT)"
 

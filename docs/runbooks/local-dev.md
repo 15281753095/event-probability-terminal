@@ -58,6 +58,8 @@ Important current status:
 
 ## Start API Gateway
 
+Start the pricing-engine placeholder service first if you want `/scanner/top` to call it instead of using the API gateway fallback placeholder.
+
 ```bash
 make dev-api
 ```
@@ -99,19 +101,39 @@ http://localhost:3000
 
 The current page is `/`, the Markets Scanner v0.
 
-## Start Pricing Engine Health Shell
+## Start Pricing Engine Placeholder Service
 
 ```bash
 make dev-pricing
 ```
 
-Expected shape:
+Default URL:
 
-```json
-{"ok": true, "service": "pricing-engine"}
+```text
+http://127.0.0.1:4100
 ```
 
-This is a health shell only. It does not compute fair probability or edge.
+Health check:
+
+```bash
+curl http://127.0.0.1:4100/healthz
+```
+
+Expected health shape:
+
+```json
+{"mode": "placeholder", "modelVersion": "pricing-engine-v0-placeholder", "ok": true, "service": "pricing-engine"}
+```
+
+Placeholder quote endpoint:
+
+```bash
+curl -fsS http://localhost:4000/scanner/top
+```
+
+`/scanner/top` calls `POST /v0/fair-value` through the API gateway when pricing-engine is running. If pricing-engine is unavailable, the API gateway returns the same placeholder response shape with `meta.pricing` set to `local-placeholder-fallback`.
+
+The pricing-engine v0 service does not compute fair probability, confidence, edge, or trade recommendations. It only proves the contract shape for binary outcomes.
 
 ## Validation
 
@@ -141,7 +163,7 @@ npx --yes pnpm@10.0.0 check
 - TODO: Live Polymarket public-read mode has no approved BTC/ETH 10m/1h classification fixture yet and must fail closed where classification is missing.
 - TODO: PostgreSQL has no schema and is not used by the current app flow.
 - TODO: Redis is not used by the current app flow.
-- TODO: Scanner fair probability and edge are placeholders.
+- TODO: Scanner fair probability, confidence, and edge are placeholders.
 - TODO: No paper broker, replay, or real pricing model implementation.
 
 ## Related Runbooks

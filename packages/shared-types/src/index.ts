@@ -96,12 +96,45 @@ export interface OrderBookSnapshot {
   provenance: SourceProvenance;
 }
 
+export type PricingModelVersion = "pricing-engine-v0-placeholder";
+
+export interface OutcomeFairProbability {
+  outcomeRole: BinaryOutcomeRole;
+  outcomeLabel: string;
+  probability: number | null;
+  isPlaceholder: true;
+}
+
+export interface PricingInputFeatures {
+  bestBid?: number;
+  bestAsk?: number;
+  spread?: number;
+  liquidity?: number;
+  volume?: number;
+  observedMidpoint?: number;
+  outcomeLabels: {
+    primary: string;
+    secondary: string;
+  };
+}
+
+export interface PricingQuoteRequest {
+  market: EventMarket;
+  requestedAt: string;
+}
+
 export interface FairValueSnapshot {
   marketId: string;
-  fairProb: number | null;
-  modelName: "placeholder";
+  outcomeType: "binary";
+  fairProbabilityByOutcome: {
+    primary: OutcomeFairProbability;
+    secondary: OutcomeFairProbability;
+  };
+  confidence: number | null;
+  reasons: string[];
+  inputFeatures: PricingInputFeatures;
+  modelVersion: PricingModelVersion;
   isPlaceholder: true;
-  explanation: string;
   createdAt: string;
 }
 
@@ -113,4 +146,11 @@ export interface TradeCandidate {
   isPlaceholder: true;
   reason: string;
   fairValue?: FairValueSnapshot;
+}
+
+export interface ScannerCandidate {
+  market: EventMarket;
+  fairValue: FairValueSnapshot;
+  tradeCandidate: TradeCandidate;
+  isPlaceholder: true;
 }

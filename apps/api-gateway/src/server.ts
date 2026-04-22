@@ -5,8 +5,10 @@ import type {
   EventMarket,
   FairValueSnapshot,
   OrderBookSnapshot,
+  ScannerCandidate,
   TradeCandidate
 } from "@ept/shared-types";
+import { localPricingFallback, PricingEngineClient } from "./pricing-client.js";
 
 export function buildServer() {
   const server = Fastify({
@@ -21,6 +23,9 @@ export function buildServer() {
       ? { clobBaseUrl: process.env.POLYMARKET_CLOB_BASE_URL }
       : {})
   });
+  const pricingEngine = new PricingEngineClient(
+    process.env.PRICING_ENGINE_BASE_URL ?? "http://127.0.0.1:4100"
+  );
 
   server.get("/healthz", async () => {
     return {
@@ -95,19 +100,45 @@ export function buildServer() {
       windows: ["10m", "1h"]
     });
     const now = new Date().toISOString();
+    const markets = stripRaw(result.markets);
+    const priced = await Promise.all(
+      markets.map(async (market) => {
+        try {
+          return {
+            market,
+            fairValue: await pricingEngine.quoteFairValue(market, now),
+            pricingStatus: "pricing-engine-v0-placeholder" as const
+          };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "pricing-engine unavailable";
+          return {
+            market,
+            fairValue: localPricingFallback(
+              market,
+              now,
+              `pricing-engine v0 placeholder unavailable: ${message}`
+            ),
+            pricingStatus: "local-placeholder-fallback" as const
+          };
+        }
+      })
+    );
+    const candidates: ScannerCandidate[] = priced.map(({ market, fairValue }) => ({
+      market,
+      fairValue,
+      tradeCandidate: placeholderTradeCandidate(market.id, market.outcomes.primary, fairValue),
+      isPlaceholder: true
+    }));
+    const usedFallback = priced.some((item) => item.pricingStatus === "local-placeholder-fallback");
 
     return {
-      candidates: stripRaw(result.markets).map((market) => ({
-        market,
-        fairValue: placeholderFairValue(market.id, now),
-        tradeCandidate: placeholderTradeCandidate(market.id, market.outcomes.primary),
-        isPlaceholder: true
-      })),
+      candidates,
       meta: {
         source: "polymarket",
         mode: process.env.POLYMARKET_USE_FIXTURES === "false" ? "live_public" : "fixture",
-        pricing: "placeholder",
-        message: "Scanner output is read-only and uses placeholder fair value and edge fields."
+        pricing: usedFallback ? "local-placeholder-fallback" : "pricing-engine-v0-placeholder",
+        message:
+          "Scanner output is read-only. Fair value, confidence, and edge fields are placeholders."
       }
     };
   });
@@ -124,24 +155,18 @@ function stripRawOne(market: EventMarket & { raw?: unknown }): EventMarket {
   return clean;
 }
 
-function placeholderFairValue(marketId: string, createdAt: string): FairValueSnapshot {
-  return {
-    marketId,
-    fairProb: null,
-    modelName: "placeholder",
-    isPlaceholder: true,
-    explanation: "Pricing engine is not connected in this slice. No real fair probability is computed.",
-    createdAt
-  };
-}
-
-function placeholderTradeCandidate(marketId: string, outcome: BinaryOutcome): TradeCandidate {
+function placeholderTradeCandidate(
+  marketId: string,
+  outcome: BinaryOutcome,
+  fairValue: FairValueSnapshot
+): TradeCandidate {
   return {
     marketId,
     outcomeRole: outcome.role,
     outcomeLabel: outcome.label,
     edge: null,
     isPlaceholder: true,
-    reason: "No real edge calculation is implemented in this slice."
+    reason: "No real edge calculation is implemented in this slice.",
+    fairValue
   };
 }
