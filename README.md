@@ -8,8 +8,8 @@ This repository is in Phase 1 foundation work. It has a minimal local end-to-end
 
 - `services/market-ingestor`: Polymarket public-read adapter boundary, fixture-first by default.
 - `packages/shared-types`: first shared contracts for `EventMarket`, `OrderBookSnapshot`, and placeholder scanner/pricing objects.
-- `apps/api-gateway`: Fastify read-only API for fixture-backed markets and pricing placeholders.
-- `apps/web`: Next.js Markets Scanner v0 that reads from the API gateway.
+- `apps/api-gateway`: Fastify read-only API for fixture-backed markets, scanner metadata, and pricing placeholders.
+- `apps/web`: Next.js Markets Scanner RC-1 and Market Detail v0 that read from the API gateway.
 - `services/pricing-engine`: Python placeholder contract for fair-value output shape.
 
 The current app market data is synthetic fixture data unless explicitly configured otherwise. A limited Polymarket Gamma/public-search live fixture capture was completed on 2026-04-21 to tighten contract tests, but it did not confirm BTC/ETH 10m/1h live classification.
@@ -52,7 +52,7 @@ Explicit exclusions:
 
 ```text
 apps/
-  web/                 Next.js Markets Scanner v0
+  web/                 Next.js Markets Scanner RC-1 and Market Detail v0
   api-gateway/         Fastify read-only API
 services/
   market-ingestor/     Polymarket public-read adapter boundary and fixtures
@@ -146,17 +146,22 @@ curl http://127.0.0.1:4100/healthz
 
 `POST /v0/fair-value` accepts JSON; see `docs/api/pricing-engine.md` for the request body.
 
-`/scanner/top` is read-only and returns explicit pricing-engine v0 placeholder `fairValue` and `tradeCandidate` fields. It does not compute a real fair probability or model edge.
+`/scanner/top` is read-only and returns explicit pricing-engine v0 placeholder `fairValue` and `tradeCandidate` fields plus scanner metadata such as rejected count, fail-closed summary, and uncertainty. It does not compute a real fair probability or model edge.
 
-## Current Page
+## Current Pages
 
-- `/`: Markets Scanner v0
-  - left filter summary
+- `/`: Markets Scanner RC-1
+  - asset and window filters
+  - sort controls for expiry, liquidity, spread, and observed market probability
   - market list for BTC/ETH fixture markets
-  - right summary panels
+  - right summary and evidence status panels
   - loading/error/empty states through server-side API fetch handling
+- `/markets/:id`: Market Detail v0
+  - binary outcomes, timing, liquidity, spread, and provenance
+  - fixture-backed order-book snapshot when available
+  - explicit placeholder pricing panel and open evidence gaps
 
-No Market Detail page, charting workflow, replay workflow, or paper trading UI exists yet.
+No advanced charting workflow, replay workflow, paper trading UI, or trading control exists.
 
 ## Development Workflow
 
@@ -187,7 +192,9 @@ make lint-python
 - Pricing-engine v0 contract: `docs/api/pricing-engine.md`
 - Pricing-engine v1 research: `docs/api/pricing-engine-v1-research.md`
 - Pricing research plan: `research/reports/pricing-engine-v1-research-plan.md`
+- RC-1 product research: `research/reports/rc1-product-research.md`
 - Fixture capture plan: `docs/runbooks/polymarket-fixture-capture.md`
+- RC-1 read-only UI decision: `docs/adr/0006-rc1-read-only-research-ui.md`
 - Source registry: `docs/source_registry.md`
 - Collaboration rules: `AGENTS.md`
 

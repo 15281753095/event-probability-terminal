@@ -1,58 +1,83 @@
-import type { EventMarket, ScannerCandidate } from "@ept/shared-types";
+import Link from "next/link";
+import type { Asset, EventMarket, ScannerCandidate, ScannerTopResponse, TimeWindow } from "@ept/shared-types";
 
 export const dynamic = "force-dynamic";
-
-type ScannerResponse = {
-  candidates: ScannerCandidate[];
-  meta?: {
-    mode?: string;
-    pricing?: string;
-    message?: string;
-    rejectedCount?: number;
-    uncertainty?: string[];
-  };
-};
 
 type PageState = {
   candidates: ScannerCandidate[];
   error?: string;
-  meta?: ScannerResponse["meta"];
+  meta?: ScannerTopResponse["meta"];
+};
+
+type SearchParams = Promise<{
+  asset?: string;
+  window?: string;
+  sort?: string;
+}>;
+
+type SortKey = "expiry" | "liquidity" | "spread" | "marketProb";
+
+type ScannerFilters = {
+  asset: Asset | "all";
+  window: TimeWindow | "all";
+  sort: SortKey;
 };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams?: SearchParams }) {
+  const params = (await searchParams) ?? {};
+  const filters = parseFilters(params);
   const state = await loadScanner();
-  const candidates = state.candidates;
-  const markets = candidates.map((candidate) => candidate.market);
-  const highestLiquidity = maxBy(markets, (market) => market.metrics.liquidity ?? 0);
-  const widestSpread = maxBy(markets, (market) => market.metrics.spread ?? 0);
-  const expiringSoon = minBy(markets, (market) =>
+  const candidates = sortCandidates(filterCandidates(state.candidates, filters), filters.sort);
+  const allMarkets = state.candidates.map((candidate) => candidate.market);
+  const visibleMarkets = candidates.map((candidate) => candidate.market);
+  const highestLiquidity = maxBy(visibleMarkets, (market) => market.metrics.liquidity ?? 0);
+  const widestSpread = maxBy(visibleMarkets, (market) => market.metrics.spread ?? 0);
+  const expiringSoon = minBy(visibleMarkets, (market) =>
     market.market.endAt ? new Date(market.market.endAt).getTime() : Number.POSITIVE_INFINITY
   );
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-5 text-slate-950">
-      <section className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-[220px_minmax(0,1fr)_280px]">
+      <section className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-[240px_minmax(0,1fr)_300px]">
         <aside className="border border-border bg-white p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">
-            Filters
-          </h2>
+          <h2 className="text-sm font-semibold text-slate-700">Research Filters</h2>
           <div className="mt-4 grid gap-4">
-            <FilterGroup title="Assets" values={["BTC", "ETH"]} />
-            <FilterGroup title="Windows" values={["10m", "1h"]} />
-            <FilterGroup title="Venue" values={["Polymarket"]} />
-            <FilterGroup title="Mode" values={["Fixture read"]} />
+            <FilterGroup
+              current={filters}
+              options={["all", "BTC", "ETH"]}
+              paramName="asset"
+              title="Assets"
+            />
+            <FilterGroup
+              current={filters}
+              options={["all", "10m", "1h"]}
+              paramName="window"
+              title="Windows"
+            />
+            <FilterGroup
+              current={filters}
+              options={["expiry", "liquidity", "spread", "marketProb"]}
+              paramName="sort"
+              title="Sort"
+            />
           </div>
+          <section className="mt-5 border-t border-border pt-4 text-sm text-slate-600">
+            <div>Venue: Polymarket</div>
+            <div>Mode: {state.meta?.mode ?? "unknown"}</div>
+            <div>Scope: read-only</div>
+          </section>
         </aside>
 
         <section className="min-w-0 border border-border bg-white">
           <header className="flex flex-col gap-2 border-b border-border p-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-sm font-medium uppercase tracking-[0.14em] text-teal-700">
-                Markets Scanner
-              </p>
+              <p className="text-sm font-medium text-teal-700">Markets Scanner RC-1</p>
               <h1 className="mt-1 text-2xl font-semibold">BTC / ETH Event Markets</h1>
+              <p className="mt-1 text-sm text-slate-600">
+                Showing {visibleMarkets.length} of {allMarkets.length} fixture-backed candidates.
+              </p>
             </div>
             <div className="text-sm text-slate-600">
               Source: Polymarket / {state.meta?.mode ?? "unknown"}
@@ -60,12 +85,12 @@ export default async function Home() {
           </header>
 
           {state.error ? <ErrorState message={state.error} /> : null}
-          {!state.error && markets.length === 0 ? <EmptyState /> : null}
+          {!state.error && visibleMarkets.length === 0 ? <EmptyState /> : null}
 
-          {!state.error && markets.length > 0 ? (
+          {!state.error && visibleMarkets.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full border-separate border-spacing-0 text-sm">
-                <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.08em] text-slate-500">
+                <thead className="bg-slate-50 text-left text-xs text-slate-500">
                   <tr>
                     <TableHead>Question</TableHead>
                     <TableHead>Venue</TableHead>
@@ -82,10 +107,17 @@ export default async function Home() {
                     const market = candidate.market;
                     return (
                       <tr className="border-t border-border" key={market.id}>
-                        <TableCell className="min-w-[260px] font-medium">
-                          <div>{market.question}</div>
-                          <div className="mt-1 text-xs text-slate-500">
-                            {market.asset} / {market.window}
+                        <TableCell className="min-w-[280px] font-medium">
+                          <Link
+                            className="text-slate-950 underline decoration-slate-300 underline-offset-4 hover:text-teal-700"
+                            href={`/markets/${encodeURIComponent(market.id)}`}
+                          >
+                            {market.question}
+                          </Link>
+                          <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
+                            <Badge>{market.asset}</Badge>
+                            <Badge>{market.window}</Badge>
+                            <Badge>{market.outcomeType}</Badge>
                           </div>
                         </TableCell>
                         <TableCell>{market.venue}</TableCell>
@@ -107,7 +139,7 @@ export default async function Home() {
         </section>
 
         <aside className="grid content-start gap-4">
-          <SummaryPanel title="Top candidates" value={`${markets.length}`} detail="read-only" />
+          <SummaryPanel title="Visible candidates" value={`${visibleMarkets.length}`} detail="read-only" />
           <SummaryPanel
             title="Highest liquidity"
             value={highestLiquidity ? formatNumber(highestLiquidity.metrics.liquidity) : "n/a"}
@@ -123,17 +155,7 @@ export default async function Home() {
             value={expiringSoon ? countdown(expiringSoon.market.endAt) : "n/a"}
             detail={expiringSoon?.asset ?? "none"}
           />
-          <section className="border border-border bg-white p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">
-              Notes
-            </h2>
-            <ul className="mt-3 grid gap-2 text-sm leading-6 text-slate-700">
-              <li>Fair probability: placeholder</li>
-              <li>Edge: placeholder</li>
-              <li>Pricing: {state.meta?.pricing ?? "placeholder"}</li>
-              <li>Rejected fixture rows: {state.meta?.rejectedCount ?? 0}</li>
-            </ul>
-          </section>
+          <EvidencePanel meta={state.meta} />
         </aside>
       </section>
     </main>
@@ -151,7 +173,7 @@ async function loadScanner(): Promise<PageState> {
         error: `API returned HTTP ${response.status}.`
       };
     }
-    const payload = (await response.json()) as ScannerResponse;
+    const payload = (await response.json()) as ScannerTopResponse;
     return {
       candidates: payload.candidates ?? [],
       ...(payload.meta ? { meta: payload.meta } : {})
@@ -164,19 +186,95 @@ async function loadScanner(): Promise<PageState> {
   }
 }
 
-function FilterGroup({ title, values }: { title: string; values: string[] }) {
+function parseFilters(params: Awaited<SearchParams>): ScannerFilters {
+  return {
+    asset: params.asset === "BTC" || params.asset === "ETH" ? params.asset : "all",
+    window: params.window === "10m" || params.window === "1h" ? params.window : "all",
+    sort:
+      params.sort === "liquidity" || params.sort === "spread" || params.sort === "marketProb"
+        ? params.sort
+        : "expiry"
+  };
+}
+
+function filterCandidates(candidates: ScannerCandidate[], filters: ScannerFilters) {
+  return candidates.filter((candidate) => {
+    const market = candidate.market;
+    return (
+      (filters.asset === "all" || market.asset === filters.asset) &&
+      (filters.window === "all" || market.window === filters.window)
+    );
+  });
+}
+
+function sortCandidates(candidates: ScannerCandidate[], sort: SortKey) {
+  return [...candidates].sort((a, b) => {
+    if (sort === "expiry") {
+      return marketEndTime(a.market) - marketEndTime(b.market);
+    }
+    if (sort === "liquidity") {
+      return (b.market.metrics.liquidity ?? 0) - (a.market.metrics.liquidity ?? 0);
+    }
+    if (sort === "spread") {
+      return (b.market.metrics.spread ?? 0) - (a.market.metrics.spread ?? 0);
+    }
+    return observedMidpoint(b.market) - observedMidpoint(a.market);
+  });
+}
+
+function FilterGroup({
+  title,
+  paramName,
+  options,
+  current
+}: {
+  title: string;
+  paramName: keyof ScannerFilters;
+  options: string[];
+  current: ScannerFilters;
+}) {
   return (
     <section>
-      <h3 className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">{title}</h3>
+      <h3 className="text-xs font-semibold text-slate-500">{title}</h3>
       <div className="mt-2 flex flex-wrap gap-2">
-        {values.map((value) => (
-          <span className="border border-border bg-slate-50 px-2 py-1 text-xs" key={value}>
-            {value}
-          </span>
-        ))}
+        {options.map((value) => {
+          const active = current[paramName] === value;
+          const update = { [paramName]: value } as Partial<Record<keyof ScannerFilters, string>>;
+          return (
+            <Link
+              className={`border px-2 py-1 text-xs ${
+                active ? "border-teal-700 bg-teal-50 text-teal-800" : "border-border bg-slate-50"
+              }`}
+              href={scannerHref(current, update)}
+              key={value}
+            >
+              {value}
+            </Link>
+          );
+        })}
       </div>
     </section>
   );
+}
+
+function scannerHref(current: ScannerFilters, updates: Partial<Record<keyof ScannerFilters, string>>) {
+  const next = {
+    asset: updates.asset ?? current.asset,
+    window: updates.window ?? current.window,
+    sort: updates.sort ?? current.sort
+  };
+  const params = new URLSearchParams();
+  if (next.asset !== "all") {
+    params.set("asset", next.asset);
+  }
+  if (next.window !== "all") {
+    params.set("window", next.window);
+  }
+  if (next.sort !== "expiry") {
+    params.set("sort", next.sort);
+  }
+  const query = params.toString();
+  return query ? `/?${query}` : "/";
 }
 
 function SummaryPanel({
@@ -190,9 +288,45 @@ function SummaryPanel({
 }) {
   return (
     <section className="border border-border bg-white p-4">
-      <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{title}</h2>
+      <h2 className="text-xs font-semibold text-slate-500">{title}</h2>
       <div className="mt-2 text-2xl font-semibold">{value}</div>
       <div className="mt-1 text-sm text-slate-600">{detail}</div>
+    </section>
+  );
+}
+
+function EvidencePanel({ meta }: { meta: ScannerTopResponse["meta"] | undefined }) {
+  return (
+    <section className="border border-border bg-white p-4">
+      <h2 className="text-sm font-semibold text-slate-700">Evidence Status</h2>
+      <ul className="mt-3 grid gap-2 text-sm leading-6 text-slate-700">
+        <li>Pricing: {meta?.pricing ?? "placeholder"}</li>
+        <li>Rejected rows: {meta?.rejectedCount ?? 0}</li>
+        <li>Fair probability: placeholder only</li>
+        <li>Edge: placeholder only</li>
+      </ul>
+      {meta?.rejectionSummary?.length ? (
+        <div className="mt-4 border-t border-border pt-3">
+          <h3 className="text-xs font-semibold text-slate-500">Fail-closed summary</h3>
+          <div className="mt-2 grid gap-2">
+            {meta.rejectionSummary.map((item) => (
+              <div className="text-xs text-slate-600" key={item.reason}>
+                <span className="font-semibold text-slate-800">{item.count}</span> {item.reason}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {meta?.uncertainty?.length ? (
+        <div className="mt-4 border-t border-border pt-3">
+          <h3 className="text-xs font-semibold text-slate-500">Open evidence gaps</h3>
+          <ul className="mt-2 grid gap-1 text-xs text-slate-600">
+            {meta.uncertainty.slice(0, 3).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -231,6 +365,10 @@ function TableCell({
   return <td className={`border-b border-border px-3 py-3 align-top ${className}`}>{children}</td>;
 }
 
+function Badge({ children }: { children: React.ReactNode }) {
+  return <span className="border border-border bg-slate-50 px-2 py-0.5">{children}</span>;
+}
+
 function PlaceholderPricing({ fairValue }: { fairValue: ScannerCandidate["fairValue"] }) {
   return (
     <div className="grid gap-1 text-xs">
@@ -242,12 +380,21 @@ function PlaceholderPricing({ fairValue }: { fairValue: ScannerCandidate["fairVa
 }
 
 function marketProbability(market: EventMarket) {
+  const midpoint = observedMidpointOrUndefined(market);
+  return midpoint === undefined ? "n/a" : formatProb(midpoint);
+}
+
+function observedMidpoint(market: EventMarket) {
+  return observedMidpointOrUndefined(market) ?? -1;
+}
+
+function observedMidpointOrUndefined(market: EventMarket) {
   const bid = market.metrics.bestBid;
   const ask = market.metrics.bestAsk;
   if (bid === undefined || ask === undefined) {
-    return "n/a";
+    return undefined;
   }
-  return formatProb((bid + ask) / 2);
+  return (bid + ask) / 2;
 }
 
 function primaryOutcomeQuote(market: EventMarket) {
@@ -274,6 +421,10 @@ function countdown(value?: string) {
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
   return `${hours}h ${remainingMinutes}m`;
+}
+
+function marketEndTime(market: EventMarket) {
+  return market.market.endAt ? new Date(market.market.endAt).getTime() : Number.POSITIVE_INFINITY;
 }
 
 function formatProb(value?: number) {

@@ -6,9 +6,11 @@ import type {
   FairValueSnapshot,
   OrderBookSnapshot,
   ScannerCandidate,
+  ScannerMeta,
   TradeCandidate
 } from "@ept/shared-types";
 import { localPricingFallback, PricingEngineClient } from "./pricing-client.js";
+import { summarizeRejections } from "./scanner-meta.js";
 
 export function buildServer() {
   const server = Fastify({
@@ -46,6 +48,7 @@ export function buildServer() {
         source: "polymarket",
         mode: process.env.POLYMARKET_USE_FIXTURES === "false" ? "live_public" : "fixture",
         rejectedCount: result.rejected.length,
+        rejectionSummary: summarizeRejections(result.rejected),
         uncertainty: result.uncertainty
       }
     };
@@ -131,15 +134,20 @@ export function buildServer() {
     }));
     const usedFallback = priced.some((item) => item.pricingStatus === "local-placeholder-fallback");
 
+    const meta: ScannerMeta = {
+      source: "polymarket",
+      mode: process.env.POLYMARKET_USE_FIXTURES === "false" ? "live_public" : "fixture",
+      pricing: usedFallback ? "local-placeholder-fallback" : "pricing-engine-v0-placeholder",
+      message:
+        "Scanner output is read-only. Fair value, confidence, and edge fields are placeholders.",
+      rejectedCount: result.rejected.length,
+      rejectionSummary: summarizeRejections(result.rejected),
+      uncertainty: result.uncertainty
+    };
+
     return {
       candidates,
-      meta: {
-        source: "polymarket",
-        mode: process.env.POLYMARKET_USE_FIXTURES === "false" ? "live_public" : "fixture",
-        pricing: usedFallback ? "local-placeholder-fallback" : "pricing-engine-v0-placeholder",
-        message:
-          "Scanner output is read-only. Fair value, confidence, and edge fields are placeholders."
-      }
+      meta
     };
   });
 

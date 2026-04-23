@@ -99,7 +99,16 @@ Default URL:
 http://localhost:3000
 ```
 
-The current page is `/`, the Markets Scanner v0.
+Current pages:
+
+- `/`: Markets Scanner RC-1 with read-only filters, sorting, summary cards, and evidence status.
+- `/markets/:id`: Market Detail v0 for a normalized fixture-backed market.
+
+Example detail URL:
+
+```text
+http://localhost:3000/markets/polymarket%3Amkt-btc-1h-demo
+```
 
 ## Start Pricing Engine Placeholder Service
 

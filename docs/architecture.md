@@ -24,7 +24,11 @@ services/pricing-engine
 
 ### Web
 
-`apps/web` renders the Markets Scanner v0. It calls the local API gateway and does not call market vendors directly.
+`apps/web` renders the Markets Scanner RC-1 and Market Detail v0. It calls the local API gateway and does not call market vendors directly.
+
+The scanner supports fixture-backed filtering and sorting across the normalized candidate set. The
+detail page shows the selected market, binary outcomes, timings, fixture-backed book snapshot when
+available, provenance, open evidence gaps, and placeholder pricing state.
 
 ### API Gateway
 
@@ -36,7 +40,7 @@ services/pricing-engine
 - `GET /markets/:id/book`
 - `GET /scanner/top`
 
-Scanner output currently calls the pricing-engine v0 placeholder contract for fair-value shape and still marks edge fields as placeholders.
+Scanner output currently calls the pricing-engine v0 placeholder contract for fair-value shape and still marks edge fields as placeholders. Scanner metadata includes rejected count, fail-closed summary, and uncertainty so the UI can explain why some upstream markets were not normalized.
 
 ### Market Ingestor
 
@@ -73,12 +77,13 @@ evidence.
 
 ## Data Flow
 
-1. Web requests scanner data from `apps/api-gateway`.
+1. Web requests scanner or market detail data from `apps/api-gateway`.
 2. API gateway calls the Polymarket public-read adapter.
 3. Adapter reads local fixtures by default.
-4. Adapter normalizes accepted markets into `EventMarket`.
+4. Adapter normalizes accepted markets into `EventMarket` and returns rejected records separately.
 5. API gateway calls pricing-engine v0 for placeholder fair-value shape when serving scanner output.
-6. API gateway strips raw upstream payloads before returning API responses.
+6. API gateway summarizes fail-closed rejection reasons for scanner metadata.
+7. API gateway strips raw upstream payloads before returning API responses.
 
 ## Current Infrastructure
 
@@ -95,6 +100,7 @@ evidence.
 - Pricing-engine v1 is research-only until data freshness and validation gates are satisfied.
 - No non-placeholder Up/Down pricing without confirmed payoff specification, reference level, and
   settlement rule.
+- Market Detail v0 is read-only inspection only; it has no trade, order, replay, or charting action.
 - All unconfirmed external details must remain marked `TODO`.
 
 ## TODO
