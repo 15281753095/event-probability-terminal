@@ -10,8 +10,8 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - Windows: 10m and 1h.
 - Venue: Polymarket as the primary research venue.
 - Current mode: read-only market discovery and display.
-- Scanner: RC-1 endpoint and page with filtering, sorting, pricing-engine v0 placeholder fair-value, edge fields, and evidence metadata.
-- Market Detail: read-only v0 page for normalized fixture-backed markets.
+- Scanner: RC-2 endpoint and page with filtering, URL query state, sorting, pricing-engine v0 placeholder fair-value, edge fields, and evidence metadata.
+- Market Detail: read-only RC-2 page for normalized fixture-backed markets with evidence-first provenance organization.
 - Market contract: binary outcome markets only. Outcome labels are preserved from upstream, so `Yes`/`No` and observed `Up`/`Down` labels can be represented. Multi-outcome markets are out of scope.
 - Pricing-engine v1: research boundary only; no real probability model is implemented.
 - Up/Down payoff/reference-level extraction: research contract only. The observed 5M Chainlink
@@ -24,8 +24,8 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 2. Start the pricing-engine placeholder service if testing scanner placeholder integration.
 3. Start the web app.
 4. View fixture-backed BTC/ETH markets in the Markets Scanner page.
-5. Filter or sort the current fixture-backed candidate set.
-6. Open a read-only Market Detail page to inspect outcomes, timing, provenance, book snapshot, placeholder pricing, and evidence gaps.
+5. Filter, search, or sort the current fixture-backed candidate set with shareable URL state.
+6. Open a read-only Market Detail page to inspect outcomes, timing, provenance, token trace, source trace, related fixture markets, book snapshot, placeholder pricing, and evidence gaps.
 7. Inspect API responses for normalized market, order-book, rejection summary, and placeholder fair-value shape.
 
 ## Non-Goals
@@ -50,8 +50,8 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - Web page loads from the local API gateway.
 - API gateway returns fixture-backed Polymarket markets.
 - Contract tests prove binary outcome parsing and fail-closed behavior.
-- Scanner supports read-only filtering, sorting, and fail-closed metadata display.
-- Market Detail v0 exposes normalized binary outcomes, provenance, placeholder pricing, and open evidence gaps without trade controls.
+- Scanner supports read-only filtering, query state, sorting, and fail-closed metadata display.
+- Market Detail RC-2 exposes normalized binary outcomes, provenance, token/source trace, related fixture markets, placeholder pricing, and open evidence gaps without trade controls.
 - Placeholder scanner fields are clearly marked and sourced from the pricing-engine v0 placeholder contract where available.
 - Pricing-engine v1 research documents define required features, freshness rules, and calibration gates before any implementation.
 - Up/Down payoff research documents define fail-closed evidence requirements before extraction or

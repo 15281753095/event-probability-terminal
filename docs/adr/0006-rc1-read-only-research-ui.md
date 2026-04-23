@@ -51,9 +51,8 @@ confidence, edge, or candidate language appears.
 - No additional venue adapter.
 - No new live fixture capture in this ADR.
 
-## TODO
+## Follow-Up
 
-- TODO: Add browser-level smoke coverage when local/CI Playwright infrastructure is intentionally
-  introduced.
+- Browser-level smoke coverage was added after RC-1 and is extended by RC-2.
 - TODO: Replace fixture-first scanner data only after live BTC/ETH 10m/1h discovery evidence is
   confirmed.

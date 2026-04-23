@@ -24,11 +24,13 @@ services/pricing-engine
 
 ### Web
 
-`apps/web` renders the Markets Scanner RC-1 and Market Detail v0. It calls the local API gateway and does not call market vendors directly.
+`apps/web` renders the Markets Scanner RC-2 and evidence-first Market Detail view. It calls the local API gateway and does not call market vendors directly.
 
-The scanner supports fixture-backed filtering and sorting across the normalized candidate set. The
+The scanner supports fixture-backed filtering, query state, and sorting across the normalized
+candidate set. It also surfaces accepted, visible, rejected, placeholder, and open-gap state. The
 detail page shows the selected market, binary outcomes, timings, fixture-backed book snapshot when
-available, provenance, open evidence gaps, and placeholder pricing state.
+available, research readiness, token trace, source trace, provenance, open evidence gaps, related
+fixture markets, and placeholder pricing state.
 
 ### API Gateway
 
@@ -100,7 +102,7 @@ evidence.
 - Pricing-engine v1 is research-only until data freshness and validation gates are satisfied.
 - No non-placeholder Up/Down pricing without confirmed payoff specification, reference level, and
   settlement rule.
-- Market Detail v0 is read-only inspection only; it has no trade, order, replay, or charting action.
+- Market Detail RC-2 is read-only inspection only; it has no trade, order, replay, or charting action.
 - All unconfirmed external details must remain marked `TODO`.
 
 ## TODO

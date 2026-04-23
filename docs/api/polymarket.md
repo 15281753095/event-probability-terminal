@@ -299,7 +299,7 @@ Fixture capture plan: see `docs/runbooks/polymarket-fixture-capture.md`.
 - No private/authenticated Polymarket endpoints.
 - No real scanner scoring.
 - No Market Detail behavior beyond read-only normalized-market inspection.
-- No live capture, new CLOB access, trading controls, or pricing-model behavior from Market Detail v0.
+- No live capture, new CLOB access, trading controls, or pricing-model behavior from Market Detail.
 - No pricing model.
 - No paper broker.
 - No replay engine.

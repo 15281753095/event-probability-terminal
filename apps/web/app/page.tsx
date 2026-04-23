@@ -1,5 +1,11 @@
 import Link from "next/link";
-import type { Asset, EventMarket, ScannerCandidate, ScannerTopResponse, TimeWindow } from "@ept/shared-types";
+import type {
+  Asset,
+  EventMarket,
+  ScannerCandidate,
+  ScannerTopResponse,
+  TimeWindow
+} from "@ept/shared-types";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +19,7 @@ type SearchParams = Promise<{
   asset?: string;
   window?: string;
   sort?: string;
+  q?: string;
 }>;
 
 type SortKey = "expiry" | "liquidity" | "spread" | "marketProb";
@@ -21,6 +28,7 @@ type ScannerFilters = {
   asset: Asset | "all";
   window: TimeWindow | "all";
   sort: SortKey;
+  query: string;
 };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
@@ -62,6 +70,7 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
               paramName="sort"
               title="Sort"
             />
+            <QuerySearch current={filters} />
           </div>
           <section className="mt-5 border-t border-border pt-4 text-sm text-slate-600">
             <div>Venue: Polymarket</div>
@@ -73,10 +82,11 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
         <section className="min-w-0 border border-border bg-white">
           <header className="flex flex-col gap-2 border-b border-border p-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-sm font-medium text-teal-700">Markets Scanner RC-1</p>
+              <p className="text-sm font-medium text-teal-700">Markets Scanner RC-2</p>
               <h1 className="mt-1 text-2xl font-semibold">BTC / ETH Event Markets</h1>
               <p className="mt-1 text-sm text-slate-600">
                 Showing {visibleMarkets.length} of {allMarkets.length} fixture-backed candidates.
+                {filters.query ? ` Query: ${filters.query}` : ""}
               </p>
             </div>
             <div className="text-sm text-slate-600">
@@ -85,6 +95,13 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
           </header>
 
           {state.error ? <ErrorState message={state.error} /> : null}
+          {!state.error ? (
+            <ResearchStatusStrip
+              meta={state.meta}
+              totalCount={allMarkets.length}
+              visibleCount={visibleMarkets.length}
+            />
+          ) : null}
           {!state.error && visibleMarkets.length === 0 ? <EmptyState /> : null}
 
           {!state.error && visibleMarkets.length > 0 ? (
@@ -193,7 +210,8 @@ function parseFilters(params: Awaited<SearchParams>): ScannerFilters {
     sort:
       params.sort === "liquidity" || params.sort === "spread" || params.sort === "marketProb"
         ? params.sort
-        : "expiry"
+        : "expiry",
+    query: typeof params.q === "string" ? params.q.trim().slice(0, 80) : ""
   };
 }
 
@@ -202,9 +220,31 @@ function filterCandidates(candidates: ScannerCandidate[], filters: ScannerFilter
     const market = candidate.market;
     return (
       (filters.asset === "all" || market.asset === filters.asset) &&
-      (filters.window === "all" || market.window === filters.window)
+      (filters.window === "all" || market.window === filters.window) &&
+      queryMatches(candidate, filters.query)
     );
   });
+}
+
+function queryMatches(candidate: ScannerCandidate, query: string) {
+  if (!query) {
+    return true;
+  }
+  const market = candidate.market;
+  const haystack = [
+    market.id,
+    market.question,
+    market.asset,
+    market.window,
+    market.outcomes.primary.label,
+    market.outcomes.secondary.label,
+    market.market.id,
+    market.event.title ?? "",
+    market.market.slug ?? ""
+  ]
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(query.toLowerCase());
 }
 
 function sortCandidates(candidates: ScannerCandidate[], sort: SortKey) {
@@ -257,11 +297,42 @@ function FilterGroup({
   );
 }
 
+function QuerySearch({ current }: { current: ScannerFilters }) {
+  return (
+    <section>
+      <h3 className="text-xs font-semibold text-slate-500">Query</h3>
+      <form action="/" className="mt-2 grid gap-2">
+        {current.asset !== "all" ? <input name="asset" type="hidden" value={current.asset} /> : null}
+        {current.window !== "all" ? <input name="window" type="hidden" value={current.window} /> : null}
+        {current.sort !== "expiry" ? <input name="sort" type="hidden" value={current.sort} /> : null}
+        <input
+          className="min-h-9 border border-border bg-white px-2 text-sm"
+          defaultValue={current.query}
+          name="q"
+          placeholder="Question, outcome, id"
+          type="search"
+        />
+        <div className="flex items-center gap-2">
+          <button className="border border-teal-700 bg-teal-50 px-2 py-1 text-xs text-teal-800" type="submit">
+            Search
+          </button>
+          {current.query ? (
+            <Link className="text-xs text-slate-600 underline" href={scannerHref(current, { query: "" })}>
+              Clear
+            </Link>
+          ) : null}
+        </div>
+      </form>
+    </section>
+  );
+}
+
 function scannerHref(current: ScannerFilters, updates: Partial<Record<keyof ScannerFilters, string>>) {
   const next = {
     asset: updates.asset ?? current.asset,
     window: updates.window ?? current.window,
-    sort: updates.sort ?? current.sort
+    sort: updates.sort ?? current.sort,
+    query: updates.query ?? current.query
   };
   const params = new URLSearchParams();
   if (next.asset !== "all") {
@@ -273,8 +344,40 @@ function scannerHref(current: ScannerFilters, updates: Partial<Record<keyof Scan
   if (next.sort !== "expiry") {
     params.set("sort", next.sort);
   }
+  if (next.query) {
+    params.set("q", next.query);
+  }
   const query = params.toString();
   return query ? `/?${query}` : "/";
+}
+
+function ResearchStatusStrip({
+  visibleCount,
+  totalCount,
+  meta
+}: {
+  visibleCount: number;
+  totalCount: number;
+  meta: ScannerTopResponse["meta"] | undefined;
+}) {
+  return (
+    <section className="grid gap-2 border-b border-border bg-slate-50 p-4 text-sm md:grid-cols-5">
+      <StatusItem label="Accepted" value={`${totalCount}`} />
+      <StatusItem label="Visible" value={`${visibleCount}`} />
+      <StatusItem label="Rejected" value={`${meta?.rejectedCount ?? 0}`} />
+      <StatusItem label="Pricing" value={meta?.pricing ?? "placeholder"} />
+      <StatusItem label="Open gaps" value={`${meta?.uncertainty.length ?? 0}`} />
+    </section>
+  );
+}
+
+function StatusItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border border-border bg-white px-3 py-2">
+      <div className="text-xs text-slate-500">{label}</div>
+      <div className="mt-1 break-words font-semibold text-slate-800">{value}</div>
+    </div>
+  );
 }
 
 function SummaryPanel({
@@ -307,11 +410,16 @@ function EvidencePanel({ meta }: { meta: ScannerTopResponse["meta"] | undefined 
       </ul>
       {meta?.rejectionSummary?.length ? (
         <div className="mt-4 border-t border-border pt-3">
-          <h3 className="text-xs font-semibold text-slate-500">Fail-closed summary</h3>
-          <div className="mt-2 grid gap-2">
+          <h3 className="text-xs font-semibold text-slate-500">Fail-closed reason matrix</h3>
+          <div className="mt-2 grid gap-3">
             {meta.rejectionSummary.map((item) => (
-              <div className="text-xs text-slate-600" key={item.reason}>
-                <span className="font-semibold text-slate-800">{item.count}</span> {item.reason}
+              <div className="border border-border bg-slate-50 p-2 text-xs text-slate-600" key={item.reason}>
+                <div>
+                  <span className="font-semibold text-slate-800">{item.count}</span> {item.reason}
+                </div>
+                {item.sampleMarketIds.length ? (
+                  <div className="mt-1 text-slate-500">Samples: {item.sampleMarketIds.join(", ")}</div>
+                ) : null}
               </div>
             ))}
           </div>

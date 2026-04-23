@@ -9,7 +9,7 @@ This repository is in Phase 1 foundation work. It has a minimal local end-to-end
 - `services/market-ingestor`: Polymarket public-read adapter boundary, fixture-first by default.
 - `packages/shared-types`: first shared contracts for `EventMarket`, `OrderBookSnapshot`, and placeholder scanner/pricing objects.
 - `apps/api-gateway`: Fastify read-only API for fixture-backed markets, scanner metadata, and pricing placeholders.
-- `apps/web`: Next.js Markets Scanner RC-1 and Market Detail v0 that read from the API gateway.
+- `apps/web`: Next.js Markets Scanner RC-2 and Market Detail evidence views that read from the API gateway.
 - `services/pricing-engine`: Python placeholder contract for fair-value output shape.
 
 The current app market data is synthetic fixture data unless explicitly configured otherwise. A limited Polymarket Gamma/public-search live fixture capture was completed on 2026-04-21 to tighten contract tests, but it did not confirm BTC/ETH 10m/1h live classification.
@@ -52,7 +52,7 @@ Explicit exclusions:
 
 ```text
 apps/
-  web/                 Next.js Markets Scanner RC-1 and Market Detail v0
+  web/                 Next.js Markets Scanner RC-2 and evidence-first Market Detail
   api-gateway/         Fastify read-only API
 services/
   market-ingestor/     Polymarket public-read adapter boundary and fixtures
@@ -150,15 +150,18 @@ curl http://127.0.0.1:4100/healthz
 
 ## Current Pages
 
-- `/`: Markets Scanner RC-1
+- `/`: Markets Scanner RC-2
   - asset and window filters
+  - URL-persisted query state
   - sort controls for expiry, liquidity, spread, and observed market probability
+  - research status strip for accepted, visible, rejected, placeholder, and open-gap state
   - market list for BTC/ETH fixture markets
-  - right summary and evidence status panels
+  - right summary, evidence status, and fail-closed reason matrix panels
   - loading/error/empty states through server-side API fetch handling
-- `/markets/:id`: Market Detail v0
+- `/markets/:id`: Market Detail RC-2
   - binary outcomes, timing, liquidity, spread, and provenance
   - fixture-backed order-book snapshot when available
+  - research readiness, token trace, source trace, related fixture markets
   - explicit placeholder pricing panel and open evidence gaps
 
 No advanced charting workflow, replay workflow, paper trading UI, or trading control exists.
@@ -204,8 +207,10 @@ pricing, or test trading behavior.
 - Pricing-engine v1 research: `docs/api/pricing-engine-v1-research.md`
 - Pricing research plan: `research/reports/pricing-engine-v1-research-plan.md`
 - RC-1 product research: `research/reports/rc1-product-research.md`
+- RC-2 evidence-first UX research: `research/reports/rc2-evidence-first-ux-research.md`
 - Fixture capture plan: `docs/runbooks/polymarket-fixture-capture.md`
 - RC-1 read-only UI decision: `docs/adr/0006-rc1-read-only-research-ui.md`
+- RC-2 evidence-first UX decision: `docs/adr/0007-rc2-evidence-first-ux.md`
 - Source registry: `docs/source_registry.md`
 - Collaboration rules: `AGENTS.md`
 

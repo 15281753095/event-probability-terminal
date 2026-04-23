@@ -24,6 +24,7 @@ type BookPayload = {
 type LoadState = {
   market?: EventMarket;
   candidate?: ScannerCandidate;
+  relatedCandidates: ScannerCandidate[];
   book?: OrderBookSnapshot;
   error?: string;
 };
@@ -59,7 +60,7 @@ export default async function MarketDetail({ params }: { params: PageParams }) {
             <Link className="text-sm text-teal-700 underline" href="/">
               Back to scanner
             </Link>
-            <p className="mt-4 text-sm font-medium text-teal-700">Market Detail RC-1</p>
+            <p className="mt-4 text-sm font-medium text-teal-700">Market Detail RC-2</p>
             <h1 className="mt-1 text-2xl font-semibold">{market.question}</h1>
             <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600">
               <Badge>{market.asset}</Badge>
@@ -96,8 +97,34 @@ export default async function MarketDetail({ params }: { params: PageParams }) {
               </Panel>
             </section>
 
+            <section className="grid gap-4 md:grid-cols-2">
+              <Panel title="Research Readiness">
+                <dl className="grid gap-3 text-sm">
+                  <OutcomeRow label="Outcome contract" value="binary outcomes" />
+                  <OutcomeRow label="Pricing state" value="placeholder only" />
+                  <OutcomeRow label="Classification" value={market.provenance.classificationSource} />
+                  <OutcomeRow label="Open evidence gaps" value={`${market.uncertainty.length}`} />
+                </dl>
+              </Panel>
+
+              <Panel title="Token Trace">
+                <dl className="grid gap-3 text-sm">
+                  <OutcomeRow label={`${market.outcomes.primary.label} token`} value={shortId(market.outcomes.primary.tokenId)} />
+                  <OutcomeRow label={`${market.outcomes.secondary.label} token`} value={shortId(market.outcomes.secondary.tokenId)} />
+                  <OutcomeRow label="Condition ID" value={shortId(market.market.conditionId)} />
+                  <OutcomeRow label="Question ID" value={market.market.questionId ? shortId(market.market.questionId) : "n/a"} />
+                </dl>
+              </Panel>
+            </section>
+
             <Panel title="Order Book Snapshot">
-              {state.book ? <OrderBookTable book={state.book} /> : <p className="text-sm text-slate-600">No book snapshot available from the current fixture-backed adapter.</p>}
+              {state.book ? (
+                <OrderBookTable book={state.book} />
+              ) : (
+                <p className="text-sm text-slate-600">
+                  No book snapshot available from the current fixture-backed adapter.
+                </p>
+              )}
             </Panel>
           </div>
         </section>
@@ -143,7 +170,15 @@ export default async function MarketDetail({ params }: { params: PageParams }) {
               <OutcomeRow label="Condition ID" value={market.market.conditionId} />
             </dl>
             <div className="mt-4 border-t border-border pt-3">
-              <h3 className="text-xs font-semibold text-slate-500">Evidence</h3>
+              <h3 className="text-xs font-semibold text-slate-500">Source Trace</h3>
+              <ul className="mt-2 grid gap-1 text-xs text-slate-600">
+                {market.provenance.sourceIds.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="mt-4 border-t border-border pt-3">
+              <h3 className="text-xs font-semibold text-slate-500">Evidence Trail</h3>
               <ul className="mt-2 grid gap-1 text-xs text-slate-600">
                 {market.provenance.evidence.map((item) => (
                   <li key={item}>{item}</li>
@@ -158,6 +193,30 @@ export default async function MarketDetail({ params }: { params: PageParams }) {
                 <li key={item}>{item}</li>
               ))}
             </ul>
+          </Panel>
+
+          <Panel title="Related Fixture Markets">
+            {state.relatedCandidates.length ? (
+              <ul className="grid gap-2 text-sm">
+                {state.relatedCandidates.map((item) => (
+                  <li className="border border-border bg-slate-50 p-2" key={item.market.id}>
+                    <Link
+                      className="font-medium text-slate-900 underline decoration-slate-300 underline-offset-4 hover:text-teal-700"
+                      href={`/markets/${encodeURIComponent(item.market.id)}`}
+                    >
+                      {item.market.question}
+                    </Link>
+                    <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-500">
+                      <Badge>{item.market.asset}</Badge>
+                      <Badge>{item.market.window}</Badge>
+                      <Badge>{item.market.provenance.sourceMode}</Badge>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-slate-600">No other fixture-backed scanner candidates.</p>
+            )}
           </Panel>
         </aside>
       </section>
@@ -174,6 +233,7 @@ async function loadMarketDetail(marketId: string): Promise<LoadState> {
 
     if (!marketResponse.ok) {
       return {
+        relatedCandidates: [],
         error: `API returned HTTP ${marketResponse.status}.`
       };
     }
@@ -182,16 +242,22 @@ async function loadMarketDetail(marketId: string): Promise<LoadState> {
     const scannerPayload = scannerResponse.ok
       ? ((await scannerResponse.json()) as ScannerTopResponse)
       : undefined;
-    const candidate = scannerPayload?.candidates.find((item) => item.market.id === marketPayload.market.id);
+    const scannerCandidates = scannerPayload?.candidates ?? [];
+    const candidate = scannerCandidates.find((item) => item.market.id === marketPayload.market.id);
+    const relatedCandidates = scannerCandidates
+      .filter((item) => item.market.id !== marketPayload.market.id)
+      .slice(0, 4);
     const book = await loadBook(marketPayload.market.id);
 
     return {
       market: marketPayload.market,
+      relatedCandidates,
       ...(candidate ? { candidate } : {}),
       ...(book ? { book } : {})
     };
   } catch (error) {
     return {
+      relatedCandidates: [],
       error: error instanceof Error ? error.message : "API request failed."
     };
   }
@@ -299,6 +365,10 @@ function formatNumber(value?: number) {
   return value === undefined
     ? "n/a"
     : new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
+}
+
+function shortId(value: string) {
+  return value.length <= 18 ? value : `${value.slice(0, 8)}...${value.slice(-6)}`;
 }
 
 function safeDecode(value: string) {

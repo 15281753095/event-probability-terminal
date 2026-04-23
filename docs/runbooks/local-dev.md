@@ -101,8 +101,8 @@ http://localhost:3000
 
 Current pages:
 
-- `/`: Markets Scanner RC-1 with read-only filters, sorting, summary cards, and evidence status.
-- `/markets/:id`: Market Detail v0 for a normalized fixture-backed market.
+- `/`: Markets Scanner RC-2 with read-only filters, query state, sorting, summary cards, and evidence status.
+- `/markets/:id`: Market Detail RC-2 for a normalized fixture-backed market.
 
 Example detail URL:
 
@@ -174,10 +174,11 @@ make smoke
 
 Current smoke coverage is intentionally small:
 
-- `/` must render the Markets Scanner RC-1, read-only filters, placeholder pricing text, and
-  evidence/fail-closed summary.
-- `/markets/polymarket%3Amkt-btc-1h-demo` must render Market Detail v0 with outcomes, provenance,
-  placeholder pricing, and open evidence gaps.
+- `/` must render the Markets Scanner RC-2, read-only filters, query URL state, placeholder pricing
+  text, and evidence/fail-closed matrix.
+- `/markets/polymarket%3Amkt-btc-1h-demo` must render Market Detail RC-2 with outcomes, research
+  readiness, token trace, source trace, related fixture markets, provenance, placeholder pricing,
+  and open evidence gaps.
 
 The smoke suite starts the API gateway and web app with fixture-backed data. It does not use live
 vendor data, real pricing, CLOB expansion, paper trading, replay, or any authenticated endpoint.
