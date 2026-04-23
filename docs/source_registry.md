@@ -22,6 +22,7 @@ This registry is the gate for external-source usage. A new adapter or external d
 | `polymarket-sdks` | https://docs.polymarket.com/api-reference/clients-sdks | Polymarket documents official open-source TypeScript, Python, and Rust clients for the CLOB API. |
 | `polymarket-live-public-fixture-2026-04-21` | Approved public captures from `https://gamma-api.polymarket.com/events/keyset`, `https://gamma-api.polymarket.com/markets/keyset`, `https://gamma-api.polymarket.com/tags`, and `https://gamma-api.polymarket.com/public-search` stored in `services/market-ingestor/fixtures/polymarket/live-public-gamma-samples.json` | Observed runtime samples confirm Gamma keyset responses carry cursor metadata (`next_cursor`), public-search returns event results with pagination metadata, sampled Gamma market fields include `id`, `slug`, `question`, `conditionId`, `questionID`, `active`, `closed`, `enableOrderBook`, dates, `bestBid`, `bestAsk`, `lastTradePrice`, `spread`, `liquidityNum`, and `volumeNum`, and sampled `clobTokenIds`, `outcomes`, and `outcomePrices` are JSON-encoded strings. The sample confirms asset evidence for Bitcoin and Ethereum in public-search tags, but does not confirm 10m or 1h target-window classification. |
 | `polymarket-target-discovery-2026-04-22` | Approved public captures from `https://gamma-api.polymarket.com/public-search` and `https://gamma-api.polymarket.com/events/keyset` stored in `services/market-ingestor/fixtures/polymarket/live-target-discovery-samples.json` | Observed BTC/ETH short-window Up/Down family evidence with `5M` tags and `["Up","Down"]` outcomes; observed one closed Bitcoin `1H` sample; observed one closed Ethereum `15M` sample; did not observe BTC/ETH `10m` target hits or active BTC/ETH `1h` target markets in the approved request set. This evidence is insufficient to open live BTC/ETH 10m/1h classification. |
+| `polymarket-updown-payoff-evidence-2026-04-23` | Approved public captures from `https://gamma-api.polymarket.com/public-search` and `https://gamma-api.polymarket.com/events/keyset` stored in `services/market-ingestor/fixtures/polymarket/live-updown-payoff-evidence-samples.json` | Observed BTC/ETH `5M` Up/Down descriptions saying `Up` wins when the price at the end of the title time range is greater than or equal to the price at the beginning, otherwise `Down`; observed Chainlink BTC/USD and ETH/USD resolution-source URLs for those 5M samples; observed closed 5M `eventMetadata.finalPrice` and `eventMetadata.priceToBeat` field names. This evidence strengthens 5M payoff semantics but does not confirm active BTC/ETH `10m` or `1h` target markets, official schema semantics for `eventMetadata`, or runtime extraction readiness. |
 | `predict-fun-docs` | https://dev.predict.fun/ | Predict API documentation is marked beta. It documents REST, WebSocket, authorization, markets, orders, accounts, positions, search, OAuth, and schemas. It lists BNB Mainnet and BNB Testnet base URLs, says mainnet requires an API key, and links TypeScript and Python SDKs. |
 | `binance-academy-wallet-prediction` | https://www.binance.com/en/academy/articles/a-guide-to-binance-wallet-prediction-markets | Binance Academy says Binance Wallet Prediction Markets integrate the third-party Predict.fun protocol on BNB Smart Chain, accessible through the Binance app. Binance acts as an access layer and does not create events or act as counterparty. |
 
@@ -35,8 +36,10 @@ This registry is the gate for external-source usage. A new adapter or external d
 - The current Polymarket adapter implementation is fixture-first and must fail closed for live BTC/ETH 10m/1h classification until approved public fixtures confirm the mapping.
 - `EventMarket` uses a minimal binary-outcome contract rather than a Yes/No-only token contract. Upstream labels such as `Yes`/`No` and `Up`/`Down` can be preserved, but they do not by themselves prove Phase 1 asset/window classification.
 - Polymarket Up/Down labels do not by themselves prove payoff direction, reference/start/strike
-  level, settlement source, comparator, or tie rule. Non-placeholder Up/Down pricing must fail
-  closed until those fields are confirmed by public evidence and fixtures.
+  level, settlement source, comparator, or tie rule. The 2026-04-23 payoff evidence confirms those
+  semantics only for observed BTC/ETH 5M Chainlink samples; non-placeholder pricing must still fail
+  closed for Phase 1 target 10m/1h until matching target-window evidence and schema semantics are
+  confirmed.
 - Scanner fair probability, confidence, and edge fields are placeholders. Pricing-engine v0 defines the local placeholder contract but does not compute real probabilities.
 
 ## Reasonable inferences
@@ -54,9 +57,13 @@ This registry is the gate for external-source usage. A new adapter or external d
 - TODO: Confirm how Polymarket market text, tags, slugs, event dates, and market dates reliably identify the internal `window` values `10m` and `1h`. The approved 2026-04-22 target-discovery sample observed `5M`, `15M`, and a closed `1H` tag, but no live `10m` or active `1h` target market.
 - TODO: Confirm whether the observed JSON-string runtime shape for `clobTokenIds`, `outcomes`, and `outcomePrices` is stable across the target BTC/ETH 10m/1h market family.
 - TODO: Confirm whether the minimal binary-outcome ordering from Gamma `clobTokenIds` and `outcomes` is stable across actual BTC/ETH 10m/1h markets. Current `EventMarket` preserves upstream labels and token IDs but does not infer trading direction or pricing semantics from label text.
-- TODO: Confirm how Polymarket Up/Down payoff specification, reference/start/strike level,
-  settlement evaluation point, settlement value source, comparator, and tie rule are exposed through
-  public-read evidence.
+- TODO: Confirm whether Polymarket `eventMetadata.priceToBeat` and `eventMetadata.finalPrice` are
+  stable, documented public fields for closed Up/Down markets.
+- TODO: Confirm how Polymarket Up/Down reference/start/strike values are exposed for active
+  markets before settlement. The 2026-04-23 evidence observed reference/settlement-like metadata
+  only on closed 5M samples.
+- TODO: Confirm whether actual BTC/ETH 10m and active 1h Up/Down target markets use the same
+  Chainlink description/resolution-source pattern observed for 5M samples.
 - TODO: Confirm whether initial adapter implementation should use `GET /events/keyset`, `GET /events`, `GET /markets/keyset`, `GET /markets`, `GET /public-search`, or a staged combination for BTC/ETH 10m/1h discovery.
 - TODO: Confirm whether public CLOB read data should be fetched during discovery or only after an internal `EventMarket` candidate is accepted.
 - TODO: Confirm Predict.fun endpoint pages, auth flow, request signing, response schemas, and WebSocket topic formats before writing any adapter.

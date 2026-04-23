@@ -13,8 +13,9 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - Scanner: minimal endpoint and page with pricing-engine v0 placeholder fair-value and edge fields.
 - Market contract: binary outcome markets only. Outcome labels are preserved from upstream, so `Yes`/`No` and observed `Up`/`Down` labels can be represented. Multi-outcome markets are out of scope.
 - Pricing-engine v1: research boundary only; no real probability model is implemented.
-- Up/Down payoff/reference-level extraction: research contract only; no runtime extraction or
-  non-placeholder pricing is implemented.
+- Up/Down payoff/reference-level extraction: research contract only. The observed 5M Chainlink
+  samples have stronger payoff evidence, but no runtime extraction or non-placeholder pricing is
+  implemented.
 
 ## Current User Workflow
 
@@ -33,7 +34,8 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - No real pricing model; pricing-engine v0 returns `null` fair probabilities and placeholder metadata.
 - No non-placeholder pricing-engine v1 output until data freshness and validation standards are met.
 - No non-placeholder Up/Down quote until payoff specification, reference/start/strike level,
-  settlement source, comparator, and tie rule are confirmed.
+  settlement source, comparator, tie rule, and freshness are confirmed for the accepted 10m/1h
+  target family.
 - No paper broker.
 - No replay engine.
 - No market detail page.

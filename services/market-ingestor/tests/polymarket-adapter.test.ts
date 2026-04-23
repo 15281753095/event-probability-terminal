@@ -91,6 +91,73 @@ const liveTargetDiscoverySamples = JSON.parse(
   };
 };
 
+const liveUpDownPayoffEvidenceSamples = JSON.parse(
+  readFileSync(
+    new URL("../fixtures/polymarket/live-updown-payoff-evidence-samples.json", import.meta.url),
+    "utf8"
+  )
+) as {
+  metadata: {
+    classificationStatus: string;
+    extractionReadiness: string;
+    requestCount: number;
+  };
+  observations: {
+    btc5mActiveChainlink: UpDownPayoffEvidenceObservation;
+    eth5mActiveChainlink: UpDownPayoffEvidenceObservation;
+    btc5mClosedChainlinkMetadata: UpDownClosedMetadataObservation;
+    eth5mClosedChainlinkMetadata: UpDownClosedMetadataObservation;
+    btcThresholdOutOfScope: {
+      tags: string[];
+      thresholdEvidence: {
+        kind: string;
+        thresholdValue: number;
+        targetFamilyStatus: string;
+      };
+      market: {
+        outcomes: unknown;
+      };
+    };
+  };
+};
+
+interface UpDownPayoffEvidenceObservation {
+  tags: string[];
+  descriptionEvidence: string;
+  resolutionSource: string;
+  market: {
+    eventStartTime: string;
+    endDate: string;
+    enableOrderBook: boolean;
+    outcomes: unknown;
+  };
+  payoffEvidence: {
+    kind: string;
+    status: string;
+    primaryWinsWhen: string;
+    secondaryWinsWhen: string;
+    referenceLevelKind: string;
+    settlementLevelKind: string;
+    tieRule: string;
+    referenceLevelValue: number | null;
+    settlementLevelValue: number | null;
+  };
+}
+
+interface UpDownClosedMetadataObservation {
+  eventMetadata: {
+    finalPrice: number;
+    priceToBeat: number;
+  };
+  eventMetadataSemantics: string;
+  market: {
+    eventStartTime: string;
+    endDate: string;
+    outcomes: unknown;
+    outcomePrices: unknown;
+  };
+}
+
 describe("Polymarket public read adapter", () => {
   it("discovers fixture-backed BTC/ETH event markets and preserves provenance", async () => {
     const adapter = createPolymarketPublicReadAdapter();
@@ -234,5 +301,66 @@ describe("Polymarket public read adapter", () => {
 
     assert.equal(normalized.candidate, undefined);
     assert.equal(normalized.rejection, "enableOrderBook is not true");
+  });
+
+  it("records 5M Up/Down payoff wording without enabling runtime extraction", () => {
+    const btc = liveUpDownPayoffEvidenceSamples.observations.btc5mActiveChainlink;
+    const eth = liveUpDownPayoffEvidenceSamples.observations.eth5mActiveChainlink;
+
+    assert.equal(liveUpDownPayoffEvidenceSamples.metadata.requestCount, 12);
+    assert.equal(
+      liveUpDownPayoffEvidenceSamples.metadata.classificationStatus,
+      "payoff_semantics_observed_for_5m_chainlink_samples_target_10m_1h_still_unconfirmed"
+    );
+    assert.equal(
+      liveUpDownPayoffEvidenceSamples.metadata.extractionReadiness,
+      "research_evidence_only_runtime_extraction_not_implemented"
+    );
+
+    for (const sample of [btc, eth]) {
+      assert.equal(sample.tags.includes("up-or-down"), true);
+      assert.equal(sample.tags.includes("5M"), true);
+      assert.match(sample.descriptionEvidence, /greater than or equal to the price at the beginning/);
+      assert.equal(sample.payoffEvidence.kind, "up_down_reference_comparison");
+      assert.equal(sample.payoffEvidence.primaryWinsWhen, "end_price_greater_than_or_equal_to_beginning_price");
+      assert.equal(sample.payoffEvidence.secondaryWinsWhen, "otherwise");
+      assert.equal(sample.payoffEvidence.referenceLevelKind, "beginning_price");
+      assert.equal(sample.payoffEvidence.settlementLevelKind, "end_price");
+      assert.equal(sample.payoffEvidence.tieRule, "primary_wins_on_equal");
+      assert.equal(sample.payoffEvidence.referenceLevelValue, null);
+      assert.equal(sample.payoffEvidence.settlementLevelValue, null);
+      assert.deepEqual(parseOutcomeLabels(sample.market.outcomes), ["Up", "Down"]);
+      assert.equal(sample.market.enableOrderBook, false);
+    }
+
+    assert.equal(btc.resolutionSource, "https://data.chain.link/streams/btc-usd");
+    assert.equal(eth.resolutionSource, "https://data.chain.link/streams/eth-usd");
+  });
+
+  it("records closed 5M metadata fields as observed but not runtime-ready schema", () => {
+    const btc = liveUpDownPayoffEvidenceSamples.observations.btc5mClosedChainlinkMetadata;
+    const eth = liveUpDownPayoffEvidenceSamples.observations.eth5mClosedChainlinkMetadata;
+
+    for (const sample of [btc, eth]) {
+      assert.equal(typeof sample.eventMetadata.finalPrice, "number");
+      assert.equal(typeof sample.eventMetadata.priceToBeat, "number");
+      assert.equal(sample.eventMetadataSemantics, "observed_field_names_only_schema_semantics_unconfirmed");
+      assert.deepEqual(parseOutcomeLabels(sample.market.outcomes), ["Up", "Down"]);
+      assert.equal(sample.market.eventStartTime.length > 0, true);
+      assert.equal(sample.market.endDate.length > 0, true);
+    }
+  });
+
+  it("keeps fixed-threshold Up/Down-like evidence out of target extraction", () => {
+    const sample = liveUpDownPayoffEvidenceSamples.observations.btcThresholdOutOfScope;
+
+    assert.equal(sample.tags.includes("up-or-down"), false);
+    assert.equal(sample.thresholdEvidence.kind, "fixed_threshold");
+    assert.equal(sample.thresholdEvidence.thresholdValue, 93445.45);
+    assert.equal(
+      sample.thresholdEvidence.targetFamilyStatus,
+      "out_of_scope_for_current_btc_eth_10m_1h_updown_discovery"
+    );
+    assert.deepEqual(parseOutcomeLabels(sample.market.outcomes), ["Up", "Down"]);
   });
 });

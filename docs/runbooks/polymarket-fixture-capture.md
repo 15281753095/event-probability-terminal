@@ -279,3 +279,31 @@ Not confirmed:
 - No active BTC/ETH 1h target market was found in the approved request set.
 - The `EventMarket` contract now preserves generic binary outcome labels, so `Up`/`Down` can be represented without renaming those labels to Yes/No.
 - The live BTC/ETH 10m/1h discovery rule still remains fail closed because the approved evidence did not confirm active target 10m/1h discovery.
+
+## 2026-04-23 Up/Down Payoff Evidence Result
+
+Approved request count: 12.
+
+Approved endpoint families:
+
+- `GET /events/keyset`
+- `GET /public-search`
+
+Promoted tracked fixture:
+
+- `live-updown-payoff-evidence-samples.json`
+
+Confirmed by promoted fixture:
+
+- Observed active BTC and ETH `5M` Up/Down samples include payoff wording in Gamma descriptions.
+- For observed `5M` Chainlink samples, `Up` means the price at the end of the title time range is greater than or equal to the price at the beginning; otherwise the market resolves to `Down`.
+- Observed `5M` samples expose Chainlink BTC/USD and ETH/USD `resolutionSource` URLs.
+- Closed `5M` samples expose `eventMetadata.finalPrice` and `eventMetadata.priceToBeat` field names.
+
+Not confirmed:
+
+- No active BTC/ETH `10m` target market was confirmed.
+- No active BTC/ETH `1h` target market was confirmed.
+- `eventMetadata.finalPrice` and `eventMetadata.priceToBeat` are not yet confirmed as stable documented schema fields.
+- Active numeric reference/start value extraction is not confirmed.
+- Runtime payoff extraction and non-placeholder pricing remain out of scope.

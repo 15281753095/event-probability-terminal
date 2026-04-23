@@ -10,6 +10,8 @@ It is not proof of live Polymarket BTC/ETH or 10m/1h classification.
 
 `live-target-discovery-samples.json` is a promoted, reviewed subset of approved target-discovery captures from 2026-04-22. It confirms BTC/ETH short-window Up/Down family evidence for `5M`, a closed Bitcoin `1H` sample, and absence of observed `10m` target hits in the approved request set. It does not open live BTC/ETH 10m/1h classification.
 
+`live-updown-payoff-evidence-samples.json` is a promoted, reviewed subset of approved Up/Down payoff evidence captures from 2026-04-23. It confirms 5M Chainlink payoff wording for observed BTC/ETH Up/Down samples and records closed 5M `eventMetadata.finalPrice` / `eventMetadata.priceToBeat` fields as observed but not runtime-ready schema. It does not open BTC/ETH 10m/1h discovery, runtime payoff extraction, or non-placeholder pricing.
+
 ## Live Public Fixtures
 
 Live public fixtures must be captured only after explicit approval. Use:

@@ -66,9 +66,10 @@ The v0 fair-value endpoint consumes normalized binary `EventMarket` input, inclu
 Pricing-engine v1 is currently research documentation only. The v1 boundary defines required
 features, freshness rules, and validation standards, but no non-placeholder model code exists.
 ADR 0005 further defines Polymarket Up/Down payoff and reference-level extraction as a
-research-only contract. Up/Down labels can be represented, but they cannot produce non-placeholder
-pricing until reference/start/strike, settlement source, comparator, and tie-rule evidence is
-fixture-backed.
+research-only contract. The 2026-04-23 fixture confirms 5M Chainlink payoff wording, but Up/Down
+labels still cannot produce non-placeholder pricing until the accepted 10m/1h target family has
+fixture-backed reference/start value, settlement source, comparator, tie-rule, and freshness
+evidence.
 
 ## Data Flow
 

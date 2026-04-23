@@ -11,14 +11,24 @@ Approved Polymarket Gamma/public-search fixtures show BTC/ETH target-family mark
 contract, so these labels can be represented by `outcomes.primary` and `outcomes.secondary`.
 
 That representation is not enough for pricing. A fair-probability model needs to know what makes
-each outcome win. Current fixtures confirm labels, tags, dates, and market metadata, but they do
-not confirm the payoff rule, reference/start price, settlement price source, exact evaluation
-point, or tie rule for Up/Down markets.
+each outcome win. The 2026-04-23 payoff evidence capture confirms 5M Chainlink payoff wording for
+observed BTC/ETH Up/Down samples, but it does not confirm active BTC/ETH 10m/1h target markets or
+stable runtime extraction fields.
 
 ## Decision
 
 The project will treat Polymarket Up/Down markets as a binary reference-comparison contract, not as
 a Yes/No alias.
+
+For observed 5M Chainlink samples only, the payoff rule is now research-observed:
+
+- `Up`: end price is greater than or equal to beginning price.
+- `Down`: otherwise.
+- Reference level: beginning price of the title time range.
+- Settlement level: end price of the title time range.
+- Resolution source: Chainlink BTC/USD or ETH/USD data stream.
+
+This observation does not open 10m/1h extraction or non-placeholder pricing.
 
 The minimum research-level payoff specification is:
 
@@ -81,7 +91,8 @@ upstream evidence and fixture tests exist.
 - `EventMarket.outcomes` may preserve Up/Down labels, but pricing-engine v1 cannot infer payoff
   direction from those labels alone.
 - Up/Down markets must receive no non-placeholder quote unless payoff specification, reference
-  level, settlement evaluation point, settlement value source, and tie rule are all confirmed.
+  level, settlement evaluation point, settlement value source, and tie rule are all confirmed for
+  the accepted target-window family.
 - Existing scanner and pricing-engine v0 placeholder behavior remains valid.
 - Future extraction logic must be fixture-backed and fail closed.
 
@@ -95,9 +106,12 @@ the evidence supports.
 
 ## TODO
 
-- TODO: Capture or document an official/public source that exposes the Up/Down payoff rule.
-- TODO: Confirm whether reference level, start price, or strike is exposed in Gamma fields,
-  market text, or another public read source.
-- TODO: Confirm settlement evaluation timestamp, settlement value source, and tie rule.
+- TODO: Confirm whether 5M Chainlink payoff evidence generalizes to any actual BTC/ETH 10m market.
+- TODO: Confirm whether active 1h Up/Down markets use Chainlink, Binance candles, or another
+  resolution source.
+- TODO: Confirm whether `eventMetadata.priceToBeat` and `eventMetadata.finalPrice` are stable,
+  documented public fields.
+- TODO: Confirm whether active reference/start values are exposed in Gamma fields, market text, or
+  another public read source.
 - TODO: Add fixture tests that prove extraction accepts confirmed examples and rejects missing or
   ambiguous payoff evidence.

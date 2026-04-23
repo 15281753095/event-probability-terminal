@@ -85,9 +85,10 @@ interface PricingQuoteRequestV1Research {
 This is a research draft. It should not be added to shared runtime types until the missing upstream
 data contracts are confirmed.
 
-For Polymarket Up/Down markets, see `docs/api/polymarket-updown-payoff-research.md`. The v1
-request must not carry `status: "observed"` unless payoff rule, reference level, settlement value
-source, comparator, and tie rule are all fixture-backed.
+For Polymarket Up/Down markets, see `docs/api/polymarket-updown-payoff-research.md`. The 2026-04-23
+evidence makes the 5M Chainlink payoff wording research-observed, but the v1 request must not carry
+`status: "observed"` for Phase 1 target 10m/1h unless payoff rule, reference level, settlement value
+source, comparator, and tie rule are all fixture-backed for that target family.
 
 ## V1 Response Draft
 
@@ -143,9 +144,9 @@ Requirements:
 | Spread | Primary ask minus bid, or upstream spread | Gamma now; CLOB public later | Partly available without freshness | Yes |
 | Liquidity | Market liquidity/depth proxy | Gamma fields; CLOB depth later | Partly available | Yes, for eligibility/confidence |
 | Time to expiry | Difference between feature time and confirmed expiry | Event/market end time | Field exists; semantics TODO | Yes |
-| Payoff specification | What makes primary/secondary win | Market question/rules or another confirmed public source | Not reliably parsed | Yes |
-| Reference level | Start/strike/reference price for up/down markets | Upstream market text/rules or external price capture | Missing | Yes for Up/Down |
-| Settlement rule | Evaluation point, value source, comparator, and tie rule | Official/public rule evidence | Missing | Yes for Up/Down |
+| Payoff specification | What makes primary/secondary win | Market question/rules or another confirmed public source | Observed for 5M Chainlink samples; target 10m/1h TODO | Yes |
+| Reference level | Start/strike/reference price for up/down markets | Upstream market text/rules or external price capture | Semantic 5M evidence observed; active numeric value missing | Yes for Up/Down |
+| Settlement rule | Evaluation point, value source, comparator, and tie rule | Official/public rule evidence | Observed for 5M Chainlink samples; target 10m/1h TODO | Yes for Up/Down |
 | Underlying spot price | BTC/ETH current price near quote time | Future read-only market-data source | Missing | Yes |
 | Volatility proxy | Recent realized or implied uncertainty proxy | Future read-only price history/source | Missing | Yes |
 

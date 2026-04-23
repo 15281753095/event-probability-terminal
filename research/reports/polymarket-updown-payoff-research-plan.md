@@ -17,20 +17,22 @@ The repository already contains promoted Gamma/public-search fixtures showing:
 - binary labels `["Up","Down"]`;
 - short-window tags such as `5M` and `15M`;
 - one closed Bitcoin `1H` sample;
+- 5M Chainlink payoff wording where `Up` means end price is greater than or equal to beginning
+  price and `Down` is otherwise;
+- Chainlink BTC/USD and ETH/USD resolution-source URLs for observed 5M samples;
+- closed 5M `eventMetadata.finalPrice` and `eventMetadata.priceToBeat` field names;
 - no confirmed live BTC/ETH `10m` target market;
 - no confirmed active BTC/ETH `1h` target market;
-- no reference/start/strike level;
-- no settlement source or tie rule.
+- no official schema confirmation for `eventMetadata.finalPrice` or `eventMetadata.priceToBeat`;
+- no active numeric reference/start value.
 
 ## Minimum Questions To Resolve
 
-1. Where is the official/public Up/Down payoff rule exposed?
-2. Is the reference level a start price, a fixed strike, or another reference value?
-3. What timestamp defines the reference level?
-4. What source defines the settlement level?
-5. What timestamp or window defines settlement evaluation?
-6. What happens on equality between settlement level and reference level?
-7. Can these fields be extracted from public-read data without authentication?
+1. Does the 5M Chainlink payoff wording apply to BTC/ETH 10m markets if they exist?
+2. Do active BTC/ETH 1h Up/Down markets use Chainlink, Binance candles, or another source?
+3. Are `eventMetadata.priceToBeat` and `eventMetadata.finalPrice` stable public schema fields?
+4. Where is the active numeric reference/start value exposed before settlement?
+5. Can these fields be extracted from public-read data without authentication?
 
 ## Future Fixture Requirements
 
@@ -50,7 +52,8 @@ insufficient and the user explicitly approves a new endpoint family in a later t
 Before runtime extraction is allowed, add fixture-based tests that prove:
 
 - confirmed Up/Down payoff evidence produces an `observed` extraction result;
-- missing reference level produces `required_missing`;
+- observed 5M payoff evidence does not unlock 10m/1h extraction by itself;
+- missing active numeric reference level produces `required_missing`;
 - missing settlement source produces `required_missing`;
 - ambiguous comparator or tie rule produces `required_missing`;
 - non-BTC/ETH or non-10m/1h candidates remain out of scope;

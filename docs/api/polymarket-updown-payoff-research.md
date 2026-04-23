@@ -13,7 +13,10 @@ endpoints, trading, settlement actions, or wallet operations.
 
 ## Existing Evidence
 
-Observed from `services/market-ingestor/fixtures/polymarket/live-target-discovery-samples.json`:
+Observed from:
+
+- `services/market-ingestor/fixtures/polymarket/live-target-discovery-samples.json`
+- `services/market-ingestor/fixtures/polymarket/live-updown-payoff-evidence-samples.json`
 
 | Evidence | Current status |
 | --- | --- |
@@ -24,9 +27,12 @@ Observed from `services/market-ingestor/fixtures/polymarket/live-target-discover
 | `endDate` fields | Observed |
 | `clobTokenIds` and `outcomes` as JSON-encoded strings | Observed |
 | Active BTC/ETH `10m` or active BTC/ETH `1h` target market | Not observed in approved samples |
-| Reference/start/strike level | Not observed |
-| Settlement value source | Not observed |
-| Comparator and tie rule | Not observed |
+| 5M payoff wording | Observed for active BTC/ETH Chainlink samples |
+| 5M resolution source | Observed as Chainlink BTC/USD and ETH/USD data-stream URLs |
+| 5M comparator and tie rule | Observed for active 5M samples: `Up` if end price is greater than or equal to beginning price; otherwise `Down` |
+| Closed 5M reference/settlement-like metadata | `eventMetadata.priceToBeat` and `eventMetadata.finalPrice` observed, but schema semantics are unconfirmed |
+| Active 10m or active 1h payoff wording | Not observed |
+| Active-market reference/start/strike numeric value | Not observed |
 | Official underlying spot source | Not observed |
 
 ## Domain Contract
@@ -35,10 +41,14 @@ The minimum Up/Down payoff model is a binary reference-comparison contract:
 
 - `underlyingAsset`: `BTC` or `ETH`.
 - `outcomeLabels`: labels preserved from the normalized `EventMarket`.
-- `referenceLevel`: the baseline value used for comparison.
-- `settlementLevel`: the value observed at the settlement evaluation point.
-- `comparisonRule`: the comparator that maps each outcome to win/loss.
-- `tieRule`: the official handling when settlement level equals reference level.
+- `referenceLevel`: the baseline value used for comparison. For observed 5M Chainlink samples,
+  this is the beginning price of the title time range.
+- `settlementLevel`: the value observed at the settlement evaluation point. For observed 5M
+  Chainlink samples, this is the end price of the title time range.
+- `comparisonRule`: the comparator that maps each outcome to win/loss. For observed 5M Chainlink
+  samples, `Up` maps to end price greater than or equal to beginning price.
+- `tieRule`: the official handling when settlement level equals reference level. For observed 5M
+  Chainlink samples, equality resolves to `Up`.
 
 This contract is distinct from the runtime `EventMarket` contract. `EventMarket` can represent
 binary labels; it does not prove the payoff rule.
@@ -49,11 +59,11 @@ These values must remain separate:
 
 | Concept | Meaning | Current evidence |
 | --- | --- | --- |
-| Reference level | Generic baseline used by a payoff comparison | Required, missing |
-| Start price | Reference level captured at an interval start | Possible interpretation for Up/Down, unconfirmed |
+| Reference level | Generic baseline used by a payoff comparison | Observed semantically for 5M Chainlink samples; numeric active value missing |
+| Start price | Reference level captured at an interval start | Observed semantically for 5M Chainlink samples |
 | Strike/threshold | Fixed numeric level used by price-threshold markets | Separate concept; not proven for current Up/Down fixtures |
-| Settlement evaluation point | Time/window used to evaluate the final outcome | Required, missing |
-| Settlement level | Price/value observed at the evaluation point | Required, missing |
+| Settlement evaluation point | Time/window used to evaluate the final outcome | Observed semantically as the title time-range end for 5M Chainlink samples |
+| Settlement level | Price/value observed at the evaluation point | Observed semantically for 5M; closed metadata field names observed, schema TODO |
 
 The project must not collapse these concepts into one field. A start price can be a reference
 level, and a strike can be a reference level, but they are not interchangeable without evidence.
@@ -99,8 +109,8 @@ interface UpDownPayoffExtractionResearch {
       valueSource?: string;
       evidenceStatus: "observed" | "required_missing" | "ambiguous";
     };
-    comparator: "required_missing";
-    tieRule: "required_missing";
+    comparator: "end_price_gte_beginning_price" | "required_missing";
+    tieRule: "primary_wins_on_equal" | "required_missing";
   };
   failClosedReasons: string[];
 }
@@ -117,10 +127,12 @@ for future extraction tests.
 | Outcome tokens | Gamma market `clobTokenIds` | Observed |
 | Asset | Tags/title/question | Partly observed; canonical rule TODO |
 | Window | Tags/title/question/date range | Partly observed for 5M, 15M, closed 1H; 10m/live 1h TODO |
-| Reference/start/strike level | Market question/title/description if present, or another confirmed public field/source | Missing |
-| Settlement evaluation point | Market/event dates and official rules/source | Missing |
-| Settlement value source | Official/public rule text or confirmed data source | Missing |
-| Tie rule | Official/public rule text | Missing |
+| 5M reference/start level semantics | Market/event description | Observed for 5M Chainlink samples |
+| Active numeric reference/start value | Gamma field or another confirmed public source | Missing |
+| Closed reference/settlement-like values | `eventMetadata.priceToBeat` / `eventMetadata.finalPrice` | Observed field names; schema semantics TODO |
+| Settlement evaluation point | Market/event dates and description | Observed for 5M Chainlink samples |
+| Settlement value source | `resolutionSource` and description | Observed for 5M Chainlink samples |
+| Tie rule | Market/event description | Observed for 5M Chainlink samples |
 
 ## Fail-Closed Rule
 
@@ -131,10 +143,12 @@ missing or ambiguous:
 - outcome mapping is not exactly binary or label order is ambiguous;
 - underlying asset is not confirmed as BTC or ETH;
 - target window is not confirmed as 10m or 1h;
-- reference/start/strike level is missing;
+- reference/start/strike level semantics are missing;
+- numeric reference/start value is required for the quote path and missing;
 - settlement evaluation point is missing;
 - settlement value source is missing;
 - comparator or tie rule is missing;
+- observed payoff evidence belongs only to 5M or another non-target family;
 - required source timestamps are missing or stale.
 
 In those cases the scanner may show the market as fixture-backed market data only, but pricing must
@@ -145,7 +159,7 @@ remain placeholder or unavailable.
 Pricing-engine v1 implementation for Up/Down markets is blocked until:
 
 - public-read evidence identifies live BTC/ETH 10m/1h target markets;
-- fixture-backed extraction proves the payoff rule;
+- fixture-backed extraction proves the payoff rule for the target 10m/1h family, not only 5M;
 - reference/start/strike level and observation timestamp are available;
 - settlement evaluation point and settlement value source are available;
 - tie rule is documented;
@@ -154,7 +168,11 @@ Pricing-engine v1 implementation for Up/Down markets is blocked until:
 
 ## TODO
 
-- TODO: Identify the official/public source for Up/Down rule text.
-- TODO: Confirm whether Gamma exposes enough fields for reference/start/strike extraction.
-- TODO: Confirm whether another public-read source is required for reference and settlement levels.
+- TODO: Confirm whether the 5M Chainlink rule pattern applies to actual BTC/ETH 10m markets if
+  those markets exist.
+- TODO: Confirm whether active 1h Up/Down target markets use the 5M Chainlink rule, the older
+  Binance open/close candle pattern, or another rule.
+- TODO: Confirm whether Gamma `eventMetadata.priceToBeat` and `eventMetadata.finalPrice` are
+  stable, documented public fields.
+- TODO: Confirm whether another public-read source is required for active reference/start values.
 - TODO: Add positive and negative extraction fixtures before writing runtime extraction code.

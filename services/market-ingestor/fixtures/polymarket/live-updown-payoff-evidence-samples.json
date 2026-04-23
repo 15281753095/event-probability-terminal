@@ -1,0 +1,241 @@
+{
+  "metadata": {
+    "fixtureKind": "live_public_updown_payoff_evidence_sample",
+    "capturedAt": "2026-04-23",
+    "sourceIds": [
+      "polymarket-events-keyset",
+      "polymarket-public-search"
+    ],
+    "requestCount": 12,
+    "sourceUrls": [
+      "https://gamma-api.polymarket.com/events/keyset?closed=false&limit=10&title_search=Bitcoin%20Up%20or%20Down",
+      "https://gamma-api.polymarket.com/events/keyset?closed=false&limit=10&title_search=Ethereum%20Up%20or%20Down",
+      "https://gamma-api.polymarket.com/events/keyset?closed=true&limit=10&title_search=Bitcoin%20Up%20or%20Down",
+      "https://gamma-api.polymarket.com/events/keyset?closed=true&limit=10&title_search=Ethereum%20Up%20or%20Down",
+      "https://gamma-api.polymarket.com/public-search?q=Bitcoin%20Up%20or%20Down%20start%20price",
+      "https://gamma-api.polymarket.com/public-search?q=Ethereum%20Up%20or%20Down%20start%20price",
+      "https://gamma-api.polymarket.com/public-search?q=Bitcoin%20Up%20or%20Down%20opening%20price",
+      "https://gamma-api.polymarket.com/public-search?q=Ethereum%20Up%20or%20Down%20opening%20price",
+      "https://gamma-api.polymarket.com/public-search?q=Bitcoin%20Up%20or%20Down%20settlement",
+      "https://gamma-api.polymarket.com/public-search?q=Ethereum%20Up%20or%20Down%20settlement",
+      "https://gamma-api.polymarket.com/public-search?q=BTC%20Up%20or%20Down%20reference%20price",
+      "https://gamma-api.polymarket.com/public-search?q=ETH%20Up%20or%20Down%20reference%20price"
+    ],
+    "redaction": "Public event and market data only. No auth headers, cookies, wallet data, private keys, signatures, or credentials are present.",
+    "classificationStatus": "payoff_semantics_observed_for_5m_chainlink_samples_target_10m_1h_still_unconfirmed",
+    "extractionReadiness": "research_evidence_only_runtime_extraction_not_implemented",
+    "conclusion": "Gamma event and market descriptions now provide payoff wording and Chainlink resolution-source evidence for observed BTC/ETH 5M Up/Down samples. Closed 5M public-search samples expose eventMetadata.finalPrice and eventMetadata.priceToBeat, but the public schema semantics of those field names are not yet documented as a stable contract. No active BTC/ETH 10m or active BTC/ETH 1h target market was confirmed.",
+    "uncertainty": [
+      "TODO: Confirm whether the 5M Chainlink payoff wording applies to actual BTC/ETH 10m markets if they exist.",
+      "TODO: Confirm whether active BTC/ETH 1h Up/Down markets use Chainlink, Binance candle, or another resolution source.",
+      "TODO: Confirm official/public schema semantics for eventMetadata.priceToBeat and eventMetadata.finalPrice before runtime extraction.",
+      "TODO: Confirm whether Gamma descriptions and resolutionSource are stable enough for automated extraction."
+    ]
+  },
+  "observations": {
+    "btc5mActiveChainlink": {
+      "sourceFile": "events-keyset-open-bitcoin-up-or-down.json",
+      "endpoint": "/events/keyset",
+      "query": "closed=false&limit=10&title_search=Bitcoin Up or Down",
+      "id": "109968",
+      "slug": "btc-updown-5m-1766162100",
+      "title": "Bitcoin Up or Down - December 19, 11:35AM-11:40AM ET",
+      "active": true,
+      "closed": false,
+      "startTime": "2025-12-19T16:35:00Z",
+      "endDate": "2025-12-19T16:40:00Z",
+      "seriesSlug": "btc-up-or-down-5m",
+      "tags": [
+        "up-or-down",
+        "crypto-prices",
+        "recurring",
+        "crypto",
+        "bitcoin",
+        "5M"
+      ],
+      "descriptionEvidence": "This market will resolve to \"Up\" if the Bitcoin price at the end of the time range specified in the title is greater than or equal to the price at the beginning of that range. Otherwise, it will resolve to \"Down\".",
+      "resolutionSource": "https://data.chain.link/streams/btc-usd",
+      "market": {
+        "id": "964335",
+        "question": "Bitcoin Up or Down - December 19, 11:35AM-11:40AM ET",
+        "eventStartTime": "2025-12-19T16:35:00Z",
+        "endDate": "2025-12-19T16:40:00Z",
+        "active": true,
+        "closed": false,
+        "enableOrderBook": false,
+        "outcomes": "[\"Up\", \"Down\"]",
+        "outcomePrices": null
+      },
+      "payoffEvidence": {
+        "kind": "up_down_reference_comparison",
+        "status": "observed_for_5m_chainlink_sample",
+        "primaryOutcomeLabel": "Up",
+        "secondaryOutcomeLabel": "Down",
+        "primaryWinsWhen": "end_price_greater_than_or_equal_to_beginning_price",
+        "secondaryWinsWhen": "otherwise",
+        "referenceLevelKind": "beginning_price",
+        "settlementLevelKind": "end_price",
+        "tieRule": "primary_wins_on_equal",
+        "referenceLevelValue": null,
+        "settlementLevelValue": null
+      }
+    },
+    "eth5mActiveChainlink": {
+      "sourceFile": "events-keyset-open-ethereum-up-or-down.json",
+      "endpoint": "/events/keyset",
+      "query": "closed=false&limit=10&title_search=Ethereum Up or Down",
+      "id": "109965",
+      "slug": "eth-updown-5m-1766161800",
+      "title": "Ethereum Up or Down - December 19, 11:30AM-11:35AM ET",
+      "active": true,
+      "closed": false,
+      "startTime": "2025-12-19T16:30:00Z",
+      "endDate": "2025-12-19T16:35:00Z",
+      "seriesSlug": "eth-up-or-down-5m",
+      "tags": [
+        "up-or-down",
+        "crypto",
+        "ethereum",
+        "5M",
+        "crypto-prices",
+        "recurring"
+      ],
+      "descriptionEvidence": "This market will resolve to \"Up\" if the Ethereum price at the end of the time range specified in the title is greater than or equal to the price at the beginning of that range. Otherwise, it will resolve to \"Down\".",
+      "resolutionSource": "https://data.chain.link/streams/eth-usd",
+      "market": {
+        "id": "964332",
+        "question": "Ethereum Up or Down - December 19, 11:30AM-11:35AM ET",
+        "eventStartTime": "2025-12-19T16:30:00Z",
+        "endDate": "2025-12-19T16:35:00Z",
+        "active": true,
+        "closed": false,
+        "enableOrderBook": false,
+        "outcomes": "[\"Up\", \"Down\"]",
+        "outcomePrices": null
+      },
+      "payoffEvidence": {
+        "kind": "up_down_reference_comparison",
+        "status": "observed_for_5m_chainlink_sample",
+        "primaryOutcomeLabel": "Up",
+        "secondaryOutcomeLabel": "Down",
+        "primaryWinsWhen": "end_price_greater_than_or_equal_to_beginning_price",
+        "secondaryWinsWhen": "otherwise",
+        "referenceLevelKind": "beginning_price",
+        "settlementLevelKind": "end_price",
+        "tieRule": "primary_wins_on_equal",
+        "referenceLevelValue": null,
+        "settlementLevelValue": null
+      }
+    },
+    "btc5mClosedChainlinkMetadata": {
+      "sourceFile": "public-search-bitcoin-updown-start-price.json",
+      "endpoint": "/public-search",
+      "query": "q=Bitcoin Up or Down start price",
+      "id": "334272",
+      "slug": "btc-updown-5m-1775181000",
+      "title": "Bitcoin Up or Down - April 2, 9:50PM-9:55PM ET",
+      "active": true,
+      "closed": true,
+      "seriesSlug": "btc-up-or-down-5m",
+      "tags": [
+        "up-or-down",
+        "crypto-prices",
+        "recurring",
+        "crypto",
+        "bitcoin",
+        "5M"
+      ],
+      "resolutionSource": "https://data.chain.link/streams/btc-usd",
+      "eventMetadata": {
+        "finalPrice": 66557.20994415336,
+        "priceToBeat": 66558.86440848414
+      },
+      "eventMetadataSemantics": "observed_field_names_only_schema_semantics_unconfirmed",
+      "market": {
+        "id": "1822773",
+        "question": "Bitcoin Up or Down - April 2, 9:50PM-9:55PM ET",
+        "eventStartTime": "2026-04-03T01:50:00Z",
+        "endDate": "2026-04-03T01:55:00Z",
+        "active": true,
+        "closed": true,
+        "enableOrderBook": true,
+        "outcomes": "[\"Up\", \"Down\"]",
+        "outcomePrices": "[\"0\", \"1\"]",
+        "umaResolutionStatus": "resolved"
+      }
+    },
+    "eth5mClosedChainlinkMetadata": {
+      "sourceFile": "public-search-ethereum-updown-start-price.json",
+      "endpoint": "/public-search",
+      "query": "q=Ethereum Up or Down start price",
+      "id": "402002",
+      "slug": "eth-updown-5m-1776838200",
+      "title": "Ethereum Up or Down - April 22, 2:10AM-2:15AM ET",
+      "active": true,
+      "closed": true,
+      "seriesSlug": "eth-up-or-down-5m",
+      "tags": [
+        "up-or-down",
+        "crypto-prices",
+        "recurring",
+        "crypto",
+        "ethereum",
+        "5M"
+      ],
+      "resolutionSource": "https://data.chain.link/streams/eth-usd",
+      "eventMetadata": {
+        "finalPrice": 2392.07461,
+        "priceToBeat": 2392.053568424106
+      },
+      "eventMetadataSemantics": "observed_field_names_only_schema_semantics_unconfirmed",
+      "market": {
+        "id": "2041211",
+        "question": "Ethereum Up or Down - April 22, 2:10AM-2:15AM ET",
+        "eventStartTime": "2026-04-22T06:10:00Z",
+        "endDate": "2026-04-22T06:15:00Z",
+        "active": true,
+        "closed": true,
+        "enableOrderBook": true,
+        "outcomes": "[\"Up\", \"Down\"]",
+        "outcomePrices": "[\"1\", \"0\"]",
+        "umaResolutionStatus": "resolved"
+      }
+    },
+    "btcThresholdOutOfScope": {
+      "sourceFile": "public-search-btc-updown-reference-price.json",
+      "endpoint": "/public-search",
+      "query": "q=BTC Up or Down reference price",
+      "id": "16482",
+      "slug": "bitcoin-up-in-q1-2025",
+      "title": "Bitcoin up in Q1 2025?",
+      "active": true,
+      "closed": true,
+      "seriesSlug": null,
+      "tags": [
+        "bitcoin",
+        "crypto-prices",
+        "crypto",
+        "btc"
+      ],
+      "resolutionSourceFamily": "binance_public_market_description_out_of_scope_for_current_adapter",
+      "thresholdEvidence": {
+        "kind": "fixed_threshold",
+        "thresholdValue": 93445.45,
+        "tieRule": "fifty_fifty",
+        "targetFamilyStatus": "out_of_scope_for_current_btc_eth_10m_1h_updown_discovery"
+      },
+      "market": {
+        "id": "517838",
+        "question": "Bitcoin up in Q1 2025?",
+        "eventStartTime": null,
+        "endDate": "2025-03-31T12:00:00Z",
+        "active": true,
+        "closed": true,
+        "enableOrderBook": true,
+        "outcomes": "[\"Up\", \"Down\"]",
+        "outcomePrices": "[\"0\", \"1\"]",
+        "umaResolutionStatus": "resolved"
+      }
+    }
+  }
+}

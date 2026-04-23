@@ -8,6 +8,8 @@ Approved live public fixture capture: 2026-04-21 Asia/Shanghai. Only Gamma `even
 
 Approved target-discovery capture: 2026-04-22 Asia/Shanghai. Only Gamma `public-search` and Gamma `events/keyset` were queried on `gamma-api.polymarket.com`. No CLOB endpoint was captured in that run.
 
+Approved Up/Down payoff evidence capture: 2026-04-23 Asia/Shanghai. Only Gamma `public-search` and Gamma `events/keyset` were queried on `gamma-api.polymarket.com`. No CLOB endpoint was captured in that run.
+
 ## Sources
 
 - API overview: https://docs.polymarket.com/api-reference
@@ -27,6 +29,7 @@ Approved target-discovery capture: 2026-04-22 Asia/Shanghai. Only Gamma `public-
 - Rate limits: https://docs.polymarket.com/api-reference/rate-limits
 - Promoted live public fixture: `services/market-ingestor/fixtures/polymarket/live-public-gamma-samples.json`
 - Promoted target-discovery fixture: `services/market-ingestor/fixtures/polymarket/live-target-discovery-samples.json`
+- Promoted Up/Down payoff evidence fixture: `services/market-ingestor/fixtures/polymarket/live-updown-payoff-evidence-samples.json`
 
 ## Official verification conclusions
 
@@ -97,6 +100,24 @@ Project decisions from the target-discovery review:
   confirmed. See `docs/api/polymarket-updown-payoff-research.md`.
 - No live adapter classification rule was added.
 
+### Approved Up/Down payoff evidence observations
+
+Observed facts from the 2026-04-23 approved payoff evidence capture:
+
+- `GET /events/keyset?closed=false&limit=10&title_search=Bitcoin Up or Down` and the Ethereum equivalent returned active BTC/ETH `5M` Up/Down events.
+- Observed active BTC/ETH `5M` descriptions state that `Up` wins when the asset price at the end of the title time range is greater than or equal to the price at the beginning of that range; otherwise the market resolves to `Down`.
+- Observed active BTC/ETH `5M` events and markets expose `resolutionSource` values pointing to Chainlink BTC/USD and ETH/USD data streams.
+- Observed active BTC/ETH `5M` markets expose `eventStartTime` and `endDate`.
+- Observed closed BTC/ETH `5M` public-search samples expose `eventMetadata.finalPrice` and `eventMetadata.priceToBeat` field names.
+- A fixed-threshold Bitcoin sample with `["Up","Down"]` outcomes was observed through `public-search`, but it is not the recurring `up-or-down` target family and is out of scope for current BTC/ETH 10m/1h discovery.
+
+Project decisions from the payoff evidence review:
+
+- The Up/Down payoff contract can be tightened for observed `5M` Chainlink samples: reference level means beginning price, settlement level means end price, and equality resolves to `Up`.
+- `eventMetadata.priceToBeat` and `eventMetadata.finalPrice` are recorded as observed field names only. Their stable schema semantics are not confirmed by official documentation in this repository.
+- Fixed strike/threshold evidence is treated as a separate market family, not as the default recurring Up/Down target contract.
+- Runtime extraction remains disabled. No non-placeholder pricing is allowed until target 10m/1h evidence and field semantics are fixture-backed.
+
 ### Minimum discovery objects
 
 Verified upstream objects:
@@ -129,6 +150,8 @@ This is a design sequence, not implementation.
 4. Classify internal asset and window.
    - `BTC` / `ETH` must come from confirmed source fields or documented classifier evidence.
    - `10m` / `1h` must come from confirmed source fields or documented classifier evidence.
+   - Up/Down payoff evidence must match the accepted target-window family; 5M evidence is not enough
+     to accept 10m or 1h candidates.
 5. Normalize a candidate `EventMarket` with source provenance.
 6. Optionally read public CLOB snapshots after candidate acceptance:
    - order book by token ID;

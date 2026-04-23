@@ -14,7 +14,9 @@ This repository is in Phase 1 foundation work. It has a minimal local end-to-end
 
 The current app market data is synthetic fixture data unless explicitly configured otherwise. A limited Polymarket Gamma/public-search live fixture capture was completed on 2026-04-21 to tighten contract tests, but it did not confirm BTC/ETH 10m/1h live classification.
 Pricing-engine v1 research docs now define the additional Up/Down payoff and reference-level
-evidence required before any real fair-probability model can be implemented.
+evidence required before any real fair-probability model can be implemented. A 2026-04-23 public
+fixture capture strengthened 5M Up/Down payoff evidence, but it still does not open 10m/1h runtime
+extraction or pricing.
 
 ## Phase 1 Scope
 
@@ -120,9 +122,9 @@ http://127.0.0.1:4100
 The pricing-engine v0 endpoint is a placeholder contract only. It consumes binary outcomes and returns `null` fair probabilities with explicit placeholder metadata.
 
 Pricing-engine v1 currently exists only as a research boundary and validation plan. It is not
-implemented and does not compute real fair probabilities. For Up/Down markets, v1 also requires a
-confirmed payoff specification, reference/start/strike level, settlement value source, comparator,
-and tie rule before implementation.
+implemented and does not compute real fair probabilities. For Up/Down markets, v1 also requires
+confirmed target-window payoff specification, reference/start/strike level, settlement value
+source, comparator, tie rule, and freshness before implementation.
 
 ## Current API
 
