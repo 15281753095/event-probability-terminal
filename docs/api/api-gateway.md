@@ -43,6 +43,21 @@ Current response shape is `MarketDetailResponse` from `packages/shared-types`:
 - `openGaps`: uncertainty items that must remain fail-closed;
 - `meta`: source, source mode, and read-only placeholder message.
 
+## Contract Snapshots
+
+The two most important local read-only API contracts are locked by fixture-backed tests:
+
+- `apps/api-gateway/tests/snapshots/scanner-top.fixture.json`
+- `apps/api-gateway/tests/snapshots/market-detail-btc-1h.fixture.json`
+
+The tests use fixture mode, a fixed clock, and a deterministic unavailable pricing-engine client.
+They lock stable contract fields, including normalized market identity, binary outcomes,
+placeholder fair value shape, scanner metadata, research readiness, token/source/evidence trace,
+open gaps, related fixture markets, and fixture-backed book fields.
+
+They intentionally do not lock live vendor responses, real wall-clock time, or machine-specific
+network error text.
+
 ## Explicit Non-Goals
 
 - No real pricing model.
@@ -55,6 +70,7 @@ Current response shape is `MarketDetailResponse` from `packages/shared-types`:
 ## TODO
 
 - TODO: Keep `MarketDetailResponse` synchronized with shared types and Playwright smoke coverage.
+- TODO: Update snapshot files only when a contract change is intentional and documented.
 - TODO: Add a persistence/cache ADR before backing these endpoints with PostgreSQL or Redis.
 - TODO: Add explicit versioning if external clients begin consuming this API outside local
   development.

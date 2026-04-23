@@ -160,6 +160,14 @@ make test
 make lint
 ```
 
+`make test` includes fixture-backed API contract snapshots for:
+
+- `GET /scanner/top`
+- `GET /markets/:id/detail`
+
+Treat snapshot diffs as API contract diffs. Update them only when the shared/API response contract
+intentionally changes.
+
 Full build:
 
 ```bash

@@ -51,6 +51,10 @@ related fixture markets, token trace, source trace, evidence trail, open evidenc
 explicit read-only/placeholder message. This keeps research workflow semantics out of page-local
 ad-hoc shaping and does not add new vendor endpoints.
 
+The scanner and detail API contracts are protected by fixture-backed snapshot tests. These tests
+lock stable response projections while leaving live vendor payloads, wall-clock time, and
+machine-specific fetch errors out of the snapshot surface.
+
 ### Market Ingestor
 
 `services/market-ingestor` owns external market adapter boundaries. The current Polymarket adapter is fixture-first and fail-closed for unconfirmed classification.

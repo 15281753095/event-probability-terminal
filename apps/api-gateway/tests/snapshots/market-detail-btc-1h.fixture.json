@@ -1,0 +1,237 @@
+{
+  "market": {
+    "id": "polymarket:mkt-btc-1h-demo",
+    "venue": "polymarket",
+    "asset": "BTC",
+    "window": "1h",
+    "question": "Will Bitcoin be up at the end of the hour?",
+    "event": {
+      "id": "evt-btc-hourly-demo",
+      "slug": "bitcoin-up-or-down-hourly-demo",
+      "title": "Bitcoin Up or Down - Hourly Demo",
+      "startAt": "2026-04-21T10:00:00Z",
+      "endAt": "2026-04-21T11:00:00Z"
+    },
+    "market": {
+      "id": "mkt-btc-1h-demo",
+      "slug": "bitcoin-up-or-down-hourly-demo",
+      "conditionId": "0xbtc1hdemocondition",
+      "questionId": "0xbtc1hdemoquestion",
+      "startAt": "2026-04-21T10:00:00Z",
+      "endAt": "2026-04-21T11:00:00Z",
+      "active": true,
+      "closed": false,
+      "enableOrderBook": true
+    },
+    "outcomeType": "binary",
+    "outcomes": {
+      "primary": {
+        "role": "primary",
+        "label": "Yes",
+        "tokenId": "100000000000000000000000000000000000000000000000000000000000000001"
+      },
+      "secondary": {
+        "role": "secondary",
+        "label": "No",
+        "tokenId": "100000000000000000000000000000000000000000000000000000000000000002"
+      }
+    },
+    "metrics": {
+      "liquidity": 12000,
+      "volume": 80000,
+      "bestBid": 0.49,
+      "bestAsk": 0.52,
+      "lastTradePrice": 0.5,
+      "spread": 0.03
+    },
+    "provenance": {
+      "source": "polymarket",
+      "sourceIds": [
+        "polymarket-events-keyset",
+        "polymarket-clob-public-read"
+      ],
+      "sourceMode": "fixture",
+      "classificationSource": "fixture_metadata",
+      "evidence": [
+        "Synthetic fixture metadata for local contract tests only."
+      ]
+    },
+    "uncertainty": [
+      "TODO: replace fixture_metadata classification with confirmed official Polymarket BTC/ETH and 10m/1h taxonomy before live use",
+      "TODO: confirm raw clobTokenIds shape across the target BTC/ETH 10m/1h market family"
+    ]
+  },
+  "relatedMarkets": [
+    {
+      "id": "polymarket:mkt-eth-10m-demo",
+      "question": "Will Ethereum be up in the next 10 minutes?",
+      "asset": "ETH",
+      "window": "10m",
+      "sourceMode": "fixture",
+      "href": "/markets/polymarket%3Amkt-eth-10m-demo"
+    }
+  ],
+  "researchReadiness": {
+    "outcomeContract": "binary",
+    "pricingStatus": "local-placeholder-fallback",
+    "classificationSource": "fixture_metadata",
+    "openEvidenceGapCount": 2,
+    "isPlaceholderPricing": true,
+    "notes": [
+      "Outcome contract is normalized as binary primary/secondary outcomes.",
+      "Pricing is placeholder-only; no real fair probability, confidence, or edge is computed.",
+      "Open evidence gaps must fail closed before any future non-placeholder quote."
+    ]
+  },
+  "tokenTrace": [
+    {
+      "label": "Yes token",
+      "value": "100000000000000000000000000000000000000000000000000000000000000001",
+      "outcomeRole": "primary",
+      "tokenId": "100000000000000000000000000000000000000000000000000000000000000001"
+    },
+    {
+      "label": "No token",
+      "value": "100000000000000000000000000000000000000000000000000000000000000002",
+      "outcomeRole": "secondary",
+      "tokenId": "100000000000000000000000000000000000000000000000000000000000000002"
+    },
+    {
+      "label": "Condition ID",
+      "value": "0xbtc1hdemocondition"
+    },
+    {
+      "label": "Question ID",
+      "value": "0xbtc1hdemoquestion"
+    }
+  ],
+  "sourceTrace": [
+    {
+      "kind": "source_id",
+      "label": "Source ID",
+      "value": "polymarket-events-keyset",
+      "source": "polymarket"
+    },
+    {
+      "kind": "source_id",
+      "label": "Source ID",
+      "value": "polymarket-clob-public-read",
+      "source": "polymarket"
+    }
+  ],
+  "evidenceTrail": [
+    {
+      "kind": "classification",
+      "label": "Classification evidence",
+      "value": "Synthetic fixture metadata for local contract tests only.",
+      "source": "polymarket"
+    }
+  ],
+  "openGaps": [
+    {
+      "kind": "uncertainty",
+      "label": "Open evidence gap",
+      "value": "TODO: replace fixture_metadata classification with confirmed official Polymarket BTC/ETH and 10m/1h taxonomy before live use",
+      "source": "polymarket"
+    },
+    {
+      "kind": "uncertainty",
+      "label": "Open evidence gap",
+      "value": "TODO: confirm raw clobTokenIds shape across the target BTC/ETH 10m/1h market family",
+      "source": "polymarket"
+    }
+  ],
+  "meta": {
+    "source": "polymarket",
+    "mode": "fixture",
+    "message": "Market detail is read-only and contract-backed. Pricing, confidence, and edge remain placeholders."
+  },
+  "candidate": {
+    "marketId": "polymarket:mkt-btc-1h-demo",
+    "fairValue": {
+      "marketId": "polymarket:mkt-btc-1h-demo",
+      "outcomeType": "binary",
+      "fairProbabilityByOutcome": {
+        "primary": {
+          "outcomeRole": "primary",
+          "outcomeLabel": "Yes",
+          "probability": null,
+          "isPlaceholder": true
+        },
+        "secondary": {
+          "outcomeRole": "secondary",
+          "outcomeLabel": "No",
+          "probability": null,
+          "isPlaceholder": true
+        }
+      },
+      "confidence": null,
+      "reasons": [
+        "pricing-engine v0 placeholder unavailable: snapshot pricing-engine unavailable for polymarket:mkt-btc-1h-demo at 2026-04-23T00:00:00.000Z",
+        "Local fallback preserves the pricing-engine v0 placeholder shape; no fair probability is computed."
+      ],
+      "inputFeatures": {
+        "bestBid": 0.49,
+        "bestAsk": 0.52,
+        "spread": 0.03,
+        "liquidity": 12000,
+        "volume": 80000,
+        "observedMidpoint": 0.505,
+        "outcomeLabels": {
+          "primary": "Yes",
+          "secondary": "No"
+        }
+      },
+      "modelVersion": "pricing-engine-v0-placeholder",
+      "isPlaceholder": true,
+      "createdAt": "2026-04-23T00:00:00.000Z"
+    },
+    "tradeCandidate": {
+      "marketId": "polymarket:mkt-btc-1h-demo",
+      "outcomeRole": "primary",
+      "outcomeLabel": "Yes",
+      "edge": null,
+      "isPlaceholder": true,
+      "reason": "No real edge calculation is implemented in this slice.",
+      "fairValue": {
+        "marketId": "polymarket:mkt-btc-1h-demo",
+        "modelVersion": "pricing-engine-v0-placeholder",
+        "isPlaceholder": true,
+        "createdAt": "2026-04-23T00:00:00.000Z"
+      }
+    },
+    "isPlaceholder": true
+  },
+  "book": {
+    "marketId": "polymarket:mkt-btc-1h-demo",
+    "tokenId": "100000000000000000000000000000000000000000000000000000000000000001",
+    "timestamp": "1776765600000",
+    "bids": [
+      {
+        "price": "0.49",
+        "size": "100"
+      }
+    ],
+    "asks": [
+      {
+        "price": "0.52",
+        "size": "120"
+      }
+    ],
+    "provenance": {
+      "source": "polymarket",
+      "sourceIds": [
+        "polymarket-events-keyset",
+        "polymarket-clob-public-read"
+      ],
+      "sourceMode": "fixture",
+      "classificationSource": "fixture_metadata",
+      "evidence": [
+        "Synthetic fixture metadata for local contract tests only."
+      ]
+    },
+    "minOrderSize": "1",
+    "tickSize": "0.01",
+    "lastTradePrice": "0.50"
+  }
+}

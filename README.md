@@ -199,6 +199,10 @@ The smoke suite starts the fixture-backed API gateway and web app locally, then 
 home page and one deterministic Market Detail URL through `/markets/:id/detail`. It does not call live vendors, compute real
 pricing, or test trading behavior.
 
+API contract snapshots are part of `make test`. They lock stable fixture-backed projections for
+`/scanner/top` and `/markets/:id/detail` under `apps/api-gateway/tests/snapshots/`. Snapshot changes
+should be reviewed as public local API contract changes, not incidental formatting churn.
+
 ## Documentation
 
 - Local development: `docs/runbooks/local-dev.md`
@@ -216,6 +220,7 @@ pricing, or test trading behavior.
 - RC-1 read-only UI decision: `docs/adr/0006-rc1-read-only-research-ui.md`
 - RC-2 evidence-first UX decision: `docs/adr/0007-rc2-evidence-first-ux.md`
 - RC-3 market detail contract decision: `docs/adr/0008-rc3-market-detail-contract.md`
+- RC-4 API contract snapshot decision: `docs/adr/0009-rc4-api-contract-snapshots-and-ci-hygiene.md`
 - Source registry: `docs/source_registry.md`
 - Collaboration rules: `AGENTS.md`
 

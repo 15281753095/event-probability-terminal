@@ -8,6 +8,7 @@ import type {
   OrderBookSnapshot,
   ScannerCandidate,
   ScannerMeta,
+  SourceProvenance,
   TradeCandidate
 } from "@ept/shared-types";
 import { buildMarketDetailResponse } from "./market-detail.js";
@@ -24,11 +25,25 @@ type AdapterOrderBook = {
   last_trade_price?: string;
 };
 
-export function buildServer() {
+type PricingEngineLike = {
+  quoteFairValue(market: EventMarket, requestedAt: string): Promise<FairValueSnapshot>;
+};
+
+export type BuildServerOptions = {
+  logger?: boolean;
+  now?: () => string;
+  pricingEngine?: PricingEngineLike;
+  pricingEngineBaseUrl?: string;
+  sourceMode?: SourceProvenance["sourceMode"];
+};
+
+export function buildServer(options: BuildServerOptions = {}) {
   const server = Fastify({
-    logger: true
+    logger: options.logger ?? true
   });
-  const sourceMode = process.env.POLYMARKET_USE_FIXTURES === "false" ? "live_public" : "fixture";
+  const sourceMode =
+    options.sourceMode ??
+    (process.env.POLYMARKET_USE_FIXTURES === "false" ? "live_public" : "fixture");
   const polymarket = createPolymarketPublicReadAdapter({
     sourceMode,
     ...(process.env.POLYMARKET_GAMMA_BASE_URL
@@ -38,9 +53,14 @@ export function buildServer() {
       ? { clobBaseUrl: process.env.POLYMARKET_CLOB_BASE_URL }
       : {})
   });
-  const pricingEngine = new PricingEngineClient(
-    process.env.PRICING_ENGINE_BASE_URL ?? "http://127.0.0.1:4100"
-  );
+  const pricingEngine =
+    options.pricingEngine ??
+    new PricingEngineClient(
+      options.pricingEngineBaseUrl ??
+        process.env.PRICING_ENGINE_BASE_URL ??
+        "http://127.0.0.1:4100"
+    );
+  const now = options.now ?? (() => new Date().toISOString());
 
   server.get("/healthz", async () => {
     return {
@@ -116,8 +136,7 @@ export function buildServer() {
       });
     }
 
-    const now = new Date().toISOString();
-    const priced = await priceMarket(market, now, pricingEngine);
+    const priced = await priceMarket(market, now(), pricingEngine);
     let book: OrderBookSnapshot | undefined;
     try {
       book = toOrderBookSnapshot(market, await polymarket.getOrderBook(market.outcomes.primary.tokenId));
@@ -140,12 +159,12 @@ export function buildServer() {
       assets: ["BTC", "ETH"],
       windows: ["10m", "1h"]
     });
-    const now = new Date().toISOString();
+    const requestedAt = now();
     const markets = stripRaw(result.markets);
     const priced = await Promise.all(
       markets.map(async (market) => ({
         market,
-        ...(await priceMarket(market, now, pricingEngine))
+        ...(await priceMarket(market, requestedAt, pricingEngine))
       }))
     );
     const candidates: ScannerCandidate[] = priced.map(({ market, fairValue }) =>
@@ -185,7 +204,7 @@ function stripRawOne(market: EventMarket & { raw?: unknown }): EventMarket {
 async function priceMarket(
   market: EventMarket,
   now: string,
-  pricingEngine: PricingEngineClient
+  pricingEngine: PricingEngineLike
 ): Promise<{ fairValue: FairValueSnapshot; pricingStatus: ScannerMeta["pricing"] }> {
   try {
     return {
