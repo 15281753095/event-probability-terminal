@@ -63,6 +63,9 @@ The types intentionally avoid encoding unconfirmed upstream Polymarket fields as
 
 The v0 fair-value endpoint consumes normalized binary `EventMarket` input, including `outcomes.primary` and `outcomes.secondary`, and returns `null` probabilities with explicit placeholder metadata. It does not compute fair probability, confidence, edge, or trade recommendations.
 
+Pricing-engine v1 is currently research documentation only. The v1 boundary defines required
+features, freshness rules, and validation standards, but no non-placeholder model code exists.
+
 ## Data Flow
 
 1. Web requests scanner data from `apps/api-gateway`.
@@ -84,6 +87,7 @@ The v0 fair-value endpoint consumes normalized binary `EventMarket` input, inclu
 - No Predict.fun or Binance Wallet implementation in the current slice.
 - No multi-outcome market support in the current domain contract.
 - No real pricing model; pricing-engine v0 is contract plus placeholder output only.
+- Pricing-engine v1 is research-only until data freshness and validation gates are satisfied.
 - All unconfirmed external details must remain marked `TODO`.
 
 ## TODO
@@ -91,4 +95,4 @@ The v0 fair-value endpoint consumes normalized binary `EventMarket` input, inclu
 - TODO: Confirm BTC/ETH 10m/1h live discovery rules before opening live classification.
 - TODO: Add persistence ADR before using PostgreSQL.
 - TODO: Add cache/data freshness ADR before using Redis.
-- TODO: Design real pricing-model inputs, calibration, and validation before replacing placeholder probabilities.
+- TODO: Satisfy pricing-engine v1 data, freshness, and calibration gates before replacing placeholder probabilities.

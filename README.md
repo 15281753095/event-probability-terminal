@@ -116,6 +116,9 @@ http://127.0.0.1:4100
 
 The pricing-engine v0 endpoint is a placeholder contract only. It consumes binary outcomes and returns `null` fair probabilities with explicit placeholder metadata.
 
+Pricing-engine v1 currently exists only as a research boundary and validation plan. It is not
+implemented and does not compute real fair probabilities.
+
 ## Current API
 
 Default API base URL: `http://localhost:4000`
@@ -175,6 +178,8 @@ make lint-python
 - Phase 1 scope: `docs/prd/phase1.md`
 - Polymarket notes: `docs/api/polymarket.md`
 - Pricing-engine v0 contract: `docs/api/pricing-engine.md`
+- Pricing-engine v1 research: `docs/api/pricing-engine-v1-research.md`
+- Pricing research plan: `research/reports/pricing-engine-v1-research-plan.md`
 - Fixture capture plan: `docs/runbooks/polymarket-fixture-capture.md`
 - Source registry: `docs/source_registry.md`
 - Collaboration rules: `AGENTS.md`

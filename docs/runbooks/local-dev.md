@@ -135,6 +135,11 @@ curl -fsS http://localhost:4000/scanner/top
 
 The pricing-engine v0 service does not compute fair probability, confidence, edge, or trade recommendations. It only proves the contract shape for binary outcomes.
 
+Pricing-engine v1 is not implemented. Its current materials are research documents only:
+
+- `docs/api/pricing-engine-v1-research.md`
+- `research/reports/pricing-engine-v1-research-plan.md`
+
 ## Validation
 
 Fast local checks:
@@ -164,6 +169,7 @@ npx --yes pnpm@10.0.0 check
 - TODO: PostgreSQL has no schema and is not used by the current app flow.
 - TODO: Redis is not used by the current app flow.
 - TODO: Scanner fair probability, confidence, and edge are placeholders.
+- TODO: Pricing-engine v1 data freshness and calibration requirements are not implemented.
 - TODO: No paper broker, replay, or real pricing model implementation.
 
 ## Related Runbooks

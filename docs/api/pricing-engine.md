@@ -128,3 +128,10 @@ When pricing-engine responds successfully, `meta.pricing` is:
 - TODO: Define real pricing features only after live discovery, freshness, and historical data contracts are confirmed.
 - TODO: Define calibration and validation criteria before replacing `probability: null`.
 - TODO: Decide whether pricing-engine should remain HTTP in local development or move to a typed RPC boundary later.
+
+## Related Research
+
+- `docs/api/pricing-engine-v1-research.md` defines the v1 research-only contract, feature
+  requirements, freshness rules, and validation gate.
+- `research/reports/pricing-engine-v1-research-plan.md` summarizes the implementation preconditions
+  for any future non-placeholder model.

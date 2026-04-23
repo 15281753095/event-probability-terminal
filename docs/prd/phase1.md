@@ -12,6 +12,7 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - Current mode: read-only market discovery and display.
 - Scanner: minimal endpoint and page with pricing-engine v0 placeholder fair-value and edge fields.
 - Market contract: binary outcome markets only. Outcome labels are preserved from upstream, so `Yes`/`No` and observed `Up`/`Down` labels can be represented. Multi-outcome markets are out of scope.
+- Pricing-engine v1: research boundary only; no real probability model is implemented.
 
 ## Current User Workflow
 
@@ -28,6 +29,7 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - No private/authenticated vendor APIs.
 - No Predict.fun or Binance Wallet implementation.
 - No real pricing model; pricing-engine v0 returns `null` fair probabilities and placeholder metadata.
+- No non-placeholder pricing-engine v1 output until data freshness and validation standards are met.
 - No paper broker.
 - No replay engine.
 - No market detail page.
@@ -40,6 +42,7 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - API gateway returns fixture-backed Polymarket markets.
 - Contract tests prove binary outcome parsing and fail-closed behavior.
 - Placeholder scanner fields are clearly marked and sourced from the pricing-engine v0 placeholder contract where available.
+- Pricing-engine v1 research documents define required features, freshness rules, and calibration gates before any implementation.
 - Documentation explains current limitations.
 
 ## TODO

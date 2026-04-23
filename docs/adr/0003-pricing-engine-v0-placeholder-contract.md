@@ -52,3 +52,8 @@ This contract is sufficient for the current read-only scanner MVP because it:
 - TODO: Define real pricing input features after market-data freshness and historical data contracts are confirmed.
 - TODO: Add model validation criteria before returning non-null probabilities.
 - TODO: Keep paper trading and strategy decisions outside pricing-engine v0.
+
+## Follow-Up
+
+ADR 0004 defines the pricing-engine v1 research boundary. It does not supersede this v0
+placeholder contract until the v1 data freshness and validation gates are satisfied.
