@@ -77,3 +77,21 @@ PYTHONPATH=services/pricing-engine/src .venv/bin/python -m pytest services/prici
 ## Fixture Capture
 
 Do not run live Polymarket fixture capture without explicit approval. Use `docs/runbooks/polymarket-fixture-capture.md` for the approved command list and storage rules.
+
+## Playwright Smoke Tests Fail Before Launching Chromium
+
+Install the Chromium browser used by the smoke suite:
+
+```bash
+make install-smoke-browsers
+```
+
+Then rerun:
+
+```bash
+make smoke
+```
+
+The smoke suite starts the local API gateway on `4000` and the web app on `3000`. If either port is
+already occupied by an unrelated process, stop that process before rerunning. These tests are
+fixture-backed and should not require live vendor network access.

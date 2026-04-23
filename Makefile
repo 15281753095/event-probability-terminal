@@ -3,7 +3,7 @@ PYTHON ?= .venv/bin/python
 API_GATEWAY_PORT ?= 4000
 PRICING_ENGINE_PORT ?= 4100
 
-.PHONY: install infra-up infra-down dev-web dev-api dev-pricing pricing-health health typecheck build test test-js test-python lint lint-js lint-python format-python
+.PHONY: install infra-up infra-down dev-web dev-api dev-pricing pricing-health health typecheck build test test-js test-python smoke install-smoke-browsers lint lint-js lint-python format-python
 
 install:
 	$(PNPM) install
@@ -47,6 +47,12 @@ test-js:
 
 test-python:
 	PYTHONPATH=services/pricing-engine/src $(PYTHON) -m pytest services/pricing-engine/tests
+
+smoke:
+	$(PNPM) test:smoke
+
+install-smoke-browsers:
+	$(PNPM) test:smoke:install
 
 lint: lint-js lint-python
 

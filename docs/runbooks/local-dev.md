@@ -165,6 +165,23 @@ Full build:
 make build
 ```
 
+Browser smoke checks:
+
+```bash
+make install-smoke-browsers
+make smoke
+```
+
+Current smoke coverage is intentionally small:
+
+- `/` must render the Markets Scanner RC-1, read-only filters, placeholder pricing text, and
+  evidence/fail-closed summary.
+- `/markets/polymarket%3Amkt-btc-1h-demo` must render Market Detail v0 with outcomes, provenance,
+  placeholder pricing, and open evidence gaps.
+
+The smoke suite starts the API gateway and web app with fixture-backed data. It does not use live
+vendor data, real pricing, CLOB expansion, paper trading, replay, or any authenticated endpoint.
+
 Root package equivalent:
 
 ```bash

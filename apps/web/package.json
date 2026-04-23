@@ -9,7 +9,8 @@
     "start": "next start --port ${WEB_PORT:-3000}",
     "typecheck": "tsc --noEmit",
     "lint": "echo \"web lint not configured yet\"",
-    "test": "echo \"web tests not added yet\""
+    "test": "echo \"web unit tests not added yet; smoke tests run via test:smoke\"",
+    "test:smoke": "playwright test"
   },
   "dependencies": {
     "@ept/shared-types": "workspace:*",
@@ -20,6 +21,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

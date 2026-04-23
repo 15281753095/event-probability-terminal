@@ -182,6 +182,17 @@ make test
 make lint-python
 ```
 
+Browser smoke checks:
+
+```bash
+make install-smoke-browsers
+make smoke
+```
+
+The smoke suite starts the fixture-backed API gateway and web app locally, then checks the scanner
+home page and one deterministic Market Detail URL. It does not call live vendors, compute real
+pricing, or test trading behavior.
+
 ## Documentation
 
 - Local development: `docs/runbooks/local-dev.md`

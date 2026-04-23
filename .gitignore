@@ -17,6 +17,9 @@ dist/
 build/
 coverage/
 *.tsbuildinfo
+playwright-report/
+test-results/
+blob-report/
 
 # Environment
 .env

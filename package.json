@@ -15,6 +15,8 @@
     "lint:python": ".venv/bin/python -m ruff check services/pricing-engine && .venv/bin/python -m mypy services/pricing-engine/src",
     "test": "pnpm test:js && pnpm test:python",
     "test:js": "pnpm -r test",
-    "test:python": "PYTHONPATH=services/pricing-engine/src .venv/bin/python -m pytest services/pricing-engine/tests"
+    "test:python": "PYTHONPATH=services/pricing-engine/src .venv/bin/python -m pytest services/pricing-engine/tests",
+    "test:smoke": "pnpm --filter @ept/web test:smoke",
+    "test:smoke:install": "pnpm --filter @ept/web exec playwright install chromium"
   }
 }

@@ -35,6 +35,12 @@ jobs:
       - name: Test JavaScript packages
         run: pnpm test:js
 
+      - name: Install Playwright browser
+        run: pnpm --filter @ept/web exec playwright install --with-deps chromium
+
+      - name: Smoke test web pages
+        run: pnpm test:smoke
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
