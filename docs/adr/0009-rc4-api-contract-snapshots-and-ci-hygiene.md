@@ -39,14 +39,17 @@ The snapshots lock a stable contract projection, not every implementation detail
   token trace, related fixture markets, and book fields;
 - avoid locking runtime wall-clock time or machine-specific network failure text.
 
-For CI hygiene, set:
+For CI hygiene, update the GitHub-maintained actions to their current `v6` tags:
 
 ```yaml
-FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+actions/checkout@v6
+actions/setup-node@v6
+actions/setup-python@v6
 ```
 
-at the CI job level. This is the smallest change that addresses the current Node.js 20 action
-runtime annotation without changing the workflow shape.
+The workflow shape remains unchanged. Earlier, forcing JavaScript actions to Node.js 24 kept CI
+green but still emitted a deprecation annotation; using action versions that target the newer
+runtime is a cleaner minimal fix.
 
 ## Consequences
 
@@ -54,10 +57,10 @@ runtime annotation without changing the workflow shape.
 - The snapshot files remain readable enough to review contract changes in PRs.
 - The tests do not call live vendors and do not require pricing-engine to be running.
 - Placeholder outputs remain explicit and are not upgraded to real pricing.
-- The CI workflow remains otherwise unchanged.
+- The CI workflow remains otherwise unchanged aside from GitHub-maintained action major versions.
 
 ## TODO
 
 - TODO: Add a documented snapshot update workflow if the local contract intentionally changes.
-- TODO: Revisit action versions when GitHub publishes a stable major-version upgrade path for the
-  actions used here.
+- TODO: Revisit action versions when GitHub publishes a newer stable major-version upgrade path for
+  the actions used here.
