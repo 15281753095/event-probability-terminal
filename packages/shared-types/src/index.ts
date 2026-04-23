@@ -148,9 +148,30 @@ export interface TradeCandidate {
   fairValue?: FairValueSnapshot;
 }
 
+export interface RejectionSummary {
+  reason: string;
+  count: number;
+  sampleMarketIds: string[];
+}
+
+export interface ScannerMeta {
+  source: "polymarket";
+  mode: SourceProvenance["sourceMode"];
+  pricing: PricingModelVersion | "local-placeholder-fallback";
+  message: string;
+  rejectedCount: number;
+  rejectionSummary: RejectionSummary[];
+  uncertainty: string[];
+}
+
 export interface ScannerCandidate {
   market: EventMarket;
   fairValue: FairValueSnapshot;
   tradeCandidate: TradeCandidate;
   isPlaceholder: true;
+}
+
+export interface ScannerTopResponse {
+  candidates: ScannerCandidate[];
+  meta: ScannerMeta;
 }
