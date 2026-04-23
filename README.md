@@ -7,9 +7,9 @@ Read-only research terminal for BTC/ETH prediction-market event contracts, start
 This repository is in Phase 1 foundation work. It has a minimal local end-to-end read-only slice:
 
 - `services/market-ingestor`: Polymarket public-read adapter boundary, fixture-first by default.
-- `packages/shared-types`: first shared contracts for `EventMarket`, `OrderBookSnapshot`, and placeholder scanner/pricing objects.
-- `apps/api-gateway`: Fastify read-only API for fixture-backed markets, scanner metadata, and pricing placeholders.
-- `apps/web`: Next.js Markets Scanner RC-2 and Market Detail evidence views that read from the API gateway.
+- `packages/shared-types`: shared contracts for `EventMarket`, `OrderBookSnapshot`, `MarketDetailResponse`, and placeholder scanner/pricing objects.
+- `apps/api-gateway`: Fastify read-only API for fixture-backed markets, scanner metadata, contract-backed market detail, and pricing placeholders.
+- `apps/web`: Next.js Markets Scanner RC-2 and Market Detail RC-3 evidence views that read from the API gateway.
 - `services/pricing-engine`: Python placeholder contract for fair-value output shape.
 
 The current app market data is synthetic fixture data unless explicitly configured otherwise. A limited Polymarket Gamma/public-search live fixture capture was completed on 2026-04-21 to tighten contract tests, but it did not confirm BTC/ETH 10m/1h live classification.
@@ -52,7 +52,7 @@ Explicit exclusions:
 
 ```text
 apps/
-  web/                 Next.js Markets Scanner RC-2 and evidence-first Market Detail
+  web/                 Next.js Markets Scanner RC-2 and evidence-first Market Detail RC-3
   api-gateway/         Fastify read-only API
 services/
   market-ingestor/     Polymarket public-read adapter boundary and fixtures
@@ -135,6 +135,7 @@ curl http://localhost:4000/healthz
 curl http://localhost:4000/markets
 curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo
 curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo/book
+curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo/detail
 curl http://localhost:4000/scanner/top
 ```
 
@@ -148,6 +149,8 @@ curl http://127.0.0.1:4100/healthz
 
 `/scanner/top` is read-only and returns explicit pricing-engine v0 placeholder `fairValue` and `tradeCandidate` fields plus scanner metadata such as rejected count, fail-closed summary, and uncertainty. It does not compute a real fair probability or model edge.
 
+`/markets/:id/detail` is read-only and returns a contract-backed `MarketDetailResponse` that organizes normalized market data, fixture-backed book data when available, placeholder pricing, related fixture markets, token trace, source trace, evidence trail, and open evidence gaps. It does not add new vendor access or pricing logic.
+
 ## Current Pages
 
 - `/`: Markets Scanner RC-2
@@ -158,10 +161,10 @@ curl http://127.0.0.1:4100/healthz
   - market list for BTC/ETH fixture markets
   - right summary, evidence status, and fail-closed reason matrix panels
   - loading/error/empty states through server-side API fetch handling
-- `/markets/:id`: Market Detail RC-2
+- `/markets/:id`: Market Detail RC-3
   - binary outcomes, timing, liquidity, spread, and provenance
   - fixture-backed order-book snapshot when available
-  - research readiness, token trace, source trace, related fixture markets
+  - API-backed research readiness, token trace, source trace, related fixture markets
   - explicit placeholder pricing panel and open evidence gaps
 
 No advanced charting workflow, replay workflow, paper trading UI, or trading control exists.
@@ -193,7 +196,7 @@ make smoke
 ```
 
 The smoke suite starts the fixture-backed API gateway and web app locally, then checks the scanner
-home page and one deterministic Market Detail URL. It does not call live vendors, compute real
+home page and one deterministic Market Detail URL through `/markets/:id/detail`. It does not call live vendors, compute real
 pricing, or test trading behavior.
 
 ## Documentation
@@ -202,6 +205,7 @@ pricing, or test trading behavior.
 - Troubleshooting: `docs/runbooks/troubleshooting.md`
 - Architecture: `docs/architecture.md`
 - Phase 1 scope: `docs/prd/phase1.md`
+- API gateway contract: `docs/api/api-gateway.md`
 - Polymarket notes: `docs/api/polymarket.md`
 - Pricing-engine v0 contract: `docs/api/pricing-engine.md`
 - Pricing-engine v1 research: `docs/api/pricing-engine-v1-research.md`
@@ -211,6 +215,7 @@ pricing, or test trading behavior.
 - Fixture capture plan: `docs/runbooks/polymarket-fixture-capture.md`
 - RC-1 read-only UI decision: `docs/adr/0006-rc1-read-only-research-ui.md`
 - RC-2 evidence-first UX decision: `docs/adr/0007-rc2-evidence-first-ux.md`
+- RC-3 market detail contract decision: `docs/adr/0008-rc3-market-detail-contract.md`
 - Source registry: `docs/source_registry.md`
 - Collaboration rules: `AGENTS.md`
 

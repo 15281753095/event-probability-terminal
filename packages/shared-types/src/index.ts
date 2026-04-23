@@ -175,3 +175,59 @@ export interface ScannerTopResponse {
   candidates: ScannerCandidate[];
   meta: ScannerMeta;
 }
+
+export type EvidenceTrailKind =
+  | "source_id"
+  | "classification"
+  | "adapter_note"
+  | "uncertainty"
+  | "placeholder";
+
+export interface EvidenceTrailItem {
+  kind: EvidenceTrailKind;
+  label: string;
+  value: string;
+  source: SourceProvenance["source"];
+}
+
+export interface ResearchReadiness {
+  outcomeContract: "binary";
+  pricingStatus: ScannerMeta["pricing"] | "unknown";
+  classificationSource: SourceProvenance["classificationSource"];
+  openEvidenceGapCount: number;
+  isPlaceholderPricing: true;
+  notes: string[];
+}
+
+export interface TokenTraceItem {
+  label: string;
+  value: string;
+  outcomeRole?: BinaryOutcomeRole;
+  tokenId?: string;
+}
+
+export interface RelatedMarketSummary {
+  id: string;
+  question: string;
+  asset: Asset;
+  window: TimeWindow;
+  sourceMode: SourceProvenance["sourceMode"];
+  href: string;
+}
+
+export interface MarketDetailResponse {
+  market: EventMarket;
+  relatedMarkets: RelatedMarketSummary[];
+  researchReadiness: ResearchReadiness;
+  tokenTrace: TokenTraceItem[];
+  sourceTrace: EvidenceTrailItem[];
+  evidenceTrail: EvidenceTrailItem[];
+  openGaps: EvidenceTrailItem[];
+  meta: {
+    source: "polymarket";
+    mode: SourceProvenance["sourceMode"];
+    message: string;
+  };
+  candidate?: ScannerCandidate;
+  book?: OrderBookSnapshot;
+}

@@ -24,13 +24,13 @@ services/pricing-engine
 
 ### Web
 
-`apps/web` renders the Markets Scanner RC-2 and evidence-first Market Detail view. It calls the local API gateway and does not call market vendors directly.
+`apps/web` renders the Markets Scanner RC-2 and evidence-first Market Detail RC-3 view. It calls the local API gateway and does not call market vendors directly.
 
 The scanner supports fixture-backed filtering, query state, and sorting across the normalized
 candidate set. It also surfaces accepted, visible, rejected, placeholder, and open-gap state. The
 detail page shows the selected market, binary outcomes, timings, fixture-backed book snapshot when
 available, research readiness, token trace, source trace, provenance, open evidence gaps, related
-fixture markets, and placeholder pricing state.
+fixture markets, and placeholder pricing state from a single `MarketDetailResponse` contract.
 
 ### API Gateway
 
@@ -40,9 +40,16 @@ fixture markets, and placeholder pricing state.
 - `GET /markets`
 - `GET /markets/:id`
 - `GET /markets/:id/book`
+- `GET /markets/:id/detail`
 - `GET /scanner/top`
 
 Scanner output currently calls the pricing-engine v0 placeholder contract for fair-value shape and still marks edge fields as placeholders. Scanner metadata includes rejected count, fail-closed summary, and uncertainty so the UI can explain why some upstream markets were not normalized.
+
+Market detail output is organized server-side as `MarketDetailResponse`. It combines an accepted
+normalized market, optional fixture-backed order-book snapshot, placeholder scanner candidate,
+related fixture markets, token trace, source trace, evidence trail, open evidence gaps, and an
+explicit read-only/placeholder message. This keeps research workflow semantics out of page-local
+ad-hoc shaping and does not add new vendor endpoints.
 
 ### Market Ingestor
 
@@ -56,6 +63,10 @@ Live public mode exists as an adapter transport path, but BTC/ETH and 10m/1h cla
 
 - `EventMarket`
 - `OrderBookSnapshot`
+- `MarketDetailResponse`
+- `EvidenceTrailItem`
+- `ResearchReadiness`
+- `RelatedMarketSummary`
 - `FairValueSnapshot` placeholder
 - `TradeCandidate` placeholder
 
@@ -83,9 +94,10 @@ evidence.
 2. API gateway calls the Polymarket public-read adapter.
 3. Adapter reads local fixtures by default.
 4. Adapter normalizes accepted markets into `EventMarket` and returns rejected records separately.
-5. API gateway calls pricing-engine v0 for placeholder fair-value shape when serving scanner output.
+5. API gateway calls pricing-engine v0 for placeholder fair-value shape when serving scanner and detail candidate output.
 6. API gateway summarizes fail-closed rejection reasons for scanner metadata.
-7. API gateway strips raw upstream payloads before returning API responses.
+7. API gateway organizes detail evidence/provenance fields into `MarketDetailResponse`.
+8. API gateway strips raw upstream payloads before returning API responses.
 
 ## Current Infrastructure
 
@@ -102,7 +114,7 @@ evidence.
 - Pricing-engine v1 is research-only until data freshness and validation gates are satisfied.
 - No non-placeholder Up/Down pricing without confirmed payoff specification, reference level, and
   settlement rule.
-- Market Detail RC-2 is read-only inspection only; it has no trade, order, replay, or charting action.
+- Market Detail RC-3 is read-only inspection only; it has no trade, order, replay, or charting action.
 - All unconfirmed external details must remain marked `TODO`.
 
 ## TODO

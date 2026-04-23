@@ -30,10 +30,11 @@ test("scanner query state is shareable through the URL", async ({ page }) => {
 test("market detail opens from deterministic fixture id", async ({ page }) => {
   await page.goto(`/markets/${encodeURIComponent(fixtureMarketId)}`);
 
-  await expect(page.getByText("Market Detail RC-2")).toBeVisible();
+  await expect(page.getByText("Market Detail RC-3")).toBeVisible();
   await expect(page.getByRole("heading", { name: /Will Bitcoin be up at the end of the hour/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Binary Outcomes" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Research Readiness" })).toBeVisible();
+  await expect(page.getByText("/markets/:id/detail")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Token Trace" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Placeholder Pricing" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Provenance" })).toBeVisible();

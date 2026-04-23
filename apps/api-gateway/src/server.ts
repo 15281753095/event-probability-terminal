@@ -4,20 +4,33 @@ import type {
   BinaryOutcome,
   EventMarket,
   FairValueSnapshot,
+  OrderBookLevel,
   OrderBookSnapshot,
   ScannerCandidate,
   ScannerMeta,
   TradeCandidate
 } from "@ept/shared-types";
+import { buildMarketDetailResponse } from "./market-detail.js";
 import { localPricingFallback, PricingEngineClient } from "./pricing-client.js";
 import { summarizeRejections } from "./scanner-meta.js";
+
+type AdapterOrderBook = {
+  asset_id: string;
+  timestamp: string;
+  bids: OrderBookLevel[];
+  asks: OrderBookLevel[];
+  min_order_size?: string;
+  tick_size?: string;
+  last_trade_price?: string;
+};
 
 export function buildServer() {
   const server = Fastify({
     logger: true
   });
+  const sourceMode = process.env.POLYMARKET_USE_FIXTURES === "false" ? "live_public" : "fixture";
   const polymarket = createPolymarketPublicReadAdapter({
-    sourceMode: process.env.POLYMARKET_USE_FIXTURES === "false" ? "live_public" : "fixture",
+    sourceMode,
     ...(process.env.POLYMARKET_GAMMA_BASE_URL
       ? { gammaBaseUrl: process.env.POLYMARKET_GAMMA_BASE_URL }
       : {}),
@@ -46,7 +59,7 @@ export function buildServer() {
       markets: stripRaw(result.markets),
       meta: {
         source: "polymarket",
-        mode: process.env.POLYMARKET_USE_FIXTURES === "false" ? "live_public" : "fixture",
+        mode: sourceMode,
         rejectedCount: result.rejected.length,
         rejectionSummary: summarizeRejections(result.rejected),
         uncertainty: result.uncertainty
@@ -79,22 +92,47 @@ export function buildServer() {
 
     const primaryOutcome = market.outcomes.primary;
     const book = await polymarket.getOrderBook(primaryOutcome.tokenId);
-    const snapshot: OrderBookSnapshot = {
-      marketId: market.id,
-      tokenId: book.asset_id,
-      timestamp: book.timestamp,
-      bids: book.bids,
-      asks: book.asks,
-      provenance: market.provenance,
-      ...(book.min_order_size ? { minOrderSize: book.min_order_size } : {}),
-      ...(book.tick_size ? { tickSize: book.tick_size } : {}),
-      ...(book.last_trade_price ? { lastTradePrice: book.last_trade_price } : {})
-    };
+    const snapshot = toOrderBookSnapshot(stripRawOne(market), book);
 
     return {
       market: stripRawOne(market),
       book: snapshot
     };
+  });
+
+  server.get<{ Params: { id: string } }>("/markets/:id/detail", async (request, reply) => {
+    const result = await polymarket.discoverEventMarkets({
+      assets: ["BTC", "ETH"],
+      windows: ["10m", "1h"]
+    });
+    const markets = stripRaw(result.markets);
+    const market = markets.find((item) => item.id === request.params.id);
+
+    if (!market) {
+      return reply.code(404).send({
+        error: "market_not_found",
+        message: "Market not found in current Polymarket public-read adapter result set.",
+        supportedIds: markets.map((item) => item.id)
+      });
+    }
+
+    const now = new Date().toISOString();
+    const priced = await priceMarket(market, now, pricingEngine);
+    let book: OrderBookSnapshot | undefined;
+    try {
+      book = toOrderBookSnapshot(market, await polymarket.getOrderBook(market.outcomes.primary.tokenId));
+    } catch {
+      book = undefined;
+    }
+
+    return buildMarketDetailResponse({
+      market,
+      sourceMode,
+      candidate: toScannerCandidate(market, priced.fairValue),
+      relatedMarkets: markets.filter((item) => item.id !== market.id),
+      pricingStatus: priced.pricingStatus,
+      ...(book ? { book } : {})
+    });
   });
 
   server.get("/scanner/top", async () => {
@@ -105,38 +143,19 @@ export function buildServer() {
     const now = new Date().toISOString();
     const markets = stripRaw(result.markets);
     const priced = await Promise.all(
-      markets.map(async (market) => {
-        try {
-          return {
-            market,
-            fairValue: await pricingEngine.quoteFairValue(market, now),
-            pricingStatus: "pricing-engine-v0-placeholder" as const
-          };
-        } catch (error) {
-          const message = error instanceof Error ? error.message : "pricing-engine unavailable";
-          return {
-            market,
-            fairValue: localPricingFallback(
-              market,
-              now,
-              `pricing-engine v0 placeholder unavailable: ${message}`
-            ),
-            pricingStatus: "local-placeholder-fallback" as const
-          };
-        }
-      })
+      markets.map(async (market) => ({
+        market,
+        ...(await priceMarket(market, now, pricingEngine))
+      }))
     );
-    const candidates: ScannerCandidate[] = priced.map(({ market, fairValue }) => ({
-      market,
-      fairValue,
-      tradeCandidate: placeholderTradeCandidate(market.id, market.outcomes.primary, fairValue),
-      isPlaceholder: true
-    }));
+    const candidates: ScannerCandidate[] = priced.map(({ market, fairValue }) =>
+      toScannerCandidate(market, fairValue)
+    );
     const usedFallback = priced.some((item) => item.pricingStatus === "local-placeholder-fallback");
 
     const meta: ScannerMeta = {
       source: "polymarket",
-      mode: process.env.POLYMARKET_USE_FIXTURES === "false" ? "live_public" : "fixture",
+      mode: sourceMode,
       pricing: usedFallback ? "local-placeholder-fallback" : "pricing-engine-v0-placeholder",
       message:
         "Scanner output is read-only. Fair value, confidence, and edge fields are placeholders.",
@@ -161,6 +180,52 @@ function stripRaw(markets: Array<EventMarket & { raw?: unknown }>): EventMarket[
 function stripRawOne(market: EventMarket & { raw?: unknown }): EventMarket {
   const { raw: _raw, ...clean } = market;
   return clean;
+}
+
+async function priceMarket(
+  market: EventMarket,
+  now: string,
+  pricingEngine: PricingEngineClient
+): Promise<{ fairValue: FairValueSnapshot; pricingStatus: ScannerMeta["pricing"] }> {
+  try {
+    return {
+      fairValue: await pricingEngine.quoteFairValue(market, now),
+      pricingStatus: "pricing-engine-v0-placeholder"
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "pricing-engine unavailable";
+    return {
+      fairValue: localPricingFallback(
+        market,
+        now,
+        `pricing-engine v0 placeholder unavailable: ${message}`
+      ),
+      pricingStatus: "local-placeholder-fallback"
+    };
+  }
+}
+
+function toScannerCandidate(market: EventMarket, fairValue: FairValueSnapshot): ScannerCandidate {
+  return {
+    market,
+    fairValue,
+    tradeCandidate: placeholderTradeCandidate(market.id, market.outcomes.primary, fairValue),
+    isPlaceholder: true
+  };
+}
+
+function toOrderBookSnapshot(market: EventMarket, book: AdapterOrderBook): OrderBookSnapshot {
+  return {
+    marketId: market.id,
+    tokenId: book.asset_id,
+    timestamp: book.timestamp,
+    bids: book.bids,
+    asks: book.asks,
+    provenance: market.provenance,
+    ...(book.min_order_size ? { minOrderSize: book.min_order_size } : {}),
+    ...(book.tick_size ? { tickSize: book.tick_size } : {}),
+    ...(book.last_trade_price ? { lastTradePrice: book.last_trade_price } : {})
+  };
 }
 
 function placeholderTradeCandidate(

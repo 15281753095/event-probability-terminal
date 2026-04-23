@@ -82,6 +82,7 @@ Current read-only endpoints:
 curl http://localhost:4000/markets
 curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo
 curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo/book
+curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo/detail
 curl http://localhost:4000/scanner/top
 ```
 
@@ -102,7 +103,7 @@ http://localhost:3000
 Current pages:
 
 - `/`: Markets Scanner RC-2 with read-only filters, query state, sorting, summary cards, and evidence status.
-- `/markets/:id`: Market Detail RC-2 for a normalized fixture-backed market.
+- `/markets/:id`: Market Detail RC-3 for a normalized fixture-backed market, backed by `GET /markets/:id/detail`.
 
 Example detail URL:
 
@@ -176,7 +177,7 @@ Current smoke coverage is intentionally small:
 
 - `/` must render the Markets Scanner RC-2, read-only filters, query URL state, placeholder pricing
   text, and evidence/fail-closed matrix.
-- `/markets/polymarket%3Amkt-btc-1h-demo` must render Market Detail RC-2 with outcomes, research
+- `/markets/polymarket%3Amkt-btc-1h-demo` must render Market Detail RC-3 with outcomes, research
   readiness, token trace, source trace, related fixture markets, provenance, placeholder pricing,
   and open evidence gaps.
 

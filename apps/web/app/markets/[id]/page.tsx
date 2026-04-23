@@ -1,9 +1,10 @@
 import Link from "next/link";
 import type {
+  EvidenceTrailItem,
   EventMarket,
+  MarketDetailResponse,
   OrderBookSnapshot,
-  ScannerCandidate,
-  ScannerTopResponse
+  TokenTraceItem
 } from "@ept/shared-types";
 
 export const dynamic = "force-dynamic";
@@ -12,20 +13,8 @@ type PageParams = Promise<{
   id: string;
 }>;
 
-type MarketPayload = {
-  market: EventMarket;
-};
-
-type BookPayload = {
-  market: EventMarket;
-  book: OrderBookSnapshot;
-};
-
 type LoadState = {
-  market?: EventMarket;
-  candidate?: ScannerCandidate;
-  relatedCandidates: ScannerCandidate[];
-  book?: OrderBookSnapshot;
+  detail?: MarketDetailResponse;
   error?: string;
 };
 
@@ -36,7 +25,7 @@ export default async function MarketDetail({ params }: { params: PageParams }) {
   const marketId = safeDecode(id);
   const state = await loadMarketDetail(marketId);
 
-  if (state.error || !state.market) {
+  if (state.error || !state.detail) {
     return (
       <main className="min-h-screen bg-slate-100 px-4 py-5 text-slate-950">
         <section className="mx-auto max-w-5xl border border-border bg-white p-6">
@@ -50,7 +39,8 @@ export default async function MarketDetail({ params }: { params: PageParams }) {
     );
   }
 
-  const market = state.market;
+  const detail = state.detail;
+  const market = detail.market;
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-5 text-slate-950">
@@ -60,7 +50,7 @@ export default async function MarketDetail({ params }: { params: PageParams }) {
             <Link className="text-sm text-teal-700 underline" href="/">
               Back to scanner
             </Link>
-            <p className="mt-4 text-sm font-medium text-teal-700">Market Detail RC-2</p>
+            <p className="mt-4 text-sm font-medium text-teal-700">Market Detail RC-3</p>
             <h1 className="mt-1 text-2xl font-semibold">{market.question}</h1>
             <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600">
               <Badge>{market.asset}</Badge>
@@ -100,26 +90,34 @@ export default async function MarketDetail({ params }: { params: PageParams }) {
             <section className="grid gap-4 md:grid-cols-2">
               <Panel title="Research Readiness">
                 <dl className="grid gap-3 text-sm">
-                  <OutcomeRow label="Outcome contract" value="binary outcomes" />
-                  <OutcomeRow label="Pricing state" value="placeholder only" />
-                  <OutcomeRow label="Classification" value={market.provenance.classificationSource} />
-                  <OutcomeRow label="Open evidence gaps" value={`${market.uncertainty.length}`} />
+                  <OutcomeRow label="API contract" value="/markets/:id/detail" />
+                  <OutcomeRow label="Outcome contract" value={detail.researchReadiness.outcomeContract} />
+                  <OutcomeRow label="Pricing state" value={detail.researchReadiness.pricingStatus} />
+                  <OutcomeRow label="Classification" value={detail.researchReadiness.classificationSource} />
+                  <OutcomeRow
+                    label="Open evidence gaps"
+                    value={`${detail.researchReadiness.openEvidenceGapCount}`}
+                  />
                 </dl>
+                <ul className="mt-3 grid gap-1 border-t border-border pt-3 text-xs text-slate-600">
+                  {detail.researchReadiness.notes.map((note) => (
+                    <li key={note}>{note}</li>
+                  ))}
+                </ul>
               </Panel>
 
               <Panel title="Token Trace">
                 <dl className="grid gap-3 text-sm">
-                  <OutcomeRow label={`${market.outcomes.primary.label} token`} value={shortId(market.outcomes.primary.tokenId)} />
-                  <OutcomeRow label={`${market.outcomes.secondary.label} token`} value={shortId(market.outcomes.secondary.tokenId)} />
-                  <OutcomeRow label="Condition ID" value={shortId(market.market.conditionId)} />
-                  <OutcomeRow label="Question ID" value={market.market.questionId ? shortId(market.market.questionId) : "n/a"} />
+                  {detail.tokenTrace.map((item) => (
+                    <OutcomeRow key={`${item.label}-${item.value}`} label={item.label} value={traceValue(item)} />
+                  ))}
                 </dl>
               </Panel>
             </section>
 
             <Panel title="Order Book Snapshot">
-              {state.book ? (
-                <OrderBookTable book={state.book} />
+              {detail.book ? (
+                <OrderBookTable book={detail.book} />
               ) : (
                 <p className="text-sm text-slate-600">
                   No book snapshot available from the current fixture-backed adapter.
@@ -131,27 +129,27 @@ export default async function MarketDetail({ params }: { params: PageParams }) {
 
         <aside className="grid content-start gap-4">
           <Panel title="Placeholder Pricing">
-            {state.candidate ? (
+            {detail.candidate ? (
               <div className="grid gap-3 text-sm">
                 <div>
                   <div className="font-semibold text-amber-700">placeholder only</div>
-                  <div className="text-slate-600">{state.candidate.fairValue.modelVersion}</div>
+                  <div className="text-slate-600">{detail.candidate.fairValue.modelVersion}</div>
                 </div>
                 <OutcomeRow
                   label="Primary fair probability"
                   value={formatNullableProb(
-                    state.candidate.fairValue.fairProbabilityByOutcome.primary.probability
+                    detail.candidate.fairValue.fairProbabilityByOutcome.primary.probability
                   )}
                 />
                 <OutcomeRow
                   label="Secondary fair probability"
                   value={formatNullableProb(
-                    state.candidate.fairValue.fairProbabilityByOutcome.secondary.probability
+                    detail.candidate.fairValue.fairProbabilityByOutcome.secondary.probability
                   )}
                 />
-                <OutcomeRow label="Confidence" value={formatNullableProb(state.candidate.fairValue.confidence)} />
+                <OutcomeRow label="Confidence" value={formatNullableProb(detail.candidate.fairValue.confidence)} />
                 <ul className="grid gap-1 text-xs text-slate-600">
-                  {state.candidate.fairValue.reasons.map((reason) => (
+                  {detail.candidate.fairValue.reasons.map((reason) => (
                     <li key={reason}>{reason}</li>
                   ))}
                 </ul>
@@ -172,16 +170,16 @@ export default async function MarketDetail({ params }: { params: PageParams }) {
             <div className="mt-4 border-t border-border pt-3">
               <h3 className="text-xs font-semibold text-slate-500">Source Trace</h3>
               <ul className="mt-2 grid gap-1 text-xs text-slate-600">
-                {market.provenance.sourceIds.map((item) => (
-                  <li key={item}>{item}</li>
+                {detail.sourceTrace.map((item) => (
+                  <EvidenceListItem item={item} key={`${item.kind}-${item.value}`} />
                 ))}
               </ul>
             </div>
             <div className="mt-4 border-t border-border pt-3">
               <h3 className="text-xs font-semibold text-slate-500">Evidence Trail</h3>
               <ul className="mt-2 grid gap-1 text-xs text-slate-600">
-                {market.provenance.evidence.map((item) => (
-                  <li key={item}>{item}</li>
+                {detail.evidenceTrail.map((item) => (
+                  <EvidenceListItem item={item} key={`${item.kind}-${item.value}`} />
                 ))}
               </ul>
             </div>
@@ -189,27 +187,27 @@ export default async function MarketDetail({ params }: { params: PageParams }) {
 
           <Panel title="Open Gaps">
             <ul className="grid gap-2 text-xs text-slate-600">
-              {market.uncertainty.map((item) => (
-                <li key={item}>{item}</li>
+              {detail.openGaps.map((item) => (
+                <EvidenceListItem item={item} key={`${item.kind}-${item.value}`} />
               ))}
             </ul>
           </Panel>
 
           <Panel title="Related Fixture Markets">
-            {state.relatedCandidates.length ? (
+            {detail.relatedMarkets.length ? (
               <ul className="grid gap-2 text-sm">
-                {state.relatedCandidates.map((item) => (
-                  <li className="border border-border bg-slate-50 p-2" key={item.market.id}>
+                {detail.relatedMarkets.map((item) => (
+                  <li className="border border-border bg-slate-50 p-2" key={item.id}>
                     <Link
                       className="font-medium text-slate-900 underline decoration-slate-300 underline-offset-4 hover:text-teal-700"
-                      href={`/markets/${encodeURIComponent(item.market.id)}`}
+                      href={item.href}
                     >
-                      {item.market.question}
+                      {item.question}
                     </Link>
                     <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-500">
-                      <Badge>{item.market.asset}</Badge>
-                      <Badge>{item.market.window}</Badge>
-                      <Badge>{item.market.provenance.sourceMode}</Badge>
+                      <Badge>{item.asset}</Badge>
+                      <Badge>{item.window}</Badge>
+                      <Badge>{item.sourceMode}</Badge>
                     </div>
                   </li>
                 ))}
@@ -226,55 +224,25 @@ export default async function MarketDetail({ params }: { params: PageParams }) {
 
 async function loadMarketDetail(marketId: string): Promise<LoadState> {
   try {
-    const [marketResponse, scannerResponse] = await Promise.all([
-      fetch(`${apiBaseUrl}/markets/${encodeURIComponent(marketId)}`, { cache: "no-store" }),
-      fetch(`${apiBaseUrl}/scanner/top`, { cache: "no-store" })
-    ]);
+    const response = await fetch(`${apiBaseUrl}/markets/${encodeURIComponent(marketId)}/detail`, {
+      cache: "no-store"
+    });
 
-    if (!marketResponse.ok) {
+    if (!response.ok) {
       return {
-        relatedCandidates: [],
-        error: `API returned HTTP ${marketResponse.status}.`
+        error: `API returned HTTP ${response.status}.`
       };
     }
 
-    const marketPayload = (await marketResponse.json()) as MarketPayload;
-    const scannerPayload = scannerResponse.ok
-      ? ((await scannerResponse.json()) as ScannerTopResponse)
-      : undefined;
-    const scannerCandidates = scannerPayload?.candidates ?? [];
-    const candidate = scannerCandidates.find((item) => item.market.id === marketPayload.market.id);
-    const relatedCandidates = scannerCandidates
-      .filter((item) => item.market.id !== marketPayload.market.id)
-      .slice(0, 4);
-    const book = await loadBook(marketPayload.market.id);
+    const detail = (await response.json()) as MarketDetailResponse;
 
     return {
-      market: marketPayload.market,
-      relatedCandidates,
-      ...(candidate ? { candidate } : {}),
-      ...(book ? { book } : {})
+      detail
     };
   } catch (error) {
     return {
-      relatedCandidates: [],
       error: error instanceof Error ? error.message : "API request failed."
     };
-  }
-}
-
-async function loadBook(marketId: string) {
-  try {
-    const response = await fetch(`${apiBaseUrl}/markets/${encodeURIComponent(marketId)}/book`, {
-      cache: "no-store"
-    });
-    if (!response.ok) {
-      return undefined;
-    }
-    const payload = (await response.json()) as BookPayload;
-    return payload.book;
-  } catch {
-    return undefined;
   }
 }
 
@@ -302,6 +270,14 @@ function OutcomeRow({ label, value }: { label: string; value: string }) {
       <dt className="text-xs text-slate-500">{label}</dt>
       <dd className="break-words text-slate-800">{value}</dd>
     </div>
+  );
+}
+
+function EvidenceListItem({ item }: { item: EvidenceTrailItem }) {
+  return (
+    <li>
+      <span className="font-medium text-slate-700">{item.label}:</span> {item.value}
+    </li>
   );
 }
 
@@ -369,6 +345,10 @@ function formatNumber(value?: number) {
 
 function shortId(value: string) {
   return value.length <= 18 ? value : `${value.slice(0, 8)}...${value.slice(-6)}`;
+}
+
+function traceValue(item: TokenTraceItem) {
+  return item.tokenId ? shortId(item.tokenId) : shortId(item.value);
 }
 
 function safeDecode(value: string) {
