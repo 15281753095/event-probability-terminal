@@ -6,6 +6,7 @@ import type {
   ScannerTopResponse,
   TimeWindow
 } from "@ept/shared-types";
+import { apiErrorMessage } from "./api-client";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,7 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
           <section className="mt-5 border-t border-border pt-4 text-sm text-slate-600">
             <div>Venue: Polymarket</div>
             <div>Mode: {state.meta?.mode ?? "unknown"}</div>
+            <div>Contract: {state.meta?.contractVersion ?? "unknown"}</div>
             <div>Scope: read-only</div>
           </section>
         </aside>
@@ -187,7 +189,7 @@ async function loadScanner(): Promise<PageState> {
     if (!response.ok) {
       return {
         candidates: [],
-        error: `API returned HTTP ${response.status}.`
+        error: await apiErrorMessage(response)
       };
     }
     const payload = (await response.json()) as ScannerTopResponse;

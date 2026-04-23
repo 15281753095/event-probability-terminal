@@ -151,6 +151,11 @@ curl http://127.0.0.1:4100/healthz
 
 `/markets/:id/detail` is read-only and returns a contract-backed `MarketDetailResponse` that organizes normalized market data, fixture-backed book data when available, placeholder pricing, related fixture markets, token trace, source trace, evidence trail, and open evidence gaps. It does not add new vendor access or pricing logic.
 
+The current scanner/detail API contract version is `ept-api-v1`. Successful scanner/detail
+responses expose a stable `meta` block with contract version, response kind, generated timestamp,
+read-only/fixture/placeholder flags, and status. Typed error responses use the same contract
+version and currently cover `market_not_found`.
+
 ## Current Pages
 
 - `/`: Markets Scanner RC-2
@@ -221,6 +226,7 @@ should be reviewed as public local API contract changes, not incidental formatti
 - RC-2 evidence-first UX decision: `docs/adr/0007-rc2-evidence-first-ux.md`
 - RC-3 market detail contract decision: `docs/adr/0008-rc3-market-detail-contract.md`
 - RC-4 API contract snapshot decision: `docs/adr/0009-rc4-api-contract-snapshots-and-ci-hygiene.md`
+- RC-5 response versioning decision: `docs/adr/0010-rc5-response-versioning-and-error-taxonomy.md`
 - Source registry: `docs/source_registry.md`
 - Collaboration rules: `AGENTS.md`
 

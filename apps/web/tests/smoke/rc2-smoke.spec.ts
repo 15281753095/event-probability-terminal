@@ -8,6 +8,7 @@ test("scanner home renders fixture-backed research state", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "BTC / ETH Event Markets" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Research Filters" })).toBeVisible();
   await expect(page.getByText("Markets Scanner RC-2")).toBeVisible();
+  await expect(page.getByText("Contract: ept-api-v1")).toBeVisible();
   await expect(page.getByPlaceholder("Question, outcome, id")).toBeVisible();
   await expect(page.getByText("Accepted")).toBeVisible();
   await expect(page.getByRole("link", { name: "BTC" })).toBeVisible();
@@ -35,6 +36,7 @@ test("market detail opens from deterministic fixture id", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Binary Outcomes" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Research Readiness" })).toBeVisible();
   await expect(page.getByText("/markets/:id/detail")).toBeVisible();
+  await expect(page.getByText("ept-api-v1")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Token Trace" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Placeholder Pricing" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Provenance" })).toBeVisible();

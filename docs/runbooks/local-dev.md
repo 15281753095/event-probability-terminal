@@ -168,6 +168,17 @@ make lint
 Treat snapshot diffs as API contract diffs. Update them only when the shared/API response contract
 intentionally changes.
 
+Current scanner/detail contract version:
+
+```text
+ept-api-v1
+```
+
+When testing consumers manually, check that successful scanner/detail responses include
+`meta.contractVersion`, `meta.responseKind`, `meta.status`, and explicit read-only/fixture/
+placeholder flags. Typed not-found responses include `contractVersion`, `status`, `error`,
+`message`, and `generatedAt`.
+
 Full build:
 
 ```bash

@@ -93,11 +93,11 @@ function detailContractSnapshot(payload: MarketDetailResponse) {
     ...(payload.candidate
       ? {
           candidate: {
-          marketId: payload.candidate.market.id,
-          fairValue: payload.candidate.fairValue,
-          tradeCandidate: tradeCandidateContract(payload.candidate),
-          isPlaceholder: payload.candidate.isPlaceholder
-        }
+            marketId: payload.candidate.market.id,
+            fairValue: payload.candidate.fairValue,
+            tradeCandidate: tradeCandidateContract(payload.candidate),
+            isPlaceholder: payload.candidate.isPlaceholder
+          }
         }
       : {}),
     ...(payload.book ? { book: payload.book } : {})
@@ -115,11 +115,11 @@ function tradeCandidateContract(candidate: ScannerCandidate) {
     ...(candidate.tradeCandidate.fairValue
       ? {
           fairValue: {
-          marketId: candidate.tradeCandidate.fairValue.marketId,
-          modelVersion: candidate.tradeCandidate.fairValue.modelVersion,
-          isPlaceholder: candidate.tradeCandidate.fairValue.isPlaceholder,
-          createdAt: candidate.tradeCandidate.fairValue.createdAt
-        }
+            marketId: candidate.tradeCandidate.fairValue.marketId,
+            modelVersion: candidate.tradeCandidate.fairValue.modelVersion,
+            isPlaceholder: candidate.tradeCandidate.fairValue.isPlaceholder,
+            createdAt: candidate.tradeCandidate.fairValue.createdAt
+          }
         }
       : {})
   };

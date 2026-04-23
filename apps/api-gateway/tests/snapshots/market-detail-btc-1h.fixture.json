@@ -142,8 +142,15 @@
     }
   ],
   "meta": {
+    "contractVersion": "ept-api-v1",
+    "responseKind": "market_detail",
+    "generatedAt": "2026-04-23T00:00:00.000Z",
+    "status": "ok",
     "source": "polymarket",
     "mode": "fixture",
+    "isFixtureBacked": true,
+    "isReadOnly": true,
+    "isPlaceholderPricing": true,
     "message": "Market detail is read-only and contract-backed. Pricing, confidence, and edge remain placeholders."
   },
   "candidate": {

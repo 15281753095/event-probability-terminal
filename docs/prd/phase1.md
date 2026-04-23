@@ -53,6 +53,8 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - Scanner supports read-only filtering, query state, sorting, and fail-closed metadata display.
 - Market Detail RC-3 exposes normalized binary outcomes, provenance, token/source trace, related fixture markets, placeholder pricing, and open evidence gaps through a shared API/domain contract without trade controls.
 - Fixture-backed API snapshot tests lock stable `/scanner/top` and `/markets/:id/detail` contract projections.
+- Scanner/detail responses expose `ept-api-v1` contract metadata and typed `market_not_found`
+  errors for local consumers.
 - Placeholder scanner fields are clearly marked and sourced from the pricing-engine v0 placeholder contract where available.
 - Pricing-engine v1 research documents define required features, freshness rules, and calibration gates before any implementation.
 - Up/Down payoff research documents define fail-closed evidence requirements before extraction or

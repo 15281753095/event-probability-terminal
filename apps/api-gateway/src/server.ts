@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import { createPolymarketPublicReadAdapter } from "@ept/market-ingestor";
 import type {
+  ApiErrorResponse,
   BinaryOutcome,
   EventMarket,
   FairValueSnapshot,
@@ -13,6 +14,7 @@ import type {
 } from "@ept/shared-types";
 import { buildMarketDetailResponse } from "./market-detail.js";
 import { localPricingFallback, PricingEngineClient } from "./pricing-client.js";
+import { apiError, okMeta } from "./response-contract.js";
 import { summarizeRejections } from "./scanner-meta.js";
 
 type AdapterOrderBook = {
@@ -90,10 +92,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   server.get<{ Params: { id: string } }>("/markets/:id", async (request, reply) => {
     const market = await polymarket.getMarketById(request.params.id);
     if (!market) {
-      return reply.code(404).send({
-        error: "market_not_found",
-        message: "Market not found in current Polymarket public-read adapter result set."
-      });
+      return reply.code(404).send(marketNotFound(now()));
     }
 
     return {
@@ -104,10 +103,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   server.get<{ Params: { id: string } }>("/markets/:id/book", async (request, reply) => {
     const market = await polymarket.getMarketById(request.params.id);
     if (!market) {
-      return reply.code(404).send({
-        error: "market_not_found",
-        message: "Market not found in current Polymarket public-read adapter result set."
-      });
+      return reply.code(404).send(marketNotFound(now()));
     }
 
     const primaryOutcome = market.outcomes.primary;
@@ -126,17 +122,16 @@ export function buildServer(options: BuildServerOptions = {}) {
       windows: ["10m", "1h"]
     });
     const markets = stripRaw(result.markets);
+    const generatedAt = now();
     const market = markets.find((item) => item.id === request.params.id);
 
     if (!market) {
-      return reply.code(404).send({
-        error: "market_not_found",
-        message: "Market not found in current Polymarket public-read adapter result set.",
-        supportedIds: markets.map((item) => item.id)
-      });
+      return reply.code(404).send(
+        marketNotFound(generatedAt, markets.map((item) => item.id))
+      );
     }
 
-    const priced = await priceMarket(market, now(), pricingEngine);
+    const priced = await priceMarket(market, generatedAt, pricingEngine);
     let book: OrderBookSnapshot | undefined;
     try {
       book = toOrderBookSnapshot(market, await polymarket.getOrderBook(market.outcomes.primary.tokenId));
@@ -147,6 +142,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     return buildMarketDetailResponse({
       market,
       sourceMode,
+      generatedAt,
       candidate: toScannerCandidate(market, priced.fairValue),
       relatedMarkets: markets.filter((item) => item.id !== market.id),
       pricingStatus: priced.pricingStatus,
@@ -173,11 +169,14 @@ export function buildServer(options: BuildServerOptions = {}) {
     const usedFallback = priced.some((item) => item.pricingStatus === "local-placeholder-fallback");
 
     const meta: ScannerMeta = {
-      source: "polymarket",
-      mode: sourceMode,
+      ...okMeta({
+        responseKind: "scanner_top",
+        generatedAt: requestedAt,
+        sourceMode,
+        message:
+          "Scanner output is read-only. Fair value, confidence, and edge fields are placeholders."
+      }),
       pricing: usedFallback ? "local-placeholder-fallback" : "pricing-engine-v0-placeholder",
-      message:
-        "Scanner output is read-only. Fair value, confidence, and edge fields are placeholders.",
       rejectedCount: result.rejected.length,
       rejectionSummary: summarizeRejections(result.rejected),
       uncertainty: result.uncertainty
@@ -190,6 +189,16 @@ export function buildServer(options: BuildServerOptions = {}) {
   });
 
   return server;
+}
+
+function marketNotFound(generatedAt: string, supportedIds?: string[]): ApiErrorResponse {
+  return apiError({
+    status: "not_found",
+    error: "market_not_found",
+    message: "Market not found in current Polymarket public-read adapter result set.",
+    generatedAt,
+    ...(supportedIds ? { supportedIds } : {})
+  });
 }
 
 function stripRaw(markets: Array<EventMarket & { raw?: unknown }>): EventMarket[] {

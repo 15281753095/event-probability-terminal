@@ -65,6 +65,9 @@ Live public mode exists as an adapter transport path, but BTC/ETH and 10m/1h cla
 
 `packages/shared-types` owns the current cross-package TypeScript contracts:
 
+- `API_CONTRACT_VERSION`
+- `ApiResponseMeta`
+- `ApiErrorResponse`
 - `EventMarket`
 - `OrderBookSnapshot`
 - `MarketDetailResponse`
@@ -75,6 +78,10 @@ Live public mode exists as an adapter transport path, but BTC/ETH and 10m/1h cla
 - `TradeCandidate` placeholder
 
 The types intentionally avoid encoding unconfirmed upstream Polymarket fields as stable domain contracts.
+
+The current local API contract version is `ept-api-v1`. Scanner/detail success responses carry a
+stable `meta` block with response kind, generation time, status, read-only/fixture/placeholder
+flags, and source mode. Typed API errors use `ApiErrorResponse` and the same contract version.
 
 `EventMarket` currently models only binary markets. It preserves upstream outcome labels and token IDs as `outcomes.primary` and `outcomes.secondary`, so both `Yes`/`No` and observed `Up`/`Down` labels can be represented without creating a general multi-outcome model. The contract does not infer pricing, trading direction, or strategy side from those labels.
 

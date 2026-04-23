@@ -22,6 +22,38 @@ export interface HealthPayload {
   service: string;
 }
 
+export const API_CONTRACT_VERSION = "ept-api-v1" as const;
+
+export type ApiContractVersion = typeof API_CONTRACT_VERSION;
+
+export type ApiResponseKind = "scanner_top" | "market_detail";
+
+export type ApiResponseStatus = "ok" | "not_found" | "unsupported" | "fail_closed";
+
+export type ApiErrorCode = "market_not_found" | "unsupported_market" | "out_of_scope";
+
+export interface ApiResponseMeta {
+  contractVersion: ApiContractVersion;
+  responseKind: ApiResponseKind;
+  generatedAt: string;
+  status: "ok";
+  source: "polymarket";
+  mode: SourceProvenance["sourceMode"];
+  isFixtureBacked: boolean;
+  isReadOnly: true;
+  isPlaceholderPricing: true;
+  message: string;
+}
+
+export interface ApiErrorResponse {
+  contractVersion: ApiContractVersion;
+  status: Exclude<ApiResponseStatus, "ok">;
+  error: ApiErrorCode;
+  message: string;
+  generatedAt: string;
+  supportedIds?: string[];
+}
+
 export interface SourceProvenance {
   source: "polymarket";
   sourceIds: string[];
@@ -154,11 +186,9 @@ export interface RejectionSummary {
   sampleMarketIds: string[];
 }
 
-export interface ScannerMeta {
-  source: "polymarket";
-  mode: SourceProvenance["sourceMode"];
+export interface ScannerMeta extends ApiResponseMeta {
+  responseKind: "scanner_top";
   pricing: PricingModelVersion | "local-placeholder-fallback";
-  message: string;
   rejectedCount: number;
   rejectionSummary: RejectionSummary[];
   uncertainty: string[];
@@ -224,8 +254,15 @@ export interface MarketDetailResponse {
   evidenceTrail: EvidenceTrailItem[];
   openGaps: EvidenceTrailItem[];
   meta: {
+    contractVersion: ApiContractVersion;
+    responseKind: "market_detail";
+    generatedAt: string;
+    status: "ok";
     source: "polymarket";
     mode: SourceProvenance["sourceMode"];
+    isFixtureBacked: boolean;
+    isReadOnly: true;
+    isPlaceholderPricing: true;
     message: string;
   };
   candidate?: ScannerCandidate;

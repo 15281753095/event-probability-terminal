@@ -9,12 +9,14 @@ import type {
   SourceProvenance,
   TokenTraceItem
 } from "@ept/shared-types";
+import { okMeta } from "./response-contract.js";
 
 type PricingStatus = PricingModelVersion | "local-placeholder-fallback" | "unknown";
 
 export type BuildMarketDetailInput = {
   market: EventMarket;
   sourceMode: SourceProvenance["sourceMode"];
+  generatedAt: string;
   candidate?: ScannerCandidate;
   book?: OrderBookSnapshot;
   relatedMarkets?: EventMarket[];
@@ -50,10 +52,13 @@ export function buildMarketDetailResponse(input: BuildMarketDetailInput): Market
     ),
     openGaps,
     meta: {
-      source: "polymarket",
-      mode: input.sourceMode,
-      message:
-        "Market detail is read-only and contract-backed. Pricing, confidence, and edge remain placeholders."
+      ...okMeta({
+        responseKind: "market_detail",
+        generatedAt: input.generatedAt,
+        sourceMode: input.sourceMode,
+        message:
+          "Market detail is read-only and contract-backed. Pricing, confidence, and edge remain placeholders."
+      })
     },
     ...(input.candidate ? { candidate: input.candidate } : {}),
     ...(input.book ? { book: input.book } : {})

@@ -6,6 +6,7 @@ import type {
   OrderBookSnapshot,
   TokenTraceItem
 } from "@ept/shared-types";
+import { apiErrorMessage } from "../../api-client";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +92,8 @@ export default async function MarketDetail({ params }: { params: PageParams }) {
               <Panel title="Research Readiness">
                 <dl className="grid gap-3 text-sm">
                   <OutcomeRow label="API contract" value="/markets/:id/detail" />
+                  <OutcomeRow label="Contract version" value={detail.meta.contractVersion} />
+                  <OutcomeRow label="Response status" value={detail.meta.status} />
                   <OutcomeRow label="Outcome contract" value={detail.researchReadiness.outcomeContract} />
                   <OutcomeRow label="Pricing state" value={detail.researchReadiness.pricingStatus} />
                   <OutcomeRow label="Classification" value={detail.researchReadiness.classificationSource} />
@@ -230,7 +233,7 @@ async function loadMarketDetail(marketId: string): Promise<LoadState> {
 
     if (!response.ok) {
       return {
-        error: `API returned HTTP ${response.status}.`
+        error: await apiErrorMessage(response)
       };
     }
 

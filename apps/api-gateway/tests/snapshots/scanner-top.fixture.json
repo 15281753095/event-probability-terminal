@@ -236,8 +236,15 @@
     }
   ],
   "meta": {
+    "contractVersion": "ept-api-v1",
+    "responseKind": "scanner_top",
+    "generatedAt": "2026-04-23T00:00:00.000Z",
+    "status": "ok",
     "source": "polymarket",
     "mode": "fixture",
+    "isFixtureBacked": true,
+    "isReadOnly": true,
+    "isPlaceholderPricing": true,
     "pricing": "local-placeholder-fallback",
     "message": "Scanner output is read-only. Fair value, confidence, and edge fields are placeholders.",
     "rejectedCount": 1,

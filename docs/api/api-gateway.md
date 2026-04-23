@@ -23,6 +23,34 @@ http://localhost:4000
 | `GET` | `/markets/:id/detail` | Current | RC-3 `MarketDetailResponse` for read-only research workflow. |
 | `GET` | `/scanner/top` | Current | Read-only scanner response with placeholder fair value and edge fields. |
 
+## Contract Version
+
+Current successful scanner/detail responses use:
+
+```json
+{
+  "contractVersion": "ept-api-v1",
+  "status": "ok",
+  "isReadOnly": true,
+  "isPlaceholderPricing": true
+}
+```
+
+These fields live under the response `meta` block. `contractVersion` changes only when the local
+API response contract changes in a way that requires consumer review.
+
+Current response kinds:
+
+- `scanner_top`
+- `market_detail`
+
+Current status taxonomy:
+
+- `ok`: request succeeded;
+- `not_found`: requested local resource id is not in the current adapter result set;
+- `unsupported`: request shape is recognized but not supported by the current Phase 1 slice;
+- `fail_closed`: data exists but must not be emitted because required evidence is missing.
+
 ## `GET /markets/:id/detail`
 
 Purpose: provide a single contract-backed payload for Market Detail. This prevents the web page
@@ -42,6 +70,45 @@ Current response shape is `MarketDetailResponse` from `packages/shared-types`:
 - `evidenceTrail`: classification/provenance evidence items;
 - `openGaps`: uncertainty items that must remain fail-closed;
 - `meta`: source, source mode, and read-only placeholder message.
+
+Minimal meta example:
+
+```json
+{
+  "contractVersion": "ept-api-v1",
+  "responseKind": "market_detail",
+  "generatedAt": "2026-04-23T00:00:00.000Z",
+  "status": "ok",
+  "source": "polymarket",
+  "mode": "fixture",
+  "isFixtureBacked": true,
+  "isReadOnly": true,
+  "isPlaceholderPricing": true,
+  "message": "Market detail is read-only and contract-backed. Pricing, confidence, and edge remain placeholders."
+}
+```
+
+## Error Responses
+
+Typed errors use `ApiErrorResponse` from `packages/shared-types`.
+
+Current implemented error:
+
+```json
+{
+  "contractVersion": "ept-api-v1",
+  "status": "not_found",
+  "error": "market_not_found",
+  "message": "Market not found in current Polymarket public-read adapter result set.",
+  "generatedAt": "2026-04-23T00:00:00.000Z",
+  "supportedIds": ["polymarket:mkt-btc-1h-demo"]
+}
+```
+
+Reserved but not broadly emitted yet:
+
+- `unsupported_market`
+- `out_of_scope`
 
 ## Contract Snapshots
 
@@ -72,5 +139,4 @@ network error text.
 - TODO: Keep `MarketDetailResponse` synchronized with shared types and Playwright smoke coverage.
 - TODO: Update snapshot files only when a contract change is intentional and documented.
 - TODO: Add a persistence/cache ADR before backing these endpoints with PostgreSQL or Redis.
-- TODO: Add explicit versioning if external clients begin consuming this API outside local
-  development.
+- TODO: Add an `ept-api-v2` migration note if a breaking response change is introduced.
