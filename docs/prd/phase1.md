@@ -13,6 +13,8 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - Scanner: minimal endpoint and page with pricing-engine v0 placeholder fair-value and edge fields.
 - Market contract: binary outcome markets only. Outcome labels are preserved from upstream, so `Yes`/`No` and observed `Up`/`Down` labels can be represented. Multi-outcome markets are out of scope.
 - Pricing-engine v1: research boundary only; no real probability model is implemented.
+- Up/Down payoff/reference-level extraction: research contract only; no runtime extraction or
+  non-placeholder pricing is implemented.
 
 ## Current User Workflow
 
@@ -30,6 +32,8 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - No Predict.fun or Binance Wallet implementation.
 - No real pricing model; pricing-engine v0 returns `null` fair probabilities and placeholder metadata.
 - No non-placeholder pricing-engine v1 output until data freshness and validation standards are met.
+- No non-placeholder Up/Down quote until payoff specification, reference/start/strike level,
+  settlement source, comparator, and tie rule are confirmed.
 - No paper broker.
 - No replay engine.
 - No market detail page.
@@ -43,6 +47,8 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - Contract tests prove binary outcome parsing and fail-closed behavior.
 - Placeholder scanner fields are clearly marked and sourced from the pricing-engine v0 placeholder contract where available.
 - Pricing-engine v1 research documents define required features, freshness rules, and calibration gates before any implementation.
+- Up/Down payoff research documents define fail-closed evidence requirements before extraction or
+  pricing implementation.
 - Documentation explains current limitations.
 
 ## TODO
@@ -50,3 +56,5 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - TODO: Capture approved live Polymarket public fixtures.
 - TODO: Confirm BTC/ETH and 10m/1h identification rules from official/public evidence.
 - TODO: Replace synthetic fixture classification with confirmed fixture-backed classification where possible.
+- TODO: Confirm Polymarket Up/Down payoff, reference level, settlement source, comparator, and tie
+  rule before pricing-engine v1 implementation.

@@ -40,6 +40,8 @@ V1 cannot return non-null probabilities unless these inputs are present and fres
 - time to expiry with confirmed market end-time semantics;
 - BTC/ETH underlying spot price with source timestamp;
 - event reference level or start price when the market asks an up/down question;
+- settlement evaluation point, settlement value source, comparator, and tie rule for Up/Down
+  markets;
 - volatility or uncertainty proxy with documented source and lookback;
 - model input timestamp and feature freshness report.
 
@@ -64,6 +66,7 @@ Before v1 implementation can replace placeholder probabilities, the project must
 ## TODO
 
 - TODO: Confirm a reliable source for BTC/ETH underlying spot prices.
-- TODO: Confirm how to extract payoff specification and reference level for Polymarket Up/Down markets.
+- TODO: Confirm how to extract payoff specification, reference level, settlement source, and tie
+  rule for Polymarket Up/Down markets. See ADR 0005.
 - TODO: Add timestamped market snapshots before computing freshness.
 - TODO: Define replay storage before running calibration or backtests.

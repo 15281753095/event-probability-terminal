@@ -13,6 +13,8 @@ This repository is in Phase 1 foundation work. It has a minimal local end-to-end
 - `services/pricing-engine`: Python placeholder contract for fair-value output shape.
 
 The current app market data is synthetic fixture data unless explicitly configured otherwise. A limited Polymarket Gamma/public-search live fixture capture was completed on 2026-04-21 to tighten contract tests, but it did not confirm BTC/ETH 10m/1h live classification.
+Pricing-engine v1 research docs now define the additional Up/Down payoff and reference-level
+evidence required before any real fair-probability model can be implemented.
 
 ## Phase 1 Scope
 
@@ -31,6 +33,7 @@ Explicit exclusions:
 - No private/authenticated Polymarket adapter.
 - No Predict.fun or Binance Wallet adapter.
 - No real pricing model, paper broker, replay engine, or news-signal business implementation.
+- No runtime Up/Down payoff extraction and no non-placeholder Up/Down fair probabilities.
 - No multi-outcome market model.
 - No inferred external API fields, schemas, authentication, signatures, or endpoint behavior.
 
@@ -117,7 +120,9 @@ http://127.0.0.1:4100
 The pricing-engine v0 endpoint is a placeholder contract only. It consumes binary outcomes and returns `null` fair probabilities with explicit placeholder metadata.
 
 Pricing-engine v1 currently exists only as a research boundary and validation plan. It is not
-implemented and does not compute real fair probabilities.
+implemented and does not compute real fair probabilities. For Up/Down markets, v1 also requires a
+confirmed payoff specification, reference/start/strike level, settlement value source, comparator,
+and tie rule before implementation.
 
 ## Current API
 

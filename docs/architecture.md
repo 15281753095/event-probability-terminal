@@ -65,6 +65,10 @@ The v0 fair-value endpoint consumes normalized binary `EventMarket` input, inclu
 
 Pricing-engine v1 is currently research documentation only. The v1 boundary defines required
 features, freshness rules, and validation standards, but no non-placeholder model code exists.
+ADR 0005 further defines Polymarket Up/Down payoff and reference-level extraction as a
+research-only contract. Up/Down labels can be represented, but they cannot produce non-placeholder
+pricing until reference/start/strike, settlement source, comparator, and tie-rule evidence is
+fixture-backed.
 
 ## Data Flow
 
@@ -88,11 +92,14 @@ features, freshness rules, and validation standards, but no non-placeholder mode
 - No multi-outcome market support in the current domain contract.
 - No real pricing model; pricing-engine v0 is contract plus placeholder output only.
 - Pricing-engine v1 is research-only until data freshness and validation gates are satisfied.
+- No non-placeholder Up/Down pricing without confirmed payoff specification, reference level, and
+  settlement rule.
 - All unconfirmed external details must remain marked `TODO`.
 
 ## TODO
 
 - TODO: Confirm BTC/ETH 10m/1h live discovery rules before opening live classification.
+- TODO: Confirm Polymarket Up/Down payoff/reference/settlement extraction before pricing v1.
 - TODO: Add persistence ADR before using PostgreSQL.
 - TODO: Add cache/data freshness ADR before using Redis.
 - TODO: Satisfy pricing-engine v1 data, freshness, and calibration gates before replacing placeholder probabilities.

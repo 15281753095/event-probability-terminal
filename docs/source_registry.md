@@ -34,6 +34,9 @@ This registry is the gate for external-source usage. A new adapter or external d
 - Binance Wallet Prediction Markets are product-semantics reference only until an official developer API surface is confirmed.
 - The current Polymarket adapter implementation is fixture-first and must fail closed for live BTC/ETH 10m/1h classification until approved public fixtures confirm the mapping.
 - `EventMarket` uses a minimal binary-outcome contract rather than a Yes/No-only token contract. Upstream labels such as `Yes`/`No` and `Up`/`Down` can be preserved, but they do not by themselves prove Phase 1 asset/window classification.
+- Polymarket Up/Down labels do not by themselves prove payoff direction, reference/start/strike
+  level, settlement source, comparator, or tie rule. Non-placeholder Up/Down pricing must fail
+  closed until those fields are confirmed by public evidence and fixtures.
 - Scanner fair probability, confidence, and edge fields are placeholders. Pricing-engine v0 defines the local placeholder contract but does not compute real probabilities.
 
 ## Reasonable inferences
@@ -51,6 +54,9 @@ This registry is the gate for external-source usage. A new adapter or external d
 - TODO: Confirm how Polymarket market text, tags, slugs, event dates, and market dates reliably identify the internal `window` values `10m` and `1h`. The approved 2026-04-22 target-discovery sample observed `5M`, `15M`, and a closed `1H` tag, but no live `10m` or active `1h` target market.
 - TODO: Confirm whether the observed JSON-string runtime shape for `clobTokenIds`, `outcomes`, and `outcomePrices` is stable across the target BTC/ETH 10m/1h market family.
 - TODO: Confirm whether the minimal binary-outcome ordering from Gamma `clobTokenIds` and `outcomes` is stable across actual BTC/ETH 10m/1h markets. Current `EventMarket` preserves upstream labels and token IDs but does not infer trading direction or pricing semantics from label text.
+- TODO: Confirm how Polymarket Up/Down payoff specification, reference/start/strike level,
+  settlement evaluation point, settlement value source, comparator, and tie rule are exposed through
+  public-read evidence.
 - TODO: Confirm whether initial adapter implementation should use `GET /events/keyset`, `GET /events`, `GET /markets/keyset`, `GET /markets`, `GET /public-search`, or a staged combination for BTC/ETH 10m/1h discovery.
 - TODO: Confirm whether public CLOB read data should be fetched during discovery or only after an internal `EventMarket` candidate is accepted.
 - TODO: Confirm Predict.fun endpoint pages, auth flow, request signing, response schemas, and WebSocket topic formats before writing any adapter.

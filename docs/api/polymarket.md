@@ -84,12 +84,17 @@ Observed facts from the 2026-04-22 approved target-discovery capture:
 - A Bitcoin hourly sample was observed with a `1H` tag, but it was closed.
 - An Ethereum `15M` sample was observed, but it was closed.
 - Searches for `Bitcoin 10 minute`, `Ethereum 10 minute`, `BTC 10m`, and `ETH 10m` did not produce target 10m hits in the approved request set.
+- The approved target-discovery fixtures do not expose a reference/start/strike level, settlement
+  value source, comparator, or tie rule for Up/Down payoff evaluation.
 
 Project decisions from the target-discovery review:
 
 - Live BTC/ETH 10m/1h classification remains closed.
 - The observed `5M` / `15M` / closed `1H` evidence is useful taxonomy evidence, but it is not sufficient for Phase 1 target scope.
 - The internal `EventMarket` contract uses generic binary outcomes rather than Yes/No-only tokens. Observed Up/Down outcomes can be represented as labeled binary outcomes, but this does not by itself open live BTC/ETH 10m/1h discovery.
+- Up/Down labels must not be treated as a complete payoff specification. Non-placeholder pricing
+  remains fail-closed until payoff, reference level, settlement source, comparator, and tie rule are
+  confirmed. See `docs/api/polymarket-updown-payoff-research.md`.
 - No live adapter classification rule was added.
 
 ### Minimum discovery objects

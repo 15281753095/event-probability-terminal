@@ -36,6 +36,8 @@ These are enough for contract plumbing, but not enough for a real probability mo
 - Timestamped market snapshot source with freshness metadata.
 - Official or reliable source for underlying BTC/ETH spot price.
 - Reference/start/strike level for Up/Down payoff evaluation.
+- Settlement evaluation point, settlement value source, comparator, and tie rule for Up/Down
+  payoff evaluation.
 - Payoff specification parser with fail-closed behavior.
 - Volatility or uncertainty proxy.
 - Historical snapshots plus settled outcomes for calibration.
@@ -72,7 +74,8 @@ part of the current approved v1 input set.
 Required for v1 probability:
 
 - current BTC/ETH price;
-- reference price or strike;
+- reference price, start price, or strike;
+- settlement evaluation point and settlement value source;
 - time to expiry;
 - volatility proxy over a documented lookback.
 
@@ -128,5 +131,6 @@ The project can enter v1 implementation only after:
 - fixtures/datasets exist;
 - freshness checks are specified;
 - payoff parsing is fail-closed;
+- Up/Down reference and settlement extraction is fixture-backed;
 - validation metrics are defined;
 - replay/backtest storage shape is approved.

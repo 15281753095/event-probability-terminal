@@ -42,12 +42,22 @@ interface PricingQuoteRequestV1Research {
     source: "gamma" | "clob_public";
   };
   payoffSpec: {
-    description: string;
+    kind: "up_down_reference_comparison";
+    status: "observed" | "required_missing" | "ambiguous";
     primaryOutcomeRole: "primary";
     secondaryOutcomeRole: "secondary";
-    referenceLevel?: number;
-    referenceLevelObservedAt?: string;
-    expiryAt: string;
+    referenceLevel?: {
+      kind: "start_price" | "reference_price" | "strike";
+      value: number;
+      observedAt: string;
+      source: string;
+    };
+    settlementLevel?: {
+      evaluationAt: string;
+      valueSource: string;
+    };
+    comparator?: string;
+    tieRule?: string;
     unresolvedAssumptions: string[];
   };
   underlyingSnapshot: {
@@ -74,6 +84,10 @@ interface PricingQuoteRequestV1Research {
 
 This is a research draft. It should not be added to shared runtime types until the missing upstream
 data contracts are confirmed.
+
+For Polymarket Up/Down markets, see `docs/api/polymarket-updown-payoff-research.md`. The v1
+request must not carry `status: "observed"` unless payoff rule, reference level, settlement value
+source, comparator, and tie rule are all fixture-backed.
 
 ## V1 Response Draft
 
@@ -129,8 +143,9 @@ Requirements:
 | Spread | Primary ask minus bid, or upstream spread | Gamma now; CLOB public later | Partly available without freshness | Yes |
 | Liquidity | Market liquidity/depth proxy | Gamma fields; CLOB depth later | Partly available | Yes, for eligibility/confidence |
 | Time to expiry | Difference between feature time and confirmed expiry | Event/market end time | Field exists; semantics TODO | Yes |
-| Payoff specification | What makes primary/secondary win | Market question/rules | Not reliably parsed | Yes |
+| Payoff specification | What makes primary/secondary win | Market question/rules or another confirmed public source | Not reliably parsed | Yes |
 | Reference level | Start/strike/reference price for up/down markets | Upstream market text/rules or external price capture | Missing | Yes for Up/Down |
+| Settlement rule | Evaluation point, value source, comparator, and tie rule | Official/public rule evidence | Missing | Yes for Up/Down |
 | Underlying spot price | BTC/ETH current price near quote time | Future read-only market-data source | Missing | Yes |
 | Volatility proxy | Recent realized or implied uncertainty proxy | Future read-only price history/source | Missing | Yes |
 
@@ -179,6 +194,7 @@ Do not implement v1 model code until all are true:
 - Required input data sources are documented from official or first-party sources where applicable.
 - Timestamped fixtures or datasets exist for market snapshots and underlying prices.
 - Payoff specification extraction is fail-closed.
+- Up/Down reference/start/strike and settlement rule extraction is fixture-backed.
 - Freshness checks are implemented at the data-contract level.
 - Replay/backtest dataset shape is defined.
 - Calibration metrics and reporting thresholds are documented.
