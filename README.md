@@ -2,7 +2,7 @@
 
 Read-only research terminal for BTC/ETH prediction-market event contracts, starting with Polymarket public market data.
 
-## Current Status
+## Current Status -test-2
 
 This repository is in Phase 1 foundation work. It has a minimal local end-to-end read-only slice:
 
