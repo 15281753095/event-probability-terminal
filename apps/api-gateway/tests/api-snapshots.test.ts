@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { describe, it } from "node:test";
 import type {
   EventMarket,
+  EventSignalConsoleResponse,
   FairValueSnapshot,
   MarketDetailResponse,
   ResearchSignalsResponse,
@@ -62,6 +63,23 @@ describe("fixture-backed API response contracts", () => {
     assert.deepEqual(
       signalContractSnapshot(payload),
       await readJsonSnapshot("research-signals.fixture.json")
+    );
+
+    await server.close();
+  });
+
+  it("locks the normalized /signals/console response contract", async () => {
+    const server = buildSnapshotServer();
+    const response = await server.inject({
+      method: "GET",
+      url: "/signals/console?symbol=BTC&horizon=5m"
+    });
+
+    assert.equal(response.statusCode, 200);
+    const payload = response.json<EventSignalConsoleResponse>();
+    assert.deepEqual(
+      eventSignalConsoleContractSnapshot(payload),
+      await readJsonSnapshot("event-signal-console.fixture.json")
     );
 
     await server.close();
@@ -162,8 +180,42 @@ function signalContractSnapshot(payload: ResearchSignalsResponse) {
       isTradeAdvice: signal.isTradeAdvice,
       modelVersion: signal.modelVersion,
       invalidation: signal.invalidation,
-      failClosedReasons: signal.failClosedReasons
+      failClosedReasons: signal.failClosedReasons,
+      confluence: signal.confluence,
+      riskFilters: signal.riskFilters
     })),
     meta: payload.meta
+  };
+}
+
+function eventSignalConsoleContractSnapshot(payload: EventSignalConsoleResponse) {
+  return {
+    meta: payload.meta,
+    symbol: payload.symbol,
+    horizon: payload.horizon,
+    sourceMode: payload.sourceMode,
+    currentSignal: {
+      symbol: payload.currentSignal.symbol,
+      horizon: payload.currentSignal.horizon,
+      generatedAt: payload.currentSignal.generatedAt,
+      direction: payload.currentSignal.direction,
+      confidence: payload.currentSignal.confidence,
+      score: payload.currentSignal.score,
+      dataQuality: payload.currentSignal.dataQuality,
+      isResearchOnly: payload.currentSignal.isResearchOnly,
+      isTradeAdvice: payload.currentSignal.isTradeAdvice,
+      modelVersion: payload.currentSignal.modelVersion,
+      failClosedReasons: payload.currentSignal.failClosedReasons
+    },
+    confluence: payload.confluence,
+    riskFilters: payload.riskFilters,
+    recentCandles: {
+      count: payload.recentCandles.length,
+      first: payload.recentCandles[0],
+      last: payload.recentCandles.at(-1)
+    },
+    recentMarkers: payload.recentMarkers,
+    backtestPreview: payload.backtestPreview,
+    warnings: payload.warnings
   };
 }

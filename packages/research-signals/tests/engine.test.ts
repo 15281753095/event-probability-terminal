@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   buildResearchSignal,
   buildResearchSignalFromOHLCV,
+  buildFixtureEventSignalConsole,
   emptyFailClosedOHLCVResult,
   getResearchSignalFixture,
   listResearchSignals
@@ -24,6 +25,9 @@ describe("research signal engine v0", () => {
     assert.equal(byKey.get("ETH-5m")?.direction, "SHORT");
     assert.equal(byKey.get("BTC-10m")?.direction, "NO_SIGNAL");
     assert.equal(byKey.get("ETH-10m")?.direction, "NO_SIGNAL");
+    assert.equal(byKey.get("BTC-5m")?.confluence.direction, "LONG");
+    assert.equal(byKey.get("ETH-5m")?.confluence.direction, "SHORT");
+    assert.ok((byKey.get("BTC-10m")?.confluence.vetoReasons.length ?? 0) > 0);
   });
 
   it("fails closed when candles are stale", () => {
@@ -103,6 +107,51 @@ describe("research signal engine v0", () => {
     assert.equal(signal.direction, "NO_SIGNAL");
     assert.equal(signal.confidence, 0);
     assert.ok(signal.failClosedReasons.some((reason) => reason.includes("mock live OHLCV failure")));
+  });
+
+  it("vetoes chop and low-volatility conditions instead of forcing direction", () => {
+    const fixture = getResearchSignalFixture("BTC", "10m");
+    assert.ok(fixture);
+    const signal = buildResearchSignal({
+      symbol: fixture.symbol,
+      horizon: fixture.horizon,
+      candles: fixture.candles,
+      context: fixture.context,
+      generatedAt
+    });
+
+    assert.equal(signal.direction, "NO_SIGNAL");
+    assert.ok(signal.confluence.vetoReasons.some((reason) => reason.includes("Chop veto")));
+    assert.equal(signal.riskFilters.chop, "veto");
+  });
+
+  it("builds a console response with recent-only markers and disabled backtest by default", () => {
+    const consoleResponse = buildFixtureEventSignalConsole({
+      symbol: "BTC",
+      horizon: "5m",
+      generatedAt
+    });
+
+    assert.equal(consoleResponse.currentSignal.direction, "LONG");
+    assert.equal(consoleResponse.confluence.direction, "LONG");
+    assert.ok(consoleResponse.recentCandles.length <= 60);
+    assert.ok(consoleResponse.recentMarkers.length <= 20);
+    assert.equal(consoleResponse.recentMarkers.every((marker) => marker.isRecentOnly), true);
+    assert.equal(consoleResponse.backtestPreview.enabled, false);
+    assert.equal(consoleResponse.backtestPreview.status, "not_loaded");
+  });
+
+  it("runs lightweight backtest preview only when requested", () => {
+    const consoleResponse = buildFixtureEventSignalConsole({
+      symbol: "BTC",
+      horizon: "5m",
+      generatedAt,
+      includeBacktest: true
+    });
+
+    assert.equal(consoleResponse.backtestPreview.enabled, true);
+    assert.ok(consoleResponse.backtestPreview.status === "ready" || consoleResponse.backtestPreview.status === "insufficient");
+    assert.ok(consoleResponse.backtestPreview.caveats.some((item) => item.includes("Small local candle sample")));
   });
 });
 

@@ -18,6 +18,7 @@ import {
 import { emptyFailClosedOHLCVResult, fetchCoinbaseExchangeCandles } from "./ohlcv/coinbase-exchange.js";
 import { buildFeatureSnapshot } from "./indicators.js";
 import { findResearchSignalFixture, researchSignalFixtures, type ResearchSignalFixture } from "./fixtures.js";
+import { evaluateConfluence } from "./confluence.js";
 
 export const RESEARCH_SIGNAL_MODEL_VERSION: ResearchSignalModelVersion = "research-signal-engine-v0";
 export const REQUIRED_CANDLE_COUNT = 35;
@@ -163,7 +164,7 @@ export function buildResearchSignalFromOHLCV(input: {
   });
 }
 
-function rebaseFixtureCandles(candles: OhlcvCandle[], generatedAt: string): OhlcvCandle[] {
+export function rebaseFixtureCandles(candles: OhlcvCandle[], generatedAt: string): OhlcvCandle[] {
   const end = Date.parse(generatedAt) - 60_000;
   const first = end - (candles.length - 1) * 60_000;
   return candles.map((candle, index) => ({
@@ -197,14 +198,16 @@ export function buildResearchSignal(input: BuildSignalInput): ResearchSignal {
       ? buildFeatureSnapshot(input.candles)
       : emptyFeatureSnapshot(input.candles);
   const failClosedReasons = [...(input.sourceFailClosedReasons ?? []), ...failClosed(dataQuality, context)];
-  const contributions = failClosedReasons.length ? [] : scoreContributions(features, context);
-  const rawScore = clamp(contributions.reduce((sum, item) => sum + item.value, 0), -1, 1);
-  const conflicts = conflictCount(contributions);
-  const direction = failClosedReasons.length ? "NO_SIGNAL" : signalDirection(rawScore, conflicts);
-  const score = round(rawScore);
-  const confidence = failClosedReasons.length
-    ? 0
-    : confidenceScore(Math.abs(score), conflicts, dataQuality.status, context.marketEventRiskFlag);
+  const { confluence, riskFilters } = evaluateConfluence({
+    horizon: input.horizon,
+    features,
+    dataQuality,
+    context,
+    failClosedReasons
+  });
+  const direction = confluence.direction;
+  const score = confluence.totalScore;
+  const confidence = confluence.confidence;
 
   return {
     symbol: input.symbol,
@@ -213,7 +216,7 @@ export function buildResearchSignal(input: BuildSignalInput): ResearchSignal {
     direction,
     confidence,
     score,
-    reasons: reasons(direction, contributions, features, context, failClosedReasons),
+    reasons: reasons(direction, confluence, context, failClosedReasons),
     features,
     context,
     dataQuality,
@@ -227,7 +230,9 @@ export function buildResearchSignal(input: BuildSignalInput): ResearchSignal {
       "Signal invalidates when fast/slow EMA, MACD histogram, and momentum contributions materially diverge.",
       "Signal invalidates if future live adapters cannot prove source freshness and context provenance."
     ],
-    failClosedReasons
+    failClosedReasons,
+    confluence,
+    riskFilters
   };
 }
 
@@ -396,8 +401,7 @@ function confidenceScore(absScore: number, conflicts: number, status: ResearchSi
 
 function reasons(
   direction: SignalDirection,
-  contributions: ScoreContribution[],
-  features: SignalFeatureSnapshot,
+  confluence: ResearchSignal["confluence"],
   context: SignalContextSnapshot,
   failClosedReasons: string[]
 ): string[] {
@@ -405,18 +409,17 @@ function reasons(
     return [
       "NO_SIGNAL because fail-closed conditions are present.",
       ...failClosedReasons,
-      "No order, position size, leverage, or execution instruction is produced."
+      "No execution instruction or automated trading action is produced."
     ];
   }
-  const active = contributions.filter((item) => item.value !== 0).sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
   return [
-    `${direction} research bias from weighted technical and fixture context inputs.`,
-    ...active.slice(0, 5).map((item) => item.reason),
-    `RSI ${round(features.rsi.value)} is not allowed to decide direction by itself.`,
+    `${direction} research bias from multi-strategy confluence inputs.`,
+    ...confluence.reasons.slice(0, 6),
+    ...confluence.vetoReasons.slice(0, 4),
     context.sourceMode === "manual_fixture"
       ? "News/X/macro context is manual fixture input, not verified live external data."
       : "News/X/macro context is not configured.",
-    "No order, position size, leverage, or execution instruction is produced."
+    "No execution instruction or automated trading action is produced."
   ];
 }
 

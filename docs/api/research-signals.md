@@ -1,10 +1,13 @@
 # Research Signals API
 
-Status: implemented for RC-8 as a fixture-default, live-optional, read-only research signal slice.
+Status: implemented through RC-9 as a fixture-default, live-optional, read-only research signal and
+confluence slice.
 
 This API publishes BTC/ETH 5m and 10m research signals. Fixture mode remains the default. Live mode
-must be explicitly requested and uses Coinbase Exchange public candles. This is not a trading API,
-not investment advice, not a fair-probability pricing model, and not an order-generation system.
+must be explicitly requested and uses Coinbase Exchange public candles. RC-9 adds confluence and
+risk-filter fields to each `ResearchSignal`; the richer console payload is documented separately in
+`docs/api/event-signal-console.md`. This is not a trading API, not investment advice, not a
+fair-probability pricing model, and not an order-generation system.
 
 ## Endpoint
 
@@ -70,6 +73,10 @@ Each signal includes:
 - `modelVersion: "research-signal-engine-v0"`
 - `invalidation`
 - `failClosedReasons`
+- `confluence`: trend, momentum, volatility, volume, reversal-risk, chop-risk, total score,
+  confidence, reasons, and veto reasons
+- `riskFilters`: data freshness, volatility, volume confirmation, chop, conflict, and
+  mean-reversion filter states
 
 ## Indicator Features
 
@@ -125,8 +132,17 @@ candles or turn weak evidence into `LONG`/`SHORT`.
 `NO_SIGNAL` means evidence is insufficient, conflicting, stale, or blocked by fail-closed risk.
 
 Rules are multi-factor. A single RSI, MACD, or Bollinger condition cannot decide direction by
-itself. Conflicting contributions reduce confidence. Stale or insufficient candles fail closed to
-`NO_SIGNAL`.
+itself. RC-9 combines trend, momentum, volatility, volume confirmation, reversal risk, chop risk,
+and optional context. Conflicts reduce confidence or veto direction. Stale or insufficient candles,
+too-low volatility, extreme volatility, high chop risk, module conflict, and event-risk context fail
+closed to `NO_SIGNAL`.
+
+Initial RC-9 confluence thresholds are:
+
+- 5m: absolute total score at least `0.68`;
+- 10m: absolute total score at least `0.65`, with stronger trend alignment required.
+
+`LONG` and `SHORT` are research biases only. The UI renders them as `LONG bias` and `SHORT bias`.
 
 ## Context Adapter Contract
 
@@ -156,3 +172,6 @@ by default.
 - No production pricing model.
 - No CI dependency on external network data.
 - No default live polling; `sourceMode=live` is explicit local/manual use only.
+- No full historical signal marker overlay; recent markers belong to the Event Signal Console and
+  replay/stats workflows remain out of scope.
+- No default backtest execution on page open; RC-9 preview is on-demand and small-sample only.

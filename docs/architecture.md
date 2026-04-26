@@ -20,7 +20,7 @@ services/pricing-engine
   -> Python placeholder fair-value service
 
 packages/research-signals
-  -> deterministic technical indicators, fixture-backed signals, and explicit Coinbase Exchange live OHLCV adapter
+  -> deterministic technical indicators, confluence engine, fixture-backed signals, Event Signal Console, and explicit Coinbase Exchange live OHLCV adapter
 ```
 
 ## Service Boundaries
@@ -40,6 +40,12 @@ The scanner page also renders a Research Signal Panel. It shows fixture/default 
 source name, freshness, warnings, and fail-closed reasons. It does not show buy/sell language,
 leverage, position size, order forms, or trading controls.
 
+The scanner page also renders Event Signal Console RC-9. It provides BTC/ETH, 5m/10m, and
+fixture/live selectors; a current research signal; confluence score breakdown; risk filters;
+recent candlestick chart; recent-only signal markers capped at 20; and an on-demand backtest
+preview. The backtest preview is collapsed by default and does not run unless requested by the
+user.
+
 ### API Gateway
 
 `apps/api-gateway` exposes the minimal read-only API:
@@ -51,6 +57,7 @@ leverage, position size, order forms, or trading controls.
 - `GET /markets/:id/detail`
 - `GET /scanner/top`
 - `GET /signals/research`
+- `GET /signals/console`
 
 Scanner output currently calls the pricing-engine v0 placeholder contract for fair-value shape and still marks edge fields as placeholders. Scanner metadata includes rejected count, fail-closed summary, and uncertainty so the UI can explain why some upstream markets were not normalized.
 
@@ -70,6 +77,12 @@ mode uses deterministic OHLCV fixtures. `sourceMode=live` explicitly calls the
 same indicator and rule engine. The API gateway does not call vendor APIs directly. Live failures
 return `NO_SIGNAL` with fail-closed reasons rather than HTTP 500 for expected data/source failures.
 It does not call X, news, macro, wallet, or vendor trading APIs.
+
+`GET /signals/console` exposes `EventSignalConsoleResponse` for one selected BTC/ETH 5m/10m
+research console. Fixture mode is default. `sourceMode=live` uses the same Coinbase Exchange
+adapter boundary and fail-closed behavior as `/signals/research`. `includeBacktest=true` is the
+only path that computes the lightweight backtest preview. The endpoint returns recent candles and
+recent markers only; it does not return a full historical signal overlay.
 
 ### Market Ingestor
 
@@ -94,6 +107,11 @@ Live public mode exists as an adapter transport path, but BTC/ETH and 10m/1h cla
 - `TradeCandidate` placeholder
 - `ResearchSignal`
 - `ResearchSignalsResponse`
+- `ConfluenceScore`
+- `RiskFilterSummary`
+- `SignalMarker`
+- `BacktestPreview`
+- `EventSignalConsoleResponse`
 
 The types intentionally avoid encoding unconfirmed upstream Polymarket fields as stable domain contracts.
 
@@ -102,6 +120,8 @@ stable `meta` block with response kind, generation time, status, read-only/fixtu
 flags, and source mode. Typed API errors use `ApiErrorResponse` and the same contract version.
 Research-signal responses also use `ept-api-v1`, but mark `source: "research_signal_engine"`,
 `isResearchOnly: true`, and `isTradeAdvice: false`.
+Event Signal Console responses use the same contract version and research-only/not-trade-advice
+flags.
 
 `EventMarket` currently models only binary markets. It preserves upstream outcome labels and token IDs as `outcomes.primary` and `outcomes.secondary`, so both `Yes`/`No` and observed `Up`/`Down` labels can be represented without creating a general multi-outcome model. The contract does not infer pricing, trading direction, or strategy side from those labels.
 
@@ -127,9 +147,11 @@ z-score from local OHLCV fixtures by default. RC-8 adds a Coinbase Exchange publ
 adapter for explicit local live mode.
 
 The v0 engine combines multiple weighted factors into a `ResearchSignal` with direction `LONG`,
-`SHORT`, or `NO_SIGNAL`. It emits reasons, confidence, score, feature snapshots, data quality,
-invalidation notes, and fail-closed reasons. It is not a pricing engine and does not produce fair
-probabilities, trade advice, orders, leverage, or position sizing.
+`SHORT`, or `NO_SIGNAL`. RC-9 adds a confluence evaluator that separately scores trend, momentum,
+volatility, volume, reversal risk, and chop risk. It emits reasons, confidence, score, feature
+snapshots, data quality, risk filters, invalidation notes, and fail-closed reasons. It is not a
+pricing engine and does not produce fair probabilities, trade advice, orders, leverage, or position
+sizing.
 
 The Coinbase Exchange adapter maps `BTC` to `BTC-USD` and `ETH` to `ETH-USD`, maps `1m` to
 `granularity=60`, safe-parses candle arrays, sorts by start time, drops incomplete candles, enforces
@@ -149,7 +171,10 @@ uses mocked fetches only.
    `/signals/research` by default.
 9. If `sourceMode=live` is explicitly requested, API gateway calls the research-signals OHLCV
    adapter boundary for Coinbase Exchange public candles, then uses the same indicator/rule engine.
-10. API gateway strips raw upstream payloads before returning API responses.
+10. API gateway computes Event Signal Console payloads through `@ept/research-signals`, returning
+    recent candles, recent markers, confluence, risk filters, and optionally a small backtest
+    preview.
+11. API gateway strips raw upstream payloads before returning API responses.
 
 ## Current Infrastructure
 
@@ -167,6 +192,9 @@ uses mocked fetches only.
   instructions.
 - Live OHLCV mode is explicit local/manual use. Fixture remains the default, and CI must mock live
   adapter responses.
+- Event Signal Console markers must remain recent-only; full-history signal display belongs in
+  future replay/stats workflows, not the primary chart.
+- Backtest preview must remain on-demand, small-sample, and explicitly non-predictive.
 - Pricing-engine v1 is research-only until data freshness and validation gates are satisfied.
 - No non-placeholder Up/Down pricing without confirmed payoff specification, reference level, and
   settlement rule.

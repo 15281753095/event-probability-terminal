@@ -5,6 +5,7 @@ import {
   API_CONTRACT_VERSION,
   type ApiErrorResponse,
   type Candle,
+  type EventSignalConsoleResponse,
   type OHLCVFetchResult,
   type OhlcvCandle,
   type ResearchSignalsResponse
@@ -146,6 +147,71 @@ describe("research signals API", () => {
     assert.equal(payload.contractVersion, API_CONTRACT_VERSION);
     assert.equal(payload.status, "unsupported");
     assert.equal(payload.error, "out_of_scope");
+
+    await server.close();
+  });
+
+  it("returns a fixture-backed Event Signal Console with backtest disabled by default", async () => {
+    const server = buildServer({ logger: false, now: () => fixedGeneratedAt });
+    const response = await server.inject({
+      method: "GET",
+      url: "/signals/console?symbol=BTC&horizon=5m"
+    });
+
+    assert.equal(response.statusCode, 200);
+    const payload = response.json<EventSignalConsoleResponse>();
+    assert.equal(payload.meta.contractVersion, API_CONTRACT_VERSION);
+    assert.equal(payload.meta.responseKind, "event_signal_console");
+    assert.equal(payload.meta.mode, "fixture");
+    assert.equal(payload.currentSignal.direction, "LONG");
+    assert.equal(payload.currentSignal.isTradeAdvice, false);
+    assert.equal(payload.confluence.direction, "LONG");
+    assert.equal(payload.riskFilters.dataFreshness, "pass");
+    assert.ok(payload.recentCandles.length > 0);
+    assert.ok(payload.recentMarkers.length <= 20);
+    assert.equal(payload.recentMarkers.every((marker) => marker.isRecentOnly), true);
+    assert.equal(payload.backtestPreview.enabled, false);
+    assert.equal(payload.backtestPreview.status, "not_loaded");
+    assert.ok(payload.warnings.some((warning) => warning.includes("Research only")));
+
+    await server.close();
+  });
+
+  it("loads lightweight backtest preview only when explicitly requested", async () => {
+    const server = buildServer({ logger: false, now: () => fixedGeneratedAt });
+    const response = await server.inject({
+      method: "GET",
+      url: "/signals/console?symbol=BTC&horizon=5m&includeBacktest=true"
+    });
+
+    assert.equal(response.statusCode, 200);
+    const payload = response.json<EventSignalConsoleResponse>();
+    assert.equal(payload.backtestPreview.enabled, true);
+    assert.ok(payload.backtestPreview.status === "ready" || payload.backtestPreview.status === "insufficient");
+    assert.ok(payload.backtestPreview.caveats.some((caveat) => caveat.includes("Small local candle sample")));
+    assert.ok(payload.backtestPreview.caveats.some((caveat) => caveat.includes("not a predictive guarantee")));
+
+    await server.close();
+  });
+
+  it("returns live Event Signal Console fail-closed with a mocked OHLCV failure", async () => {
+    const server = buildServer({
+      logger: false,
+      now: () => fixedGeneratedAt,
+      researchSignalOhlcvFetcher: async (request) =>
+        emptyFailClosedOHLCVResult(request, fixedGeneratedAt, "mock console Coinbase failure")
+    });
+    const response = await server.inject({
+      method: "GET",
+      url: "/signals/console?symbol=BTC&horizon=5m&sourceMode=live"
+    });
+
+    assert.equal(response.statusCode, 200);
+    const payload = response.json<EventSignalConsoleResponse>();
+    assert.equal(payload.meta.mode, "live");
+    assert.equal(payload.currentSignal.direction, "NO_SIGNAL");
+    assert.equal(payload.currentSignal.confidence, 0);
+    assert.ok(payload.confluence.vetoReasons.some((reason) => reason.includes("mock console Coinbase failure")));
 
     await server.close();
   });

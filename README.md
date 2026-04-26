@@ -8,9 +8,9 @@ This repository is in Phase 1 foundation work. It has a minimal local end-to-end
 
 - `services/market-ingestor`: Polymarket public-read adapter boundary, fixture-first by default.
 - `packages/shared-types`: shared contracts for `EventMarket`, `OrderBookSnapshot`, `MarketDetailResponse`, and placeholder scanner/pricing objects.
-- `packages/research-signals`: deterministic technical-indicator and research-signal engine with fixture default and explicit Coinbase Exchange live OHLCV mode.
-- `apps/api-gateway`: Fastify read-only API for fixture-backed markets, scanner metadata, contract-backed market detail, and pricing placeholders.
-- `apps/web`: Next.js Markets Scanner RC-2, Research Signal Panel RC-7, and Market Detail RC-3 evidence views that read from the API gateway.
+- `packages/research-signals`: deterministic technical-indicator, confluence, and research-signal engine with fixture default and explicit Coinbase Exchange live OHLCV mode.
+- `apps/api-gateway`: Fastify read-only API for fixture-backed markets, scanner metadata, contract-backed market detail, research signals, Event Signal Console, and pricing placeholders.
+- `apps/web`: Next.js Markets Scanner RC-2, Research Signal Panel RC-7, Event Signal Console RC-9, and Market Detail RC-3 evidence views that read from the API gateway.
 - `services/pricing-engine`: Python placeholder contract for fair-value output shape.
 
 The current app market data is synthetic fixture data unless explicitly configured otherwise. A limited Polymarket Gamma/public-search live fixture capture was completed on 2026-04-21 to tighten contract tests, but it did not confirm BTC/ETH 10m/1h live classification. Research signals default to fixtures, while `sourceMode=live` can explicitly fetch Coinbase Exchange public BTC/ETH candles for local manual use.
@@ -28,7 +28,7 @@ Supported research scope:
 - Primary venue: Polymarket
 - Secondary/reference venues: Predict.fun and Binance Wallet Prediction Markets are documented only; they are not implemented.
 - Mode: read-only market discovery and display, with pricing-engine v0 placeholder outputs.
-- Research signals: fixture-default BTC/ETH `5m`/`10m` technical research bias; optional explicit Coinbase Exchange live OHLCV mode; not trade advice.
+- Research signals: fixture-default BTC/ETH `5m`/`10m` technical research bias, Event Signal Console confluence breakdown, recent-only markers, and optional explicit Coinbase Exchange live OHLCV mode; not trade advice.
 - Market contract: binary outcome markets only. The shared contract preserves upstream outcome labels, including fixture-backed `Yes`/`No` and observed `Up`/`Down`; it does not support multi-outcome markets.
 
 Explicit exclusions:
@@ -65,7 +65,7 @@ services/
   news-signal/         Placeholder only
 packages/
   shared-types/        Shared TypeScript contracts
-  research-signals/    Fixture-backed technical indicators and research signal engine
+  research-signals/    Fixture-backed technical indicators, confluence, and research signal engine
   ui/                  Local UI primitives
   source-registry/     Source-registry helper package placeholder
   tsconfig/            Shared TypeScript config
@@ -144,6 +144,8 @@ curl http://localhost:4000/scanner/top
 curl http://localhost:4000/signals/research
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=live"
+curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m"
+curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m&includeBacktest=true"
 ```
 
 Default pricing-engine base URL: `http://127.0.0.1:4100`
@@ -169,6 +171,12 @@ safe parsing, incomplete-candle filtering, freshness checks, and fail-closed `NO
 Directions are limited to `LONG`, `SHORT`, and `NO_SIGNAL`; they are explicitly research-only and
 `isTradeAdvice: false`.
 
+`/signals/console` returns one `EventSignalConsoleResponse` for BTC/ETH 5m/10m. It includes the
+current research signal, confluence scores, risk filters, recent candles, recent-only markers capped
+at 20, warnings, and an on-demand lightweight backtest preview. Backtest preview is disabled unless
+`includeBacktest=true`. It does not return trade instructions, leverage, position size, order
+fields, or a real performance claim.
+
 ## Current Pages
 
 - `/`: Markets Scanner RC-2
@@ -179,6 +187,9 @@ Directions are limited to `LONG`, `SHORT`, and `NO_SIGNAL`; they are explicitly 
   - market list for BTC/ETH fixture markets
   - right summary, evidence status, and fail-closed reason matrix panels
   - Research Signal Panel for fixture/live LONG bias / SHORT bias / NO_SIGNAL outputs, source mode, freshness, warnings, and fail-closed reasons
+  - Event Signal Console RC-9 with BTC/ETH, 5m/10m, fixture/live selectors, confluence breakdown,
+    risk filters, recent candlestick chart, recent-only signal markers, and an on-demand backtest
+    preview
   - loading/error/empty states through server-side API fetch handling
 - `/markets/:id`: Market Detail RC-3
   - binary outcomes, timing, liquidity, spread, and provenance
@@ -186,7 +197,8 @@ Directions are limited to `LONG`, `SHORT`, and `NO_SIGNAL`; they are explicitly 
   - API-backed research readiness, token trace, source trace, related fixture markets
   - explicit placeholder pricing panel and open evidence gaps
 
-No advanced charting workflow, replay workflow, paper trading UI, or trading control exists.
+No replay workflow, paper trading UI, or trading control exists. The RC-9 candlestick chart is a
+recent research-signal display only and does not load full historical signal markers.
 
 ## Development Workflow
 
@@ -215,11 +227,13 @@ make smoke
 ```
 
 The smoke suite starts the fixture-backed API gateway and web app locally, then checks the scanner
-home page and one deterministic Market Detail URL through `/markets/:id/detail`. It does not call live vendors, compute real
+home page, Event Signal Console default state, on-demand backtest preview, and one deterministic
+Market Detail URL through `/markets/:id/detail`. It does not call live vendors, compute real
 pricing, or test trading behavior. Live OHLCV tests use mocked Coinbase Exchange responses.
 
 API contract snapshots are part of `make test`. They lock stable fixture-backed projections for
-`/scanner/top` and `/markets/:id/detail` under `apps/api-gateway/tests/snapshots/`. Snapshot changes
+`/scanner/top`, `/markets/:id/detail`, `/signals/research`, and `/signals/console` under
+`apps/api-gateway/tests/snapshots/`. Snapshot changes
 should be reviewed as public local API contract changes, not incidental formatting churn.
 
 ## Documentation
@@ -233,6 +247,7 @@ should be reviewed as public local API contract changes, not incidental formatti
 - API gateway contract: `docs/api/api-gateway.md`
 - EPT API v1 local contract: `docs/api/ept-api-v1-local-contract.md`
 - Research signals API: `docs/api/research-signals.md`
+- Event Signal Console API: `docs/api/event-signal-console.md`
 - Polymarket notes: `docs/api/polymarket.md`
 - Pricing-engine v0 contract: `docs/api/pricing-engine.md`
 - Pricing-engine v1 research: `docs/api/pricing-engine-v1-research.md`
@@ -247,6 +262,7 @@ should be reviewed as public local API contract changes, not incidental formatti
 - RC-5 response versioning decision: `docs/adr/0010-rc5-response-versioning-and-error-taxonomy.md`
 - RC-7 research signal decision: `docs/adr/0012-rc7-research-signal-engine-v0.md`
 - RC-8 live OHLCV adapter decision: `docs/adr/0013-rc8-live-ohlcv-source-adapter.md`
+- RC-9 event signal console decision: `docs/adr/0014-rc9-event-signal-console-and-confluence-engine.md`
 - Source registry: `docs/source_registry.md`
 - Collaboration rules: `AGENTS.md`
 

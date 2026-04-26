@@ -1,15 +1,19 @@
 import Link from "next/link";
 import type {
   Asset,
+  EventSignalConsoleResponse,
   EventMarket,
   ResearchSignal,
   ResearchSignalSourceMode,
   ResearchSignalsResponse,
   ScannerCandidate,
   ScannerTopResponse,
+  SignalHorizon,
+  SignalSymbol,
   TimeWindow
 } from "@ept/shared-types";
 import { apiErrorMessage } from "./api-client";
+import { ConsoleCandlestickChart } from "./ConsoleCandlestickChart";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +24,8 @@ type PageState = {
   signals: ResearchSignal[];
   signalError?: string;
   signalMeta?: ResearchSignalsResponse["meta"];
+  console?: EventSignalConsoleResponse;
+  consoleError?: string;
 };
 
 type SearchParams = Promise<{
@@ -28,6 +34,10 @@ type SearchParams = Promise<{
   sort?: string;
   q?: string;
   signalSourceMode?: string;
+  consoleSymbol?: string;
+  consoleHorizon?: string;
+  consoleSourceMode?: string;
+  consoleBacktest?: string;
 }>;
 
 type SortKey = "expiry" | "liquidity" | "spread" | "marketProb";
@@ -38,6 +48,10 @@ type ScannerFilters = {
   sort: SortKey;
   query: string;
   signalSourceMode: ResearchSignalSourceMode;
+  consoleSymbol: SignalSymbol;
+  consoleHorizon: SignalHorizon;
+  consoleSourceMode: ResearchSignalSourceMode;
+  consoleBacktest: boolean;
 };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
@@ -45,15 +59,18 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:400
 export default async function Home({ searchParams }: { searchParams?: SearchParams }) {
   const params = (await searchParams) ?? {};
   const filters = parseFilters(params);
-  const [scannerState, signalState] = await Promise.all([
+  const [scannerState, signalState, consoleState] = await Promise.all([
     loadScanner(),
-    loadResearchSignals(filters.signalSourceMode)
+    loadResearchSignals(filters.signalSourceMode),
+    loadEventSignalConsole(filters)
   ]);
   const state: PageState = {
     ...scannerState,
     signals: signalState.signals,
     ...(signalState.error ? { signalError: signalState.error } : {}),
-    ...(signalState.meta ? { signalMeta: signalState.meta } : {})
+    ...(signalState.meta ? { signalMeta: signalState.meta } : {}),
+    ...(consoleState.console ? { console: consoleState.console } : {}),
+    ...(consoleState.error ? { consoleError: consoleState.error } : {})
   };
   const candidates = sortCandidates(filterCandidates(state.candidates, filters), filters.sort);
   const allMarkets = state.candidates.map((candidate) => candidate.market);
@@ -121,6 +138,11 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
               visibleCount={visibleMarkets.length}
             />
           ) : null}
+          <EventSignalConsolePanel
+            console={state.console}
+            current={filters}
+            error={state.consoleError}
+          />
           {!state.error && visibleMarkets.length === 0 ? <EmptyState /> : null}
 
           {!state.error && visibleMarkets.length > 0 ? (
@@ -263,6 +285,37 @@ async function loadResearchSignals(sourceMode: ResearchSignalSourceMode): Promis
   }
 }
 
+async function loadEventSignalConsole(filters: ScannerFilters): Promise<{
+  console?: EventSignalConsoleResponse;
+  error?: string;
+}> {
+  const params = new URLSearchParams({
+    symbol: filters.consoleSymbol,
+    horizon: filters.consoleHorizon,
+    sourceMode: filters.consoleSourceMode
+  });
+  if (filters.consoleBacktest) {
+    params.set("includeBacktest", "true");
+  }
+  try {
+    const response = await fetch(`${apiBaseUrl}/signals/console?${params.toString()}`, {
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      return {
+        error: await apiErrorMessage(response)
+      };
+    }
+    return {
+      console: (await response.json()) as EventSignalConsoleResponse
+    };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Event Signal Console API request failed."
+    };
+  }
+}
+
 function parseFilters(params: Awaited<SearchParams>): ScannerFilters {
   return {
     asset: params.asset === "BTC" || params.asset === "ETH" ? params.asset : "all",
@@ -272,7 +325,11 @@ function parseFilters(params: Awaited<SearchParams>): ScannerFilters {
         ? params.sort
         : "expiry",
     query: typeof params.q === "string" ? params.q.trim().slice(0, 80) : "",
-    signalSourceMode: params.signalSourceMode === "live" ? "live" : "fixture"
+    signalSourceMode: params.signalSourceMode === "live" ? "live" : "fixture",
+    consoleSymbol: params.consoleSymbol === "ETH" ? "ETH" : "BTC",
+    consoleHorizon: params.consoleHorizon === "10m" ? "10m" : "5m",
+    consoleSourceMode: params.consoleSourceMode === "live" ? "live" : "fixture",
+    consoleBacktest: params.consoleBacktest === "1"
   };
 }
 
@@ -340,7 +397,7 @@ function FilterGroup({
       <div className="mt-2 flex flex-wrap gap-2">
         {options.map((value) => {
           const active = current[paramName] === value;
-          const update = { [paramName]: value } as Partial<Record<keyof ScannerFilters, string>>;
+          const update = { [paramName]: value } as Partial<ScannerFilters>;
           return (
             <Link
               className={`border px-2 py-1 text-xs ${
@@ -367,6 +424,9 @@ function QuerySearch({ current }: { current: ScannerFilters }) {
         {current.window !== "all" ? <input name="window" type="hidden" value={current.window} /> : null}
         {current.sort !== "expiry" ? <input name="sort" type="hidden" value={current.sort} /> : null}
         {current.signalSourceMode === "live" ? <input name="signalSourceMode" type="hidden" value="live" /> : null}
+        {current.consoleSymbol !== "BTC" ? <input name="consoleSymbol" type="hidden" value={current.consoleSymbol} /> : null}
+        {current.consoleHorizon !== "5m" ? <input name="consoleHorizon" type="hidden" value={current.consoleHorizon} /> : null}
+        {current.consoleSourceMode === "live" ? <input name="consoleSourceMode" type="hidden" value="live" /> : null}
         <input
           className="min-h-9 border border-border bg-white px-2 text-sm"
           defaultValue={current.query}
@@ -389,13 +449,17 @@ function QuerySearch({ current }: { current: ScannerFilters }) {
   );
 }
 
-function scannerHref(current: ScannerFilters, updates: Partial<Record<keyof ScannerFilters, string>>) {
+function scannerHref(current: ScannerFilters, updates: Partial<ScannerFilters>) {
   const next = {
     asset: updates.asset ?? current.asset,
     window: updates.window ?? current.window,
     sort: updates.sort ?? current.sort,
     query: updates.query ?? current.query,
-    signalSourceMode: updates.signalSourceMode ?? current.signalSourceMode
+    signalSourceMode: updates.signalSourceMode ?? current.signalSourceMode,
+    consoleSymbol: updates.consoleSymbol ?? current.consoleSymbol,
+    consoleHorizon: updates.consoleHorizon ?? current.consoleHorizon,
+    consoleSourceMode: updates.consoleSourceMode ?? current.consoleSourceMode,
+    consoleBacktest: updates.consoleBacktest ?? current.consoleBacktest
   };
   const params = new URLSearchParams();
   if (next.asset !== "all") {
@@ -412,6 +476,18 @@ function scannerHref(current: ScannerFilters, updates: Partial<Record<keyof Scan
   }
   if (next.signalSourceMode === "live") {
     params.set("signalSourceMode", "live");
+  }
+  if (next.consoleSymbol !== "BTC") {
+    params.set("consoleSymbol", next.consoleSymbol);
+  }
+  if (next.consoleHorizon !== "5m") {
+    params.set("consoleHorizon", next.consoleHorizon);
+  }
+  if (next.consoleSourceMode === "live") {
+    params.set("consoleSourceMode", "live");
+  }
+  if (next.consoleBacktest) {
+    params.set("consoleBacktest", "1");
   }
   const query = params.toString();
   return query ? `/?${query}` : "/";
@@ -501,6 +577,252 @@ function EvidencePanel({ meta }: { meta: ScannerTopResponse["meta"] | undefined 
           </ul>
         </div>
       ) : null}
+    </section>
+  );
+}
+
+function EventSignalConsolePanel({
+  console,
+  error,
+  current
+}: {
+  console: EventSignalConsoleResponse | undefined;
+  error: string | undefined;
+  current: ScannerFilters;
+}) {
+  return (
+    <section className="border-b border-border bg-white p-4" data-testid="event-signal-console">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-medium text-teal-700">Event Signal Console RC-9</p>
+          <h2 className="mt-1 text-xl font-semibold">BTC / ETH Research Bias Console</h2>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            <Badge>Research only</Badge>
+            <Badge>Not trade advice</Badge>
+            <Badge>No auto trading</Badge>
+          </div>
+        </div>
+        <div className="grid gap-2 text-xs sm:grid-cols-3">
+          <ConsoleSelector
+            current={current}
+            label="Symbol"
+            options={["BTC", "ETH"]}
+            paramName="consoleSymbol"
+          />
+          <ConsoleSelector
+            current={current}
+            label="Horizon"
+            options={["5m", "10m"]}
+            paramName="consoleHorizon"
+          />
+          <ConsoleSelector
+            current={current}
+            label="Source"
+            options={["fixture", "live"]}
+            paramName="consoleSourceMode"
+          />
+        </div>
+      </div>
+
+      {error ? (
+        <div className="mt-4 border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          Event Signal Console unavailable: {error}
+        </div>
+      ) : null}
+
+      {!error && console ? (
+        <div className="mt-4 grid gap-4">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(280px,0.75fr)]">
+            <div>
+              <ConsoleCandlestickChart candles={console.recentCandles} markers={console.recentMarkers} />
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-600">
+                <span>Recent candles: {console.recentCandles.length}</span>
+                <span>Recent markers: {console.recentMarkers.length} / max 20</span>
+                <span>Markers are recent-only.</span>
+              </div>
+            </div>
+            <div className="grid content-start gap-3">
+              <section className="border border-border bg-slate-50 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-xs font-semibold text-slate-500">Current Research Signal</div>
+                    <div className="mt-1 text-sm font-semibold">
+                      {console.symbol} {console.horizon} / {displaySourceMode(console.sourceMode)}
+                    </div>
+                  </div>
+                  <SignalDirectionBadge direction={console.currentSignal.direction} />
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-700">
+                  <Metric label="Total score" value={formatSigned(console.confluence.totalScore)} />
+                  <Metric label="Confidence" value={formatProb(console.confluence.confidence)} />
+                  <Metric label="Freshness" value={displayFreshness(console.currentSignal)} />
+                  <Metric label="Data" value={console.currentSignal.dataQuality.status} />
+                </div>
+              </section>
+
+              <section className="border border-border bg-white p-3">
+                <h3 className="text-xs font-semibold text-slate-500">Confluence Breakdown</h3>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-700">
+                  <Metric label="Trend" value={formatSigned(console.confluence.trendScore)} />
+                  <Metric label="Momentum" value={formatSigned(console.confluence.momentumScore)} />
+                  <Metric label="Volatility" value={formatSigned(console.confluence.volatilityScore)} />
+                  <Metric label="Volume" value={formatSigned(console.confluence.volumeScore)} />
+                  <Metric label="Reversal risk" value={formatProb(console.confluence.reversalRisk)} />
+                  <Metric label="Chop risk" value={formatProb(console.confluence.chopRisk)} />
+                </div>
+              </section>
+
+              <section className="border border-border bg-white p-3">
+                <h3 className="text-xs font-semibold text-slate-500">Risk Filters</h3>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-700">
+                  <Metric label="Freshness" value={console.riskFilters.dataFreshness} />
+                  <Metric label="Volatility" value={console.riskFilters.volatility} />
+                  <Metric label="Volume" value={console.riskFilters.volumeConfirmation} />
+                  <Metric label="Chop" value={console.riskFilters.chop} />
+                  <Metric label="Conflict" value={console.riskFilters.conflict} />
+                  <Metric label="Mean revert" value={console.riskFilters.meanReversion} />
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            <ReasonList title="Reasons" reasons={console.confluence.reasons} />
+            <ReasonList title="Veto reasons" reasons={console.confluence.vetoReasons} emptyText="No active veto." />
+          </div>
+
+          {console.warnings.length ? (
+            <div className="border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800">
+              {console.warnings.slice(0, 4).join(" ")}
+            </div>
+          ) : null}
+
+          <BacktestPreviewPanel console={console} current={current} />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ConsoleSelector({
+  label,
+  options,
+  paramName,
+  current
+}: {
+  label: string;
+  options: string[];
+  paramName: "consoleSymbol" | "consoleHorizon" | "consoleSourceMode";
+  current: ScannerFilters;
+}) {
+  return (
+    <section>
+      <h3 className="text-xs font-semibold text-slate-500">{label}</h3>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {options.map((value) => {
+          const active = current[paramName] === value;
+          return (
+            <Link
+              className={`border px-2 py-1 ${
+                active ? "border-teal-700 bg-teal-50 text-teal-800" : "border-border bg-slate-50"
+              }`}
+              href={scannerHref(current, { [paramName]: value, consoleBacktest: false } as Partial<ScannerFilters>)}
+              key={value}
+            >
+              {value}
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border border-border bg-slate-50 px-2 py-1">
+      <div className="text-[11px] text-slate-500">{label}</div>
+      <div className="mt-0.5 break-words font-semibold text-slate-800">{value}</div>
+    </div>
+  );
+}
+
+function ReasonList({
+  title,
+  reasons,
+  emptyText = "None"
+}: {
+  title: string;
+  reasons: string[];
+  emptyText?: string;
+}) {
+  return (
+    <section className="border border-border bg-white p-3">
+      <h3 className="text-xs font-semibold text-slate-500">{title}</h3>
+      {reasons.length ? (
+        <ul className="mt-2 grid gap-1 text-xs leading-5 text-slate-700">
+          {reasons.slice(0, 6).map((reason) => (
+            <li key={reason}>{reason}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-xs text-slate-600">{emptyText}</p>
+      )}
+    </section>
+  );
+}
+
+function BacktestPreviewPanel({
+  console,
+  current
+}: {
+  console: EventSignalConsoleResponse;
+  current: ScannerFilters;
+}) {
+  if (!console.backtestPreview.enabled) {
+    return (
+      <section className="border border-border bg-slate-50 p-3" data-testid="backtest-drawer">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-700">Backtest Preview</h3>
+            <p className="mt-1 text-xs text-slate-600">Collapsed by default. Loads only after user action.</p>
+          </div>
+          <Link
+            className="border border-teal-700 bg-teal-50 px-3 py-2 text-xs font-semibold text-teal-800"
+            href={scannerHref(current, { consoleBacktest: true })}
+          >
+            Show backtest preview
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="border border-border bg-white p-3" data-testid="backtest-drawer">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-700">Backtest Preview</h3>
+          <p className="mt-1 text-xs text-slate-600">Small local sample. Research only.</p>
+        </div>
+        <Link
+          className="border border-border bg-slate-50 px-3 py-2 text-xs text-slate-700"
+          href={scannerHref(current, { consoleBacktest: false })}
+        >
+          Hide preview
+        </Link>
+      </div>
+      <div className="mt-3 grid gap-2 text-xs text-slate-700 sm:grid-cols-4">
+        <Metric label="Sample size" value={`${console.backtestPreview.sampleSize}`} />
+        <Metric label="Win rate" value={formatNullableProb(console.backtestPreview.winRate)} />
+        <Metric label="Average move" value={formatNullableReturn(console.backtestPreview.averageReturn)} />
+        <Metric label="Max drawdown proxy" value={formatNullableReturn(console.backtestPreview.maxDrawdownProxy)} />
+      </div>
+      <ul className="mt-3 grid gap-1 text-xs leading-5 text-slate-600">
+        {console.backtestPreview.caveats.map((caveat) => (
+          <li key={caveat}>{caveat}</li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -719,6 +1041,14 @@ function marketEndTime(market: EventMarket) {
 
 function formatProb(value?: number) {
   return value === undefined ? "n/a" : value.toFixed(3);
+}
+
+function formatNullableProb(value: number | null) {
+  return value === null ? "n/a" : value.toFixed(3);
+}
+
+function formatNullableReturn(value: number | null) {
+  return value === null ? "n/a" : `${value >= 0 ? "+" : ""}${(value * 100).toFixed(2)}%`;
 }
 
 function formatSigned(value: number) {
