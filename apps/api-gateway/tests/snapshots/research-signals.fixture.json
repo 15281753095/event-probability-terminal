@@ -1,0 +1,378 @@
+{
+  "signals": [
+    {
+      "symbol": "BTC",
+      "horizon": "5m",
+      "generatedAt": "2026-04-23T00:00:00.000Z",
+      "direction": "LONG",
+      "confidence": 0.5898,
+      "score": 0.708,
+      "reasons": [
+        "LONG research bias from weighted technical and fixture context inputs.",
+        "Fast EMA is above slow EMA and rising.",
+        "1m/3m/5m momentum cluster leans upward.",
+        "MACD histogram is positive and expanding.",
+        "Manual fixture context modifies score within a capped research-only range.",
+        "Abnormal volume confirms positive short-horizon momentum.",
+        "RSI 100 is not allowed to decide direction by itself.",
+        "News/X/macro context is manual fixture input, not verified live external data.",
+        "No order, position size, leverage, or execution instruction is produced."
+      ],
+      "features": {
+        "lastClose": 103912.04,
+        "returns": {
+          "oneMinute": 0.0023999826360836035,
+          "threeMinute": 0.006614502500890472,
+          "fiveMinute": 0.01003983800410481
+        },
+        "ema": {
+          "fast": 103221.36358865275,
+          "slow": 102389.93516407267,
+          "slope": 197.33611752776778
+        },
+        "rsi": {
+          "value": 100,
+          "period": 14
+        },
+        "macd": {
+          "line": 752.9635959744337,
+          "signal": 618.6142563461035,
+          "histogram": 134.3493396283302,
+          "histogramSlope": 7.358242615977247
+        },
+        "bollinger": {
+          "middle": 102266.71849999999,
+          "upper": 103984.42040106752,
+          "lower": 100549.01659893246,
+          "bandwidth": 0.03359258860090497,
+          "bandPosition": 0.9789310354076748,
+          "squeeze": false,
+          "expansion": false
+        },
+        "volatility": {
+          "atr": 470.1071428571418,
+          "realizedVolatility": 0.000376582710282959,
+          "regime": "normal"
+        },
+        "volume": {
+          "latest": 5170,
+          "mean": 4150.8,
+          "zScore": 1.928475751014649,
+          "abnormal": true
+        }
+      },
+      "context": {
+        "sourceMode": "manual_fixture",
+        "newsScore": 0.08,
+        "xSignalScore": 0.04,
+        "macroRiskState": "risk_on",
+        "marketEventRiskFlag": false,
+        "notes": [
+          "Manual fixture context mildly supports upside bias.",
+          "No live X, news, or macro API is used by default; context is fixture/manual research input."
+        ]
+      },
+      "dataQuality": {
+        "status": "ok",
+        "candleCount": 40,
+        "requiredCandleCount": 35,
+        "freshnessAgeMs": 60000,
+        "maxFreshnessMs": 180000,
+        "missingFields": [],
+        "warnings": []
+      },
+      "sourceMode": "fixture",
+      "isResearchOnly": true,
+      "isTradeAdvice": false,
+      "modelVersion": "research-signal-engine-v0",
+      "invalidation": [
+        "Signal invalidates when fixture candles are stale relative to generatedAt.",
+        "Signal invalidates when fast/slow EMA, MACD histogram, and momentum contributions materially diverge.",
+        "Signal invalidates if future live adapters cannot prove source freshness and context provenance."
+      ],
+      "failClosedReasons": []
+    },
+    {
+      "symbol": "BTC",
+      "horizon": "10m",
+      "generatedAt": "2026-04-23T00:00:00.000Z",
+      "direction": "NO_SIGNAL",
+      "confidence": 0.2104,
+      "score": 0.07,
+      "reasons": [
+        "NO_SIGNAL research bias from weighted technical and fixture context inputs.",
+        "Abnormal volume confirms positive short-horizon momentum.",
+        "RSI 54.2583 is not allowed to decide direction by itself.",
+        "News/X/macro context is manual fixture input, not verified live external data.",
+        "No order, position size, leverage, or execution instruction is produced."
+      ],
+      "features": {
+        "lastClose": 100079.92,
+        "returns": {
+          "oneMinute": 0.00010003006897872458,
+          "threeMinute": 0.0001999801918670001,
+          "fiveMinute": 0.00009993012885390536
+        },
+        "ema": {
+          "fast": 100073.68832648318,
+          "slow": 100065.28552025107,
+          "slope": 1.7804781476443168
+        },
+        "rsi": {
+          "value": 54.25827414895372,
+          "period": 14
+        },
+        "macd": {
+          "line": 9.56308823740983,
+          "signal": 10.301071785518028,
+          "histogram": -0.7379835481081987,
+          "histogramSlope": 0.2769705181627504
+        },
+        "bollinger": {
+          "middle": 100067.42899999996,
+          "upper": 100094.90808943174,
+          "lower": 100039.94991056818,
+          "bandwidth": 0.0005492114608397668,
+          "bandPosition": 0.7272819125074421,
+          "squeeze": true,
+          "expansion": false
+        },
+        "volatility": {
+          "atr": 96.49714285714539,
+          "realizedVolatility": 0.00017509982773903453,
+          "regime": "low"
+        },
+        "volume": {
+          "latest": 2342,
+          "mean": 2087.7,
+          "zScore": 1.9257797510522656,
+          "abnormal": true
+        }
+      },
+      "context": {
+        "sourceMode": "manual_fixture",
+        "newsScore": 0,
+        "xSignalScore": 0,
+        "macroRiskState": "neutral",
+        "marketEventRiskFlag": false,
+        "notes": [
+          "Manual fixture context is neutral.",
+          "No live X, news, or macro API is used by default; context is fixture/manual research input."
+        ]
+      },
+      "dataQuality": {
+        "status": "ok",
+        "candleCount": 40,
+        "requiredCandleCount": 35,
+        "freshnessAgeMs": 60000,
+        "maxFreshnessMs": 180000,
+        "missingFields": [],
+        "warnings": []
+      },
+      "sourceMode": "fixture",
+      "isResearchOnly": true,
+      "isTradeAdvice": false,
+      "modelVersion": "research-signal-engine-v0",
+      "invalidation": [
+        "Signal invalidates when fixture candles are stale relative to generatedAt.",
+        "Signal invalidates when fast/slow EMA, MACD histogram, and momentum contributions materially diverge.",
+        "Signal invalidates if future live adapters cannot prove source freshness and context provenance."
+      ],
+      "failClosedReasons": []
+    },
+    {
+      "symbol": "ETH",
+      "horizon": "5m",
+      "generatedAt": "2026-04-23T00:00:00.000Z",
+      "direction": "SHORT",
+      "confidence": 0.5858,
+      "score": -0.7025,
+      "reasons": [
+        "SHORT research bias from weighted technical and fixture context inputs.",
+        "Fast EMA is below slow EMA and falling.",
+        "1m/3m/5m momentum cluster leans downward.",
+        "MACD histogram is negative and weakening further.",
+        "Manual fixture context modifies score within a capped research-only range.",
+        "Abnormal volume confirms negative short-horizon momentum.",
+        "RSI 0 is not allowed to decide direction by itself.",
+        "News/X/macro context is manual fixture input, not verified live external data.",
+        "No order, position size, leverage, or execution instruction is produced."
+      ],
+      "features": {
+        "lastClose": 3085.24,
+        "returns": {
+          "oneMinute": -0.002099148373240948,
+          "threeMinute": -0.005588896982511376,
+          "fiveMinute": -0.008866501329975317
+        },
+        "ema": {
+          "fast": 3103.968028288388,
+          "slow": 3128.173424734867,
+          "slope": -5.3508652252535285
+        },
+        "rsi": {
+          "value": 0,
+          "period": 14
+        },
+        "macd": {
+          "line": -22.21926496661854,
+          "signal": -18.63184467383908,
+          "histogram": -3.587420292779459,
+          "histogramSlope": -0.11636816378754489
+        },
+        "bollinger": {
+          "middle": 3131.32,
+          "upper": 3181.1883731437074,
+          "lower": 3081.451626856293,
+          "bandwidth": 0.03185134265658395,
+          "bandPosition": 0.03798372500331801,
+          "squeeze": false,
+          "expansion": false
+        },
+        "volatility": {
+          "atr": 13.350714285714275,
+          "realizedVolatility": 0.00026874399488840083,
+          "regime": "normal"
+        },
+        "volume": {
+          "latest": 5395,
+          "mean": 4489.6,
+          "zScore": 1.9277577708623903,
+          "abnormal": true
+        }
+      },
+      "context": {
+        "sourceMode": "manual_fixture",
+        "newsScore": -0.05,
+        "xSignalScore": -0.06,
+        "macroRiskState": "risk_off",
+        "marketEventRiskFlag": false,
+        "notes": [
+          "Manual fixture context mildly supports downside bias.",
+          "No live X, news, or macro API is used by default; context is fixture/manual research input."
+        ]
+      },
+      "dataQuality": {
+        "status": "ok",
+        "candleCount": 40,
+        "requiredCandleCount": 35,
+        "freshnessAgeMs": 60000,
+        "maxFreshnessMs": 180000,
+        "missingFields": [],
+        "warnings": []
+      },
+      "sourceMode": "fixture",
+      "isResearchOnly": true,
+      "isTradeAdvice": false,
+      "modelVersion": "research-signal-engine-v0",
+      "invalidation": [
+        "Signal invalidates when fixture candles are stale relative to generatedAt.",
+        "Signal invalidates when fast/slow EMA, MACD histogram, and momentum contributions materially diverge.",
+        "Signal invalidates if future live adapters cannot prove source freshness and context provenance."
+      ],
+      "failClosedReasons": []
+    },
+    {
+      "symbol": "ETH",
+      "horizon": "10m",
+      "generatedAt": "2026-04-23T00:00:00.000Z",
+      "direction": "NO_SIGNAL",
+      "confidence": 0,
+      "score": 0,
+      "reasons": [
+        "NO_SIGNAL because fail-closed conditions are present.",
+        "Manual context fixture flags event risk; research signal fails closed.",
+        "No order, position size, leverage, or execution instruction is produced."
+      ],
+      "features": {
+        "lastClose": 3192.24,
+        "returns": {
+          "oneMinute": -0.0015013887846258359,
+          "threeMinute": -0.0016044436521266258,
+          "fiveMinute": -0.0020070904691339726
+        },
+        "ema": {
+          "fast": 3195.2435836866316,
+          "slow": 3196.8905823529235,
+          "slope": -0.8581667676094185
+        },
+        "rsi": {
+          "value": 45.21203079306624,
+          "period": 14
+        },
+        "macd": {
+          "line": -1.511250054798893,
+          "signal": -1.2567820933342284,
+          "histogram": -0.25446796146466455,
+          "histogramSlope": -0.1828850700460738
+        },
+        "bollinger": {
+          "middle": 3197.143,
+          "upper": 3202.721021513046,
+          "lower": 3191.5649784869543,
+          "bandwidth": 0.0034893788066694353,
+          "bandPosition": 0.060507252568567045,
+          "squeeze": true,
+          "expansion": true
+        },
+        "volatility": {
+          "atr": 12.277142857142865,
+          "realizedVolatility": 0.001377439768439928,
+          "regime": "normal"
+        },
+        "volume": {
+          "latest": 3130,
+          "mean": 2818.3,
+          "zScore": 1.9296958367030264,
+          "abnormal": true
+        }
+      },
+      "context": {
+        "sourceMode": "manual_fixture",
+        "newsScore": null,
+        "xSignalScore": null,
+        "macroRiskState": "unknown",
+        "marketEventRiskFlag": true,
+        "notes": [
+          "Manual fixture flags event risk; no live news/X/macro adapter is configured.",
+          "No live X, news, or macro API is used by default; context is fixture/manual research input."
+        ]
+      },
+      "dataQuality": {
+        "status": "ok",
+        "candleCount": 40,
+        "requiredCandleCount": 35,
+        "freshnessAgeMs": 60000,
+        "maxFreshnessMs": 180000,
+        "missingFields": [],
+        "warnings": []
+      },
+      "sourceMode": "fixture",
+      "isResearchOnly": true,
+      "isTradeAdvice": false,
+      "modelVersion": "research-signal-engine-v0",
+      "invalidation": [
+        "Signal invalidates when fixture candles are stale relative to generatedAt.",
+        "Signal invalidates when fast/slow EMA, MACD histogram, and momentum contributions materially diverge.",
+        "Signal invalidates if future live adapters cannot prove source freshness and context provenance."
+      ],
+      "failClosedReasons": [
+        "Manual context fixture flags event risk; research signal fails closed."
+      ]
+    }
+  ],
+  "meta": {
+    "contractVersion": "ept-api-v1",
+    "responseKind": "research_signals",
+    "generatedAt": "2026-04-23T00:00:00.000Z",
+    "status": "ok",
+    "source": "research_signal_engine",
+    "mode": "fixture",
+    "isFixtureBacked": true,
+    "isReadOnly": true,
+    "isResearchOnly": true,
+    "isTradeAdvice": false,
+    "modelVersion": "research-signal-engine-v0",
+    "message": "Research signals are deterministic, fixture-backed, read-only directional bias outputs. They are not trade advice or order instructions."
+  }
+}

@@ -18,6 +18,9 @@ packages/shared-types
 
 services/pricing-engine
   -> Python placeholder fair-value service
+
+packages/research-signals
+  -> deterministic fixture-backed technical indicators and RC-7 research signal engine
 ```
 
 ## Service Boundaries
@@ -32,6 +35,10 @@ detail page shows the selected market, binary outcomes, timings, fixture-backed 
 available, research readiness, token trace, source trace, provenance, open evidence gaps, related
 fixture markets, and placeholder pricing state from a single `MarketDetailResponse` contract.
 
+The scanner page also renders a Research Signal Panel. It shows fixture-backed `LONG bias`,
+`SHORT bias`, and `NO_SIGNAL` outputs for BTC/ETH 5m/10m. It does not show buy/sell language,
+leverage, position size, order forms, or trading controls.
+
 ### API Gateway
 
 `apps/api-gateway` exposes the minimal read-only API:
@@ -42,6 +49,7 @@ fixture markets, and placeholder pricing state from a single `MarketDetailRespon
 - `GET /markets/:id/book`
 - `GET /markets/:id/detail`
 - `GET /scanner/top`
+- `GET /signals/research`
 
 Scanner output currently calls the pricing-engine v0 placeholder contract for fair-value shape and still marks edge fields as placeholders. Scanner metadata includes rejected count, fail-closed summary, and uncertainty so the UI can explain why some upstream markets were not normalized.
 
@@ -54,6 +62,10 @@ ad-hoc shaping and does not add new vendor endpoints.
 The scanner and detail API contracts are protected by fixture-backed snapshot tests. These tests
 lock stable response projections while leaving live vendor payloads, wall-clock time, and
 machine-specific fetch errors out of the snapshot surface.
+
+`GET /signals/research` exposes `ResearchSignalsResponse` for the RC-7 research-signal slice. It
+uses deterministic OHLCV fixtures and `@ept/research-signals`; it does not call live price, X, news,
+macro, wallet, or vendor trading APIs.
 
 ### Market Ingestor
 
@@ -76,12 +88,16 @@ Live public mode exists as an adapter transport path, but BTC/ETH and 10m/1h cla
 - `RelatedMarketSummary`
 - `FairValueSnapshot` placeholder
 - `TradeCandidate` placeholder
+- `ResearchSignal`
+- `ResearchSignalsResponse`
 
 The types intentionally avoid encoding unconfirmed upstream Polymarket fields as stable domain contracts.
 
 The current local API contract version is `ept-api-v1`. Scanner/detail success responses carry a
 stable `meta` block with response kind, generation time, status, read-only/fixture/placeholder
 flags, and source mode. Typed API errors use `ApiErrorResponse` and the same contract version.
+Research-signal responses also use `ept-api-v1`, but mark `source: "research_signal_engine"`,
+`isResearchOnly: true`, and `isTradeAdvice: false`.
 
 `EventMarket` currently models only binary markets. It preserves upstream outcome labels and token IDs as `outcomes.primary` and `outcomes.secondary`, so both `Yes`/`No` and observed `Up`/`Down` labels can be represented without creating a general multi-outcome model. The contract does not infer pricing, trading direction, or strategy side from those labels.
 
@@ -99,6 +115,17 @@ labels still cannot produce non-placeholder pricing until the accepted 10m/1h ta
 fixture-backed reference/start value, settlement source, comparator, tie-rule, and freshness
 evidence.
 
+### Research Signals
+
+`packages/research-signals` is a TypeScript package for deterministic, fixture-backed RC-7 research
+signals. It computes EMA, RSI, MACD, Bollinger bands, ATR, realized volatility, short-horizon
+momentum, and volume z-score from local OHLCV fixtures.
+
+The v0 engine combines multiple weighted factors into a `ResearchSignal` with direction `LONG`,
+`SHORT`, or `NO_SIGNAL`. It emits reasons, confidence, score, feature snapshots, data quality,
+invalidation notes, and fail-closed reasons. It is not a pricing engine and does not produce fair
+probabilities, trade advice, orders, leverage, or position sizing.
+
 ## Data Flow
 
 1. Web requests scanner or market detail data from `apps/api-gateway`.
@@ -108,7 +135,9 @@ evidence.
 5. API gateway calls pricing-engine v0 for placeholder fair-value shape when serving scanner and detail candidate output.
 6. API gateway summarizes fail-closed rejection reasons for scanner metadata.
 7. API gateway organizes detail evidence/provenance fields into `MarketDetailResponse`.
-8. API gateway strips raw upstream payloads before returning API responses.
+8. API gateway computes fixture-backed research signals through `@ept/research-signals` for
+   `/signals/research`.
+9. API gateway strips raw upstream payloads before returning API responses.
 
 ## Current Infrastructure
 
@@ -122,6 +151,8 @@ evidence.
 - No Predict.fun or Binance Wallet implementation in the current slice.
 - No multi-outcome market support in the current domain contract.
 - No real pricing model; pricing-engine v0 is contract plus placeholder output only.
+- Research signals are research-only and must not be presented as investment advice or trade
+  instructions.
 - Pricing-engine v1 is research-only until data freshness and validation gates are satisfied.
 - No non-placeholder Up/Down pricing without confirmed payoff specification, reference level, and
   settlement rule.

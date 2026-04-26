@@ -12,6 +12,8 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - Current mode: read-only market discovery and display.
 - Scanner: RC-2 endpoint and page with filtering, URL query state, sorting, pricing-engine v0 placeholder fair-value, edge fields, and evidence metadata.
 - Market Detail: read-only RC-3 page backed by `MarketDetailResponse` for normalized fixture-backed markets with evidence-first provenance organization.
+- Research Signals: RC-7 fixture-backed BTC/ETH 5m/10m technical research bias with explicit
+  `isResearchOnly: true` and `isTradeAdvice: false`.
 - Market contract: binary outcome markets only. Outcome labels are preserved from upstream, so `Yes`/`No` and observed `Up`/`Down` labels can be represented. Multi-outcome markets are out of scope.
 - Pricing-engine v1: research boundary only; no real probability model is implemented.
 - Up/Down payoff/reference-level extraction: research contract only. The observed 5M Chainlink
@@ -35,6 +37,8 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - No private/authenticated vendor APIs.
 - No Predict.fun or Binance Wallet implementation.
 - No real pricing model; pricing-engine v0 returns `null` fair probabilities and placeholder metadata.
+- No research signal may be displayed as investment advice, buy/sell instruction, order, leverage,
+  position size, or real trading entry.
 - No non-placeholder pricing-engine v1 output until data freshness and validation standards are met.
 - No non-placeholder Up/Down quote until payoff specification, reference/start/strike level,
   settlement source, comparator, tie rule, and freshness are confirmed for the accepted 10m/1h
@@ -55,6 +59,8 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - Fixture-backed API snapshot tests lock stable `/scanner/top` and `/markets/:id/detail` contract projections.
 - Scanner/detail responses expose `ept-api-v1` contract metadata and typed `market_not_found`
   errors for local consumers.
+- Research signal responses expose `ept-api-v1` metadata, deterministic fixture-backed signals,
+  data-quality state, reasons, and research-only/not-trade-advice flags.
 - Placeholder scanner fields are clearly marked and sourced from the pricing-engine v0 placeholder contract where available.
 - Pricing-engine v1 research documents define required features, freshness rules, and calibration gates before any implementation.
 - Up/Down payoff research documents define fail-closed evidence requirements before extraction or

@@ -15,6 +15,11 @@ test("scanner home renders fixture-backed research state", async ({ page }) => {
   await expect(page.getByRole("link", { name: "marketProb" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Will Bitcoin be up at the end of the hour/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Evidence Status" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Research Signal Panel" })).toBeVisible();
+  await expect(page.getByText("Research only")).toBeVisible();
+  await expect(page.getByText("LONG bias")).toBeVisible();
+  await expect(page.getByText("SHORT bias")).toBeVisible();
+  await expect(page.getByText("NO_SIGNAL").first()).toBeVisible();
   await expect(page.getByText("Fair probability: placeholder only")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Fail-closed reason matrix" })).toBeVisible();
 });

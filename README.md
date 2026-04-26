@@ -8,8 +8,9 @@ This repository is in Phase 1 foundation work. It has a minimal local end-to-end
 
 - `services/market-ingestor`: Polymarket public-read adapter boundary, fixture-first by default.
 - `packages/shared-types`: shared contracts for `EventMarket`, `OrderBookSnapshot`, `MarketDetailResponse`, and placeholder scanner/pricing objects.
+- `packages/research-signals`: deterministic RC-7 technical-indicator and research-signal engine.
 - `apps/api-gateway`: Fastify read-only API for fixture-backed markets, scanner metadata, contract-backed market detail, and pricing placeholders.
-- `apps/web`: Next.js Markets Scanner RC-2 and Market Detail RC-3 evidence views that read from the API gateway.
+- `apps/web`: Next.js Markets Scanner RC-2, Research Signal Panel RC-7, and Market Detail RC-3 evidence views that read from the API gateway.
 - `services/pricing-engine`: Python placeholder contract for fair-value output shape.
 
 The current app market data is synthetic fixture data unless explicitly configured otherwise. A limited Polymarket Gamma/public-search live fixture capture was completed on 2026-04-21 to tighten contract tests, but it did not confirm BTC/ETH 10m/1h live classification.
@@ -27,6 +28,7 @@ Supported research scope:
 - Primary venue: Polymarket
 - Secondary/reference venues: Predict.fun and Binance Wallet Prediction Markets are documented only; they are not implemented.
 - Mode: read-only market discovery and display, with pricing-engine v0 placeholder outputs.
+- Research signals: fixture-backed BTC/ETH `5m`/`10m` technical research bias only; not trade advice.
 - Market contract: binary outcome markets only. The shared contract preserves upstream outcome labels, including fixture-backed `Yes`/`No` and observed `Up`/`Down`; it does not support multi-outcome markets.
 
 Explicit exclusions:
@@ -35,6 +37,7 @@ Explicit exclusions:
 - No private/authenticated Polymarket adapter.
 - No Predict.fun or Binance Wallet adapter.
 - No real pricing model, paper broker, replay engine, or news-signal business implementation.
+- No signal output that is a buy/sell instruction, order, leverage, position size, or real trading entry.
 - No runtime Up/Down payoff extraction and no non-placeholder Up/Down fair probabilities.
 - No multi-outcome market model.
 - No inferred external API fields, schemas, authentication, signatures, or endpoint behavior.
@@ -62,6 +65,7 @@ services/
   news-signal/         Placeholder only
 packages/
   shared-types/        Shared TypeScript contracts
+  research-signals/    Fixture-backed technical indicators and research signal engine
   ui/                  Local UI primitives
   source-registry/     Source-registry helper package placeholder
   tsconfig/            Shared TypeScript config
@@ -137,6 +141,8 @@ curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo
 curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo/book
 curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo/detail
 curl http://localhost:4000/scanner/top
+curl http://localhost:4000/signals/research
+curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
 ```
 
 Default pricing-engine base URL: `http://127.0.0.1:4100`
@@ -156,6 +162,10 @@ responses expose a stable `meta` block with contract version, response kind, gen
 read-only/fixture/placeholder flags, and status. Typed error responses use the same contract
 version and currently cover `market_not_found`.
 
+`/signals/research` returns deterministic fixture-backed `ResearchSignal` objects for BTC/ETH 5m/10m
+research bias. Directions are limited to `LONG`, `SHORT`, and `NO_SIGNAL`; they are explicitly
+research-only and `isTradeAdvice: false`.
+
 ## Current Pages
 
 - `/`: Markets Scanner RC-2
@@ -165,6 +175,7 @@ version and currently cover `market_not_found`.
   - research status strip for accepted, visible, rejected, placeholder, and open-gap state
   - market list for BTC/ETH fixture markets
   - right summary, evidence status, and fail-closed reason matrix panels
+  - Research Signal Panel for fixture-backed LONG bias / SHORT bias / NO_SIGNAL outputs
   - loading/error/empty states through server-side API fetch handling
 - `/markets/:id`: Market Detail RC-3
   - binary outcomes, timing, liquidity, spread, and provenance
@@ -218,6 +229,7 @@ should be reviewed as public local API contract changes, not incidental formatti
 - Phase 1 scope: `docs/prd/phase1.md`
 - API gateway contract: `docs/api/api-gateway.md`
 - EPT API v1 local contract: `docs/api/ept-api-v1-local-contract.md`
+- Research signals API: `docs/api/research-signals.md`
 - Polymarket notes: `docs/api/polymarket.md`
 - Pricing-engine v0 contract: `docs/api/pricing-engine.md`
 - Pricing-engine v1 research: `docs/api/pricing-engine-v1-research.md`
@@ -230,6 +242,7 @@ should be reviewed as public local API contract changes, not incidental formatti
 - RC-3 market detail contract decision: `docs/adr/0008-rc3-market-detail-contract.md`
 - RC-4 API contract snapshot decision: `docs/adr/0009-rc4-api-contract-snapshots-and-ci-hygiene.md`
 - RC-5 response versioning decision: `docs/adr/0010-rc5-response-versioning-and-error-taxonomy.md`
+- RC-7 research signal decision: `docs/adr/0012-rc7-research-signal-engine-v0.md`
 - Source registry: `docs/source_registry.md`
 - Collaboration rules: `AGENTS.md`
 

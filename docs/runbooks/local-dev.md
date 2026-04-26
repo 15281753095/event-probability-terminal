@@ -84,7 +84,12 @@ curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo
 curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo/book
 curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo/detail
 curl http://localhost:4000/scanner/top
+curl http://localhost:4000/signals/research
+curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
 ```
+
+Research signals are fixture-backed by default and do not call live price, X, news, macro, or
+trading APIs.
 
 ## Start Web
 
@@ -102,7 +107,8 @@ http://localhost:3000
 
 Current pages:
 
-- `/`: Markets Scanner RC-2 with read-only filters, query state, sorting, summary cards, and evidence status.
+- `/`: Markets Scanner RC-2 with read-only filters, query state, sorting, summary cards, evidence
+  status, and the RC-7 Research Signal Panel.
 - `/markets/:id`: Market Detail RC-3 for a normalized fixture-backed market, backed by `GET /markets/:id/detail`.
 
 Example detail URL:
@@ -164,6 +170,7 @@ make lint
 
 - `GET /scanner/top`
 - `GET /markets/:id/detail`
+- `GET /signals/research`
 
 Treat snapshot diffs as API contract diffs. Update them only when the shared/API response contract
 intentionally changes.
@@ -174,10 +181,11 @@ Current scanner/detail contract version:
 ept-api-v1
 ```
 
-When testing consumers manually, check that successful scanner/detail responses include
+When testing consumers manually, check that successful scanner/detail/signal responses include
 `meta.contractVersion`, `meta.responseKind`, `meta.status`, and explicit read-only/fixture/
-placeholder flags. Typed not-found responses include `contractVersion`, `status`, `error`,
-`message`, and `generatedAt`.
+placeholder flags. Research signal responses also include `isResearchOnly: true` and
+`isTradeAdvice: false`. Typed not-found or out-of-scope responses include `contractVersion`,
+`status`, `error`, `message`, and `generatedAt`.
 
 Full build:
 
@@ -195,7 +203,7 @@ make smoke
 Current smoke coverage is intentionally small:
 
 - `/` must render the Markets Scanner RC-2, read-only filters, query URL state, placeholder pricing
-  text, and evidence/fail-closed matrix.
+  text, evidence/fail-closed matrix, and Research Signal Panel.
 - `/markets/polymarket%3Amkt-btc-1h-demo` must render Market Detail RC-3 with outcomes, research
   readiness, token trace, source trace, related fixture markets, provenance, placeholder pricing,
   and open evidence gaps.
@@ -216,6 +224,7 @@ npx --yes pnpm@10.0.0 check
 - TODO: PostgreSQL has no schema and is not used by the current app flow.
 - TODO: Redis is not used by the current app flow.
 - TODO: Scanner fair probability, confidence, and edge are placeholders.
+- TODO: Research signals are deterministic fixture-backed research outputs, not trade advice.
 - TODO: Pricing-engine v1 data freshness and calibration requirements are not implemented.
 - TODO: No paper broker, replay, or real pricing model implementation.
 

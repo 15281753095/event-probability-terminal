@@ -2,6 +2,8 @@ import Link from "next/link";
 import type {
   Asset,
   EventMarket,
+  ResearchSignal,
+  ResearchSignalsResponse,
   ScannerCandidate,
   ScannerTopResponse,
   TimeWindow
@@ -14,6 +16,9 @@ type PageState = {
   candidates: ScannerCandidate[];
   error?: string;
   meta?: ScannerTopResponse["meta"];
+  signals: ResearchSignal[];
+  signalError?: string;
+  signalMeta?: ResearchSignalsResponse["meta"];
 };
 
 type SearchParams = Promise<{
@@ -37,7 +42,13 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:400
 export default async function Home({ searchParams }: { searchParams?: SearchParams }) {
   const params = (await searchParams) ?? {};
   const filters = parseFilters(params);
-  const state = await loadScanner();
+  const [scannerState, signalState] = await Promise.all([loadScanner(), loadResearchSignals()]);
+  const state: PageState = {
+    ...scannerState,
+    signals: signalState.signals,
+    ...(signalState.error ? { signalError: signalState.error } : {}),
+    ...(signalState.meta ? { signalMeta: signalState.meta } : {})
+  };
   const candidates = sortCandidates(filterCandidates(state.candidates, filters), filters.sort);
   const allMarkets = state.candidates.map((candidate) => candidate.market);
   const visibleMarkets = candidates.map((candidate) => candidate.market);
@@ -174,6 +185,7 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
             value={expiringSoon ? countdown(expiringSoon.market.endAt) : "n/a"}
             detail={expiringSoon?.asset ?? "none"}
           />
+          <ResearchSignalPanel error={state.signalError} meta={state.signalMeta} signals={state.signals} />
           <EvidencePanel meta={state.meta} />
         </aside>
       </section>
@@ -189,18 +201,49 @@ async function loadScanner(): Promise<PageState> {
     if (!response.ok) {
       return {
         candidates: [],
+        signals: [],
         error: await apiErrorMessage(response)
       };
     }
     const payload = (await response.json()) as ScannerTopResponse;
     return {
       candidates: payload.candidates ?? [],
+      signals: [],
       ...(payload.meta ? { meta: payload.meta } : {})
     };
   } catch (error) {
     return {
       candidates: [],
+      signals: [],
       error: error instanceof Error ? error.message : "API request failed."
+    };
+  }
+}
+
+async function loadResearchSignals(): Promise<{
+  signals: ResearchSignal[];
+  error?: string;
+  meta?: ResearchSignalsResponse["meta"];
+}> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/signals/research`, {
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      return {
+        signals: [],
+        error: await apiErrorMessage(response)
+      };
+    }
+    const payload = (await response.json()) as ResearchSignalsResponse;
+    return {
+      signals: payload.signals ?? [],
+      ...(payload.meta ? { meta: payload.meta } : {})
+    };
+  } catch (error) {
+    return {
+      signals: [],
+      error: error instanceof Error ? error.message : "Signal API request failed."
     };
   }
 }
@@ -441,6 +484,78 @@ function EvidencePanel({ meta }: { meta: ScannerTopResponse["meta"] | undefined 
   );
 }
 
+function ResearchSignalPanel({
+  signals,
+  meta,
+  error
+}: {
+  signals: ResearchSignal[];
+  meta: ResearchSignalsResponse["meta"] | undefined;
+  error: string | undefined;
+}) {
+  return (
+    <section className="border border-border bg-white p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-700">Research Signal Panel</h2>
+          <p className="mt-1 text-xs text-slate-500">{meta?.modelVersion ?? "research-signal-engine-v0"}</p>
+        </div>
+        <Badge>Research only</Badge>
+      </div>
+      <p className="mt-3 text-xs leading-5 text-slate-600">
+        Direction is a fixture-backed research bias, not trade advice or an order instruction.
+      </p>
+      {error ? (
+        <div className="mt-3 border border-red-200 bg-red-50 p-2 text-xs text-red-800">
+          Signal API unavailable: {error}
+        </div>
+      ) : null}
+      {!error ? (
+        <div className="mt-3 grid gap-3">
+          {signals.map((signal) => (
+            <article className="border border-border bg-slate-50 p-3" key={`${signal.symbol}-${signal.horizon}`}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sm font-semibold">
+                  {signal.symbol} {signal.horizon}
+                </div>
+                <SignalDirectionBadge direction={signal.direction} />
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600">
+                <div>Confidence: {formatProb(signal.confidence)}</div>
+                <div>Score: {formatSigned(signal.score)}</div>
+                <div>Data: {signal.dataQuality.status}</div>
+                <div>Mode: {signal.sourceMode}</div>
+              </div>
+              <ul className="mt-3 grid gap-1 text-xs leading-5 text-slate-600">
+                {signal.reasons.slice(0, 3).map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+              {signal.failClosedReasons.length ? (
+                <div className="mt-2 text-xs font-medium text-amber-700">
+                  Fail closed: {signal.failClosedReasons.join("; ")}
+                </div>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function SignalDirectionBadge({ direction }: { direction: ResearchSignal["direction"] }) {
+  const label =
+    direction === "LONG" ? "LONG bias" : direction === "SHORT" ? "SHORT bias" : "NO_SIGNAL";
+  const className =
+    direction === "LONG"
+      ? "border-teal-700 bg-teal-50 text-teal-800"
+      : direction === "SHORT"
+        ? "border-rose-700 bg-rose-50 text-rose-800"
+        : "border-slate-300 bg-white text-slate-700";
+  return <span className={`border px-2 py-0.5 text-xs font-semibold ${className}`}>{label}</span>;
+}
+
 function ErrorState({ message }: { message: string }) {
   return (
     <div className="p-6">
@@ -539,6 +654,10 @@ function marketEndTime(market: EventMarket) {
 
 function formatProb(value?: number) {
   return value === undefined ? "n/a" : value.toFixed(3);
+}
+
+function formatSigned(value: number) {
+  return `${value >= 0 ? "+" : ""}${value.toFixed(3)}`;
 }
 
 function formatNumber(value?: number) {
