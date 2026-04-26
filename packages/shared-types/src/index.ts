@@ -26,7 +26,7 @@ export const API_CONTRACT_VERSION = "ept-api-v1" as const;
 
 export type ApiContractVersion = typeof API_CONTRACT_VERSION;
 
-export type ApiResponseKind = "scanner_top" | "market_detail" | "research_signal";
+export type ApiResponseKind = "scanner_top" | "market_detail" | "research_signal" | "event_signal_console";
 
 export type ApiResponseStatus = "ok" | "not_found" | "unsupported" | "fail_closed";
 
@@ -396,6 +396,35 @@ export interface SignalDataQuality {
   isFixtureBacked: boolean;
 }
 
+export type RiskFilterState = "pass" | "watch" | "veto";
+
+export type VolumeConfirmationState = "confirmed" | "weak" | "missing";
+
+export interface RiskFilterSummary {
+  dataFreshness: RiskFilterState;
+  volatility: RiskFilterState;
+  volumeConfirmation: VolumeConfirmationState;
+  chop: RiskFilterState;
+  conflict: RiskFilterState;
+  meanReversion: RiskFilterState;
+  reasons: string[];
+  vetoReasons: string[];
+}
+
+export interface ConfluenceScore {
+  trendScore: number;
+  momentumScore: number;
+  volatilityScore: number;
+  volumeScore: number;
+  reversalRisk: number;
+  chopRisk: number;
+  totalScore: number;
+  direction: SignalDirection;
+  confidence: number;
+  reasons: string[];
+  vetoReasons: string[];
+}
+
 export interface ResearchSignal {
   symbol: SignalSymbol;
   horizon: SignalHorizon;
@@ -414,6 +443,8 @@ export interface ResearchSignal {
   modelVersion: ResearchSignalModelVersion;
   invalidation: string[];
   failClosedReasons: string[];
+  confluence: ConfluenceScore;
+  riskFilters: RiskFilterSummary;
 }
 
 export interface ResearchSignalsMeta {
@@ -435,4 +466,54 @@ export interface ResearchSignalsMeta {
 export interface ResearchSignalsResponse {
   signals: ResearchSignal[];
   meta: ResearchSignalsMeta;
+}
+
+export interface SignalMarker {
+  time: string;
+  price: number;
+  direction: SignalDirection;
+  score: number;
+  confidence: number;
+  reasonSummary: string;
+  isRecentOnly: true;
+}
+
+export interface BacktestPreview {
+  enabled: boolean;
+  status: "not_loaded" | "ready" | "insufficient";
+  sampleSize: number;
+  winRate: number | null;
+  averageReturn: number | null;
+  maxDrawdownProxy: number | null;
+  caveats: string[];
+}
+
+export interface EventSignalConsoleMeta {
+  contractVersion: ApiContractVersion;
+  responseKind: "event_signal_console";
+  generatedAt: string;
+  status: "ok";
+  source: "research_signal_engine";
+  mode: ResearchSignalSourceMode;
+  sourceName: OhlcvSource;
+  isFixtureBacked: boolean;
+  isReadOnly: true;
+  isResearchOnly: true;
+  isTradeAdvice: false;
+  modelVersion: ResearchSignalModelVersion;
+  message: string;
+}
+
+export interface EventSignalConsoleResponse {
+  meta: EventSignalConsoleMeta;
+  symbol: SignalSymbol;
+  horizon: SignalHorizon;
+  sourceMode: ResearchSignalSourceMode;
+  currentSignal: ResearchSignal;
+  confluence: ConfluenceScore;
+  riskFilters: RiskFilterSummary;
+  recentCandles: OhlcvCandle[];
+  recentMarkers: SignalMarker[];
+  backtestPreview: BacktestPreview;
+  warnings: string[];
 }

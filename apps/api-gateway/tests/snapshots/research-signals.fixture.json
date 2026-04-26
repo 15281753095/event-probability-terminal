@@ -5,18 +5,18 @@
       "horizon": "5m",
       "generatedAt": "2026-04-23T00:00:00.000Z",
       "direction": "LONG",
-      "confidence": 0.5898,
-      "score": 0.708,
+      "confidence": 0.5622,
+      "score": 0.7503,
       "reasons": [
-        "LONG research bias from weighted technical and fixture context inputs.",
-        "Fast EMA is above slow EMA and rising.",
-        "1m/3m/5m momentum cluster leans upward.",
-        "MACD histogram is positive and expanding.",
-        "Manual fixture context modifies score within a capped research-only range.",
-        "Abnormal volume confirms positive short-horizon momentum.",
-        "RSI 100 is not allowed to decide direction by itself.",
+        "LONG research bias from multi-strategy confluence inputs.",
+        "LONG bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+        "Trend module: fast EMA is above slow EMA, slope is positive, and price is above slow EMA.",
+        "Momentum module: short-horizon returns and MACD histogram are upward.",
+        "Volatility module: regime=normal, Bollinger bandwidth=0.0336.",
+        "Volume module: abnormal volume confirms upward short-horizon move.",
+        "Mean reversion risk=0.8; chop risk=0.",
         "News/X/macro context is manual fixture input, not verified live external data.",
-        "No order, position size, leverage, or execution instruction is produced."
+        "No execution instruction or automated trading action is produced."
       ],
       "features": {
         "lastClose": 103912.04,
@@ -101,21 +101,60 @@
         "Signal invalidates when fast/slow EMA, MACD histogram, and momentum contributions materially diverge.",
         "Signal invalidates if future live adapters cannot prove source freshness and context provenance."
       ],
-      "failClosedReasons": []
+      "failClosedReasons": [],
+      "confluence": {
+        "trendScore": 1,
+        "momentumScore": 1,
+        "volatilityScore": 0.35,
+        "volumeScore": 0.7814,
+        "reversalRisk": 0.8,
+        "chopRisk": 0,
+        "totalScore": 0.7503,
+        "direction": "LONG",
+        "confidence": 0.5622,
+        "reasons": [
+          "LONG bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+          "Trend module: fast EMA is above slow EMA, slope is positive, and price is above slow EMA.",
+          "Momentum module: short-horizon returns and MACD histogram are upward.",
+          "Volatility module: regime=normal, Bollinger bandwidth=0.0336.",
+          "Volume module: abnormal volume confirms upward short-horizon move.",
+          "Mean reversion risk=0.8; chop risk=0."
+        ],
+        "vetoReasons": []
+      },
+      "riskFilters": {
+        "dataFreshness": "pass",
+        "volatility": "pass",
+        "volumeConfirmation": "confirmed",
+        "chop": "pass",
+        "conflict": "pass",
+        "meanReversion": "watch",
+        "reasons": [
+          "Freshness=ok; volatility=normal; volume z-score=1.9285.",
+          "Chop risk=0; mean-reversion risk=0.8."
+        ],
+        "vetoReasons": []
+      }
     },
     {
       "symbol": "BTC",
       "horizon": "10m",
       "generatedAt": "2026-04-23T00:00:00.000Z",
       "direction": "NO_SIGNAL",
-      "confidence": 0.2104,
-      "score": 0.07,
+      "confidence": 0,
+      "score": -0.0423,
       "reasons": [
-        "NO_SIGNAL research bias from weighted technical and fixture context inputs.",
-        "Abnormal volume confirms positive short-horizon momentum.",
-        "RSI 54.2583 is not allowed to decide direction by itself.",
+        "NO_SIGNAL research bias from multi-strategy confluence inputs.",
+        "NO_SIGNAL: 10m confluence threshold is 0.65; RSI is auxiliary only.",
+        "Trend module: EMA alignment is flat or mixed.",
+        "Momentum module: short-horizon returns and MACD histogram are mixed.",
+        "Volatility module: low-volatility or Bollinger squeeze state blocks directional upgrade.",
+        "Volume module: abnormal volume confirms upward short-horizon move.",
+        "Mean reversion risk=0; chop risk=0.64.",
+        "Volatility veto: too-low volatility or Bollinger squeeze for short-horizon signal.",
+        "Chop veto: short-term direction conflict or range-bound conditions are too high.",
         "News/X/macro context is manual fixture input, not verified live external data.",
-        "No order, position size, leverage, or execution instruction is produced."
+        "No execution instruction or automated trading action is produced."
       ],
       "features": {
         "lastClose": 100079.92,
@@ -200,25 +239,64 @@
         "Signal invalidates when fast/slow EMA, MACD histogram, and momentum contributions materially diverge.",
         "Signal invalidates if future live adapters cannot prove source freshness and context provenance."
       ],
-      "failClosedReasons": []
+      "failClosedReasons": [],
+      "confluence": {
+        "trendScore": 0,
+        "momentumScore": -0.0599,
+        "volatilityScore": 0,
+        "volumeScore": 0.7811,
+        "reversalRisk": 0,
+        "chopRisk": 0.64,
+        "totalScore": -0.0423,
+        "direction": "NO_SIGNAL",
+        "confidence": 0,
+        "reasons": [
+          "NO_SIGNAL: 10m confluence threshold is 0.65; RSI is auxiliary only.",
+          "Trend module: EMA alignment is flat or mixed.",
+          "Momentum module: short-horizon returns and MACD histogram are mixed.",
+          "Volatility module: low-volatility or Bollinger squeeze state blocks directional upgrade.",
+          "Volume module: abnormal volume confirms upward short-horizon move.",
+          "Mean reversion risk=0; chop risk=0.64."
+        ],
+        "vetoReasons": [
+          "Volatility veto: too-low volatility or Bollinger squeeze for short-horizon signal.",
+          "Chop veto: short-term direction conflict or range-bound conditions are too high."
+        ]
+      },
+      "riskFilters": {
+        "dataFreshness": "pass",
+        "volatility": "veto",
+        "volumeConfirmation": "confirmed",
+        "chop": "veto",
+        "conflict": "watch",
+        "meanReversion": "pass",
+        "reasons": [
+          "Freshness=ok; volatility=low; volume z-score=1.9258.",
+          "Chop risk=0.64; mean-reversion risk=0."
+        ],
+        "vetoReasons": [
+          "Volatility veto: too-low volatility or Bollinger squeeze for short-horizon signal.",
+          "Chop veto: short-term direction conflict or range-bound conditions are too high."
+        ]
+      }
     },
     {
       "symbol": "ETH",
       "horizon": "5m",
       "generatedAt": "2026-04-23T00:00:00.000Z",
       "direction": "SHORT",
-      "confidence": 0.5858,
-      "score": -0.7025,
+      "confidence": 0.5599,
+      "score": -0.7473,
       "reasons": [
-        "SHORT research bias from weighted technical and fixture context inputs.",
-        "Fast EMA is below slow EMA and falling.",
-        "1m/3m/5m momentum cluster leans downward.",
-        "MACD histogram is negative and weakening further.",
-        "Manual fixture context modifies score within a capped research-only range.",
-        "Abnormal volume confirms negative short-horizon momentum.",
-        "RSI 0 is not allowed to decide direction by itself.",
+        "SHORT research bias from multi-strategy confluence inputs.",
+        "SHORT bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+        "Trend module: fast EMA is below slow EMA, slope is negative, and price is below slow EMA.",
+        "Momentum module: short-horizon returns and MACD histogram are downward.",
+        "Volatility module: regime=normal, Bollinger bandwidth=0.0319.",
+        "Volume module: abnormal volume confirms downward short-horizon move.",
+        "Mean reversion risk=0.8; chop risk=0.",
         "News/X/macro context is manual fixture input, not verified live external data.",
-        "No order, position size, leverage, or execution instruction is produced."
+        "No execution instruction or automated trading action is produced."
       ],
       "features": {
         "lastClose": 3085.24,
@@ -303,7 +381,40 @@
         "Signal invalidates when fast/slow EMA, MACD histogram, and momentum contributions materially diverge.",
         "Signal invalidates if future live adapters cannot prove source freshness and context provenance."
       ],
-      "failClosedReasons": []
+      "failClosedReasons": [],
+      "confluence": {
+        "trendScore": -1,
+        "momentumScore": -1,
+        "volatilityScore": -0.35,
+        "volumeScore": -0.7813,
+        "reversalRisk": 0.8,
+        "chopRisk": 0,
+        "totalScore": -0.7473,
+        "direction": "SHORT",
+        "confidence": 0.5599,
+        "reasons": [
+          "SHORT bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+          "Trend module: fast EMA is below slow EMA, slope is negative, and price is below slow EMA.",
+          "Momentum module: short-horizon returns and MACD histogram are downward.",
+          "Volatility module: regime=normal, Bollinger bandwidth=0.0319.",
+          "Volume module: abnormal volume confirms downward short-horizon move.",
+          "Mean reversion risk=0.8; chop risk=0."
+        ],
+        "vetoReasons": []
+      },
+      "riskFilters": {
+        "dataFreshness": "pass",
+        "volatility": "pass",
+        "volumeConfirmation": "confirmed",
+        "chop": "pass",
+        "conflict": "pass",
+        "meanReversion": "watch",
+        "reasons": [
+          "Freshness=ok; volatility=normal; volume z-score=1.9278.",
+          "Chop risk=0; mean-reversion risk=0.8."
+        ],
+        "vetoReasons": []
+      }
     },
     {
       "symbol": "ETH",
@@ -311,11 +422,11 @@
       "generatedAt": "2026-04-23T00:00:00.000Z",
       "direction": "NO_SIGNAL",
       "confidence": 0,
-      "score": 0,
+      "score": -0.367,
       "reasons": [
         "NO_SIGNAL because fail-closed conditions are present.",
         "Manual context fixture flags event risk; research signal fails closed.",
-        "No order, position size, leverage, or execution instruction is produced."
+        "No execution instruction or automated trading action is produced."
       ],
       "features": {
         "lastClose": 3192.24,
@@ -402,7 +513,50 @@
       ],
       "failClosedReasons": [
         "Manual context fixture flags event risk; research signal fails closed."
-      ]
+      ],
+      "confluence": {
+        "trendScore": -0.35,
+        "momentumScore": -0.8321,
+        "volatilityScore": 0,
+        "volumeScore": -0.7816,
+        "reversalRisk": 0.35,
+        "chopRisk": 0.28,
+        "totalScore": -0.367,
+        "direction": "NO_SIGNAL",
+        "confidence": 0,
+        "reasons": [
+          "NO_SIGNAL: 10m confluence threshold is 0.65; RSI is auxiliary only.",
+          "Trend module: fast EMA is below slow EMA, slope is negative, and price is below slow EMA.",
+          "Momentum module: short-horizon returns and MACD histogram are downward.",
+          "Volatility module: low-volatility or Bollinger squeeze state blocks directional upgrade.",
+          "Volume module: abnormal volume confirms downward short-horizon move.",
+          "Mean reversion risk=0.35; chop risk=0.28."
+        ],
+        "vetoReasons": [
+          "Manual context fixture flags event risk; research signal fails closed.",
+          "Context veto: manual event-risk flag is active.",
+          "Volatility veto: too-low volatility or Bollinger squeeze for short-horizon signal.",
+          "10m horizon requires trend alignment before directional bias can be emitted."
+        ]
+      },
+      "riskFilters": {
+        "dataFreshness": "pass",
+        "volatility": "veto",
+        "volumeConfirmation": "confirmed",
+        "chop": "pass",
+        "conflict": "pass",
+        "meanReversion": "pass",
+        "reasons": [
+          "Freshness=ok; volatility=normal; volume z-score=1.9297.",
+          "Chop risk=0.28; mean-reversion risk=0.35."
+        ],
+        "vetoReasons": [
+          "Manual context fixture flags event risk; research signal fails closed.",
+          "Context veto: manual event-risk flag is active.",
+          "Volatility veto: too-low volatility or Bollinger squeeze for short-horizon signal.",
+          "10m horizon requires trend alignment before directional bias can be emitted."
+        ]
+      }
     }
   ],
   "meta": {

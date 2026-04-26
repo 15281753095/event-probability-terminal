@@ -1,10 +1,17 @@
 import Fastify from "fastify";
 import { createPolymarketPublicReadAdapter } from "@ept/market-ingestor";
-import { listLiveResearchSignals, listResearchSignals, type OHLCVFetcher } from "@ept/research-signals";
+import {
+  buildFixtureEventSignalConsole,
+  buildLiveEventSignalConsole,
+  listLiveResearchSignals,
+  listResearchSignals,
+  type OHLCVFetcher
+} from "@ept/research-signals";
 import type {
   ApiErrorResponse,
   BinaryOutcome,
   EventMarket,
+  EventSignalConsoleResponse,
   FairValueSnapshot,
   OrderBookLevel,
   OrderBookSnapshot,
@@ -245,6 +252,62 @@ export function buildServer(options: BuildServerOptions = {}) {
       ...(symbol ? { symbol } : {}),
       ...(horizon ? { horizon } : {})
     }) satisfies ResearchSignalsResponse;
+  });
+
+  server.get<{ Querystring: { symbol?: string; horizon?: string; sourceMode?: string; includeBacktest?: string } }>("/signals/console", async (request, reply) => {
+    const generatedAt = now();
+    const symbol = parseSignalSymbol(request.query.symbol) ?? "BTC";
+    const horizon = parseSignalHorizon(request.query.horizon) ?? "5m";
+    const signalSourceMode = parseResearchSignalSourceMode(request.query.sourceMode);
+    const includeBacktest = request.query.includeBacktest === "true";
+
+    if (request.query.symbol && !parseSignalSymbol(request.query.symbol)) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Event Signal Console currently supports symbol=BTC or symbol=ETH only.",
+          generatedAt
+        })
+      );
+    }
+    if (request.query.horizon && !parseSignalHorizon(request.query.horizon)) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Event Signal Console currently supports horizon=5m or horizon=10m only.",
+          generatedAt
+        })
+      );
+    }
+    if (request.query.sourceMode && !signalSourceMode) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Event Signal Console currently supports sourceMode=fixture or sourceMode=live only.",
+          generatedAt
+        })
+      );
+    }
+
+    if (signalSourceMode === "live") {
+      return (await buildLiveEventSignalConsole({
+        symbol,
+        horizon,
+        generatedAt,
+        includeBacktest,
+        ...(options.researchSignalOhlcvFetcher ? { fetcher: options.researchSignalOhlcvFetcher } : {})
+      })) satisfies EventSignalConsoleResponse;
+    }
+
+    return buildFixtureEventSignalConsole({
+      symbol,
+      horizon,
+      generatedAt,
+      includeBacktest
+    }) satisfies EventSignalConsoleResponse;
   });
 
   return server;

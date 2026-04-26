@@ -11,21 +11,32 @@ test("scanner home renders fixture-backed research state", async ({ page }) => {
   await expect(page.getByText("Contract: ept-api-v1")).toBeVisible();
   await expect(page.getByPlaceholder("Question, outcome, id")).toBeVisible();
   await expect(page.getByText("Accepted")).toBeVisible();
-  await expect(page.getByRole("link", { name: "BTC" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "BTC" }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "marketProb" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Will Bitcoin be up at the end of the hour/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Evidence Status" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Research Signal Panel" })).toBeVisible();
-  await expect(page.getByText("Research only", { exact: true })).toBeVisible();
-  await expect(page.getByText("Not trade advice")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Fixture" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Live" })).toBeVisible();
+  await expect(page.getByText("Event Signal Console RC-9")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "BTC / ETH Research Bias Console" })).toBeVisible();
+  await expect(page.getByTestId("event-signal-chart")).toBeVisible();
+  await expect(page.getByText("Recent markers:")).toBeVisible();
+  await expect(page.getByTestId("backtest-drawer")).toContainText("Collapsed by default");
+  await expect(page.getByRole("link", { name: "Show backtest preview" })).toBeVisible();
+  await expect(page.getByText("Research only", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Not trade advice").first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Fixture", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Live", exact: true })).toBeVisible();
   await expect(page.getByText("Source: fixture").first()).toBeVisible();
-  await expect(page.getByText("LONG bias")).toBeVisible();
-  await expect(page.getByText("SHORT bias")).toBeVisible();
+  await expect(page.getByText("LONG bias").first()).toBeVisible();
+  await expect(page.getByText("SHORT bias").first()).toBeVisible();
   await expect(page.getByText("NO_SIGNAL").first()).toBeVisible();
   await expect(page.getByText("Fair probability: placeholder only")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Fail-closed reason matrix" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Show backtest preview" }).click();
+  await expect(page.getByRole("heading", { name: "Backtest Preview" })).toBeVisible();
+  await expect(page.getByText("Sample size")).toBeVisible();
+  await expect(page.getByText("Small local sample")).toBeVisible();
 });
 
 test("scanner query state is shareable through the URL", async ({ page }) => {

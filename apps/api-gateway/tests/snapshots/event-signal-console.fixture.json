@@ -1,0 +1,174 @@
+{
+  "meta": {
+    "contractVersion": "ept-api-v1",
+    "responseKind": "event_signal_console",
+    "generatedAt": "2026-04-23T00:00:00.000Z",
+    "status": "ok",
+    "source": "research_signal_engine",
+    "mode": "fixture",
+    "sourceName": "fixture",
+    "isFixtureBacked": true,
+    "isReadOnly": true,
+    "isResearchOnly": true,
+    "isTradeAdvice": false,
+    "modelVersion": "research-signal-engine-v0",
+    "message": "Event Signal Console is read-only research output. It emits LONG bias, SHORT bias, or NO_SIGNAL only; it is not trade advice and does not automate orders."
+  },
+  "symbol": "BTC",
+  "horizon": "5m",
+  "sourceMode": "fixture",
+  "currentSignal": {
+    "symbol": "BTC",
+    "horizon": "5m",
+    "generatedAt": "2026-04-23T00:00:00.000Z",
+    "direction": "LONG",
+    "confidence": 0.5622,
+    "score": 0.7503,
+    "dataQuality": {
+      "status": "ok",
+      "source": "fixture",
+      "candleCount": 40,
+      "requiredCandleCount": 35,
+      "freshnessAgeMs": 60000,
+      "maxFreshnessMs": 180000,
+      "freshness": {
+        "status": "fresh",
+        "latestStartTime": "2026-04-22T23:59:00.000Z",
+        "latestClosedAt": "2026-04-23T00:00:00.000Z",
+        "ageMs": 60000,
+        "maxAgeMs": 180000
+      },
+      "missingFields": [],
+      "warnings": [],
+      "isLive": false,
+      "isFixtureBacked": true
+    },
+    "isResearchOnly": true,
+    "isTradeAdvice": false,
+    "modelVersion": "research-signal-engine-v0",
+    "failClosedReasons": []
+  },
+  "confluence": {
+    "trendScore": 1,
+    "momentumScore": 1,
+    "volatilityScore": 0.35,
+    "volumeScore": 0.7814,
+    "reversalRisk": 0.8,
+    "chopRisk": 0,
+    "totalScore": 0.7503,
+    "direction": "LONG",
+    "confidence": 0.5622,
+    "reasons": [
+      "LONG bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+      "Trend module: fast EMA is above slow EMA, slope is positive, and price is above slow EMA.",
+      "Momentum module: short-horizon returns and MACD histogram are upward.",
+      "Volatility module: regime=normal, Bollinger bandwidth=0.0336.",
+      "Volume module: abnormal volume confirms upward short-horizon move.",
+      "Mean reversion risk=0.8; chop risk=0."
+    ],
+    "vetoReasons": []
+  },
+  "riskFilters": {
+    "dataFreshness": "pass",
+    "volatility": "pass",
+    "volumeConfirmation": "confirmed",
+    "chop": "pass",
+    "conflict": "pass",
+    "meanReversion": "watch",
+    "reasons": [
+      "Freshness=ok; volatility=normal; volume z-score=1.9285.",
+      "Chop risk=0; mean-reversion risk=0.8."
+    ],
+    "vetoReasons": []
+  },
+  "recentCandles": {
+    "count": 40,
+    "first": {
+      "timestamp": "2026-04-22T23:20:00.000Z",
+      "open": 100000,
+      "high": 100060,
+      "low": 99960,
+      "close": 100020,
+      "volume": 1800
+    },
+    "last": {
+      "timestamp": "2026-04-22T23:59:00.000Z",
+      "open": 103663.25,
+      "high": 104135.95,
+      "low": 103439.34,
+      "close": 103912.04,
+      "volume": 5170
+    }
+  },
+  "recentMarkers": [
+    {
+      "time": "2026-04-22T23:54:00.000Z",
+      "price": 102879.15,
+      "direction": "LONG",
+      "score": 0.7495,
+      "confidence": 0.5616,
+      "reasonSummary": "LONG bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+      "isRecentOnly": true
+    },
+    {
+      "time": "2026-04-22T23:55:00.000Z",
+      "price": 103074.62,
+      "direction": "LONG",
+      "score": 0.7464,
+      "confidence": 0.5593,
+      "reasonSummary": "LONG bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+      "isRecentOnly": true
+    },
+    {
+      "time": "2026-04-22T23:56:00.000Z",
+      "price": 103229.23,
+      "direction": "LONG",
+      "score": 0.7228,
+      "confidence": 0.5125,
+      "reasonSummary": "LONG bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+      "isRecentOnly": true
+    },
+    {
+      "time": "2026-04-22T23:57:00.000Z",
+      "price": 103435.69,
+      "direction": "LONG",
+      "score": 0.7497,
+      "confidence": 0.5618,
+      "reasonSummary": "LONG bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+      "isRecentOnly": true
+    },
+    {
+      "time": "2026-04-22T23:58:00.000Z",
+      "price": 103663.25,
+      "direction": "LONG",
+      "score": 0.7503,
+      "confidence": 0.5622,
+      "reasonSummary": "LONG bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+      "isRecentOnly": true
+    },
+    {
+      "time": "2026-04-22T23:59:00.000Z",
+      "price": 103912.04,
+      "direction": "LONG",
+      "score": 0.7503,
+      "confidence": 0.5622,
+      "reasonSummary": "LONG bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+      "isRecentOnly": true
+    }
+  ],
+  "backtestPreview": {
+    "enabled": false,
+    "status": "not_loaded",
+    "sampleSize": 0,
+    "winRate": null,
+    "averageReturn": null,
+    "maxDrawdownProxy": null,
+    "caveats": [
+      "Backtest preview is disabled by default and loads only after user action.",
+      "Research only; not predictive guarantee and not real trading performance."
+    ]
+  },
+  "warnings": [
+    "Research only. Not trade advice. No auto trading."
+  ]
+}

@@ -14,10 +14,20 @@ export {
   buildResearchSignalFromOHLCV,
   buildResearchSignal,
   getResearchSignalFixture,
+  rebaseFixtureCandles,
   listLiveResearchSignals,
   listResearchSignals
 } from "./engine.js";
 export type { ListLiveSignalsInput, ListSignalsInput, OHLCVFetcher } from "./engine.js";
+export { evaluateConfluence } from "./confluence.js";
+export {
+  CONSOLE_CANDLE_LOOKBACK,
+  RECENT_CANDLE_LIMIT,
+  RECENT_MARKER_LIMIT,
+  buildFixtureEventSignalConsole,
+  buildLiveEventSignalConsole
+} from "./console.js";
+export type { BuildEventSignalConsoleInput, BuildLiveEventSignalConsoleInput } from "./console.js";
 export { findResearchSignalFixture, researchSignalFixtures } from "./fixtures.js";
 export {
   buildCoinbaseProductId,
