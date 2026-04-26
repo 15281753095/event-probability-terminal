@@ -13,6 +13,9 @@ importers:
       '@ept/market-ingestor':
         specifier: workspace:*
         version: link:../../services/market-ingestor
+      '@ept/research-signals':
+        specifier: workspace:*
+        version: link:../../packages/research-signals
       '@ept/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
@@ -72,6 +75,22 @@ importers:
       tailwindcss:
         specifier: ^3.4.0
         version: 3.4.19(tsx@4.21.0)
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+
+  packages/research-signals:
+    dependencies:
+      '@ept/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.17
+      tsx:
+        specifier: ^4.0.0
+        version: 4.21.0
       typescript:
         specifier: ^5.0.0
         version: 5.9.3

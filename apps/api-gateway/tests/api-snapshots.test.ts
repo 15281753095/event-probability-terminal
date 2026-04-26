@@ -5,6 +5,7 @@ import type {
   EventMarket,
   FairValueSnapshot,
   MarketDetailResponse,
+  ResearchSignalsResponse,
   ScannerCandidate,
   ScannerTopResponse
 } from "@ept/shared-types";
@@ -44,6 +45,23 @@ describe("fixture-backed API response contracts", () => {
     assert.deepEqual(
       detailContractSnapshot(payload),
       await readJsonSnapshot("market-detail-btc-1h.fixture.json")
+    );
+
+    await server.close();
+  });
+
+  it("locks the normalized /signals/research response contract", async () => {
+    const server = buildSnapshotServer();
+    const response = await server.inject({
+      method: "GET",
+      url: "/signals/research"
+    });
+
+    assert.equal(response.statusCode, 200);
+    const payload = response.json<ResearchSignalsResponse>();
+    assert.deepEqual(
+      signalContractSnapshot(payload),
+      await readJsonSnapshot("research-signals.fixture.json")
     );
 
     await server.close();
@@ -122,5 +140,29 @@ function tradeCandidateContract(candidate: ScannerCandidate) {
           }
         }
       : {})
+  };
+}
+
+function signalContractSnapshot(payload: ResearchSignalsResponse) {
+  return {
+    signals: payload.signals.map((signal) => ({
+      symbol: signal.symbol,
+      horizon: signal.horizon,
+      generatedAt: signal.generatedAt,
+      direction: signal.direction,
+      confidence: signal.confidence,
+      score: signal.score,
+      reasons: signal.reasons,
+      features: signal.features,
+      context: signal.context,
+      dataQuality: signal.dataQuality,
+      sourceMode: signal.sourceMode,
+      isResearchOnly: signal.isResearchOnly,
+      isTradeAdvice: signal.isTradeAdvice,
+      modelVersion: signal.modelVersion,
+      invalidation: signal.invalidation,
+      failClosedReasons: signal.failClosedReasons
+    })),
+    meta: payload.meta
   };
 }

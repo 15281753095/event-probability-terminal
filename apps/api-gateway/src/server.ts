@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import { createPolymarketPublicReadAdapter } from "@ept/market-ingestor";
+import { listResearchSignals } from "@ept/research-signals";
 import type {
   ApiErrorResponse,
   BinaryOutcome,
@@ -7,8 +8,11 @@ import type {
   FairValueSnapshot,
   OrderBookLevel,
   OrderBookSnapshot,
+  ResearchSignalsResponse,
   ScannerCandidate,
   ScannerMeta,
+  SignalHorizon,
+  SignalSymbol,
   SourceProvenance,
   TradeCandidate
 } from "@ept/shared-types";
@@ -188,7 +192,48 @@ export function buildServer(options: BuildServerOptions = {}) {
     };
   });
 
+  server.get<{ Querystring: { symbol?: string; horizon?: string } }>("/signals/research", async (request, reply) => {
+    const generatedAt = now();
+    const symbol = parseSignalSymbol(request.query.symbol);
+    const horizon = parseSignalHorizon(request.query.horizon);
+
+    if (request.query.symbol && !symbol) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Research signals currently support symbol=BTC or symbol=ETH only.",
+          generatedAt
+        })
+      );
+    }
+    if (request.query.horizon && !horizon) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Research signals currently support horizon=5m or horizon=10m only.",
+          generatedAt
+        })
+      );
+    }
+
+    return listResearchSignals({
+      generatedAt,
+      ...(symbol ? { symbol } : {}),
+      ...(horizon ? { horizon } : {})
+    }) satisfies ResearchSignalsResponse;
+  });
+
   return server;
+}
+
+function parseSignalSymbol(value?: string): SignalSymbol | undefined {
+  return value === "BTC" || value === "ETH" ? value : undefined;
+}
+
+function parseSignalHorizon(value?: string): SignalHorizon | undefined {
+  return value === "5m" || value === "10m" ? value : undefined;
 }
 
 function marketNotFound(generatedAt: string, supportedIds?: string[]): ApiErrorResponse {

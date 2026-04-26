@@ -25,6 +25,7 @@ http://localhost:4000
 | `GET` | `/markets/:id/book` | Current | Fixture-backed order-book snapshot for the market primary outcome token. |
 | `GET` | `/markets/:id/detail` | Current | RC-3 `MarketDetailResponse` for read-only research workflow. |
 | `GET` | `/scanner/top` | Current | Read-only scanner response with placeholder fair value and edge fields. |
+| `GET` | `/signals/research` | Current | RC-7 fixture-backed research signal response for BTC/ETH 5m/10m. |
 
 ## Contract Version
 
@@ -46,6 +47,7 @@ Current response kinds:
 
 - `scanner_top`
 - `market_detail`
+- `research_signals`
 
 Current status taxonomy:
 
@@ -111,7 +113,21 @@ Current implemented error:
 Reserved but not broadly emitted yet:
 
 - `unsupported_market`
-- `out_of_scope`
+- `out_of_scope`; currently used for unsupported research-signal query filters.
+
+## `GET /signals/research`
+
+Purpose: provide deterministic, fixture-backed, read-only BTC/ETH 5m/10m research signals.
+
+Current response shape is `ResearchSignalsResponse` from `packages/shared-types`. It includes:
+
+- `signals`: one or more `ResearchSignal` objects;
+- `meta`: contract version, response kind, generated timestamp, fixture mode, research-only flag,
+  not-trade-advice flag, and model version.
+
+This endpoint does not compute fair probabilities, does not place orders, does not produce buy/sell
+instructions, and does not call live X/news/macro APIs by default. See
+`docs/api/research-signals.md`.
 
 ## Contract Snapshots
 
@@ -131,6 +147,8 @@ network error text.
 ## Explicit Non-Goals
 
 - No real pricing model.
+- No signal output that is trade advice, order instruction, leverage, position size, or real entry
+  price.
 - No trading, order placement, cancellation, wallet, funding, or settlement action.
 - No private/authenticated vendor endpoint.
 - No Predict.fun or Binance adapter.

@@ -26,7 +26,7 @@ export const API_CONTRACT_VERSION = "ept-api-v1" as const;
 
 export type ApiContractVersion = typeof API_CONTRACT_VERSION;
 
-export type ApiResponseKind = "scanner_top" | "market_detail";
+export type ApiResponseKind = "scanner_top" | "market_detail" | "research_signals";
 
 export type ApiResponseStatus = "ok" | "not_found" | "unsupported" | "fail_closed";
 
@@ -267,4 +267,125 @@ export interface MarketDetailResponse {
   };
   candidate?: ScannerCandidate;
   book?: OrderBookSnapshot;
+}
+
+export type SignalSymbol = Asset;
+
+export type SignalHorizon = "5m" | "10m";
+
+export type SignalDirection = "LONG" | "SHORT" | "NO_SIGNAL";
+
+export type SignalDataQualityStatus = "ok" | "stale" | "insufficient" | "conflicted";
+
+export type ResearchSignalModelVersion = "research-signal-engine-v0";
+
+export interface OhlcvCandle {
+  timestamp: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export interface SignalFeatureSnapshot {
+  lastClose: number;
+  returns: {
+    oneMinute: number | null;
+    threeMinute: number | null;
+    fiveMinute: number | null;
+  };
+  ema: {
+    fast: number;
+    slow: number;
+    slope: number;
+  };
+  rsi: {
+    value: number;
+    period: number;
+  };
+  macd: {
+    line: number;
+    signal: number;
+    histogram: number;
+    histogramSlope: number;
+  };
+  bollinger: {
+    middle: number;
+    upper: number;
+    lower: number;
+    bandwidth: number;
+    bandPosition: number;
+    squeeze: boolean;
+    expansion: boolean;
+  };
+  volatility: {
+    atr: number;
+    realizedVolatility: number;
+    regime: "low" | "normal" | "high";
+  };
+  volume: {
+    latest: number;
+    mean: number;
+    zScore: number;
+    abnormal: boolean;
+  };
+}
+
+export interface SignalContextSnapshot {
+  sourceMode: "manual_fixture" | "not_configured" | "adapter_contract";
+  newsScore: number | null;
+  xSignalScore: number | null;
+  macroRiskState: "risk_on" | "neutral" | "risk_off" | "unknown";
+  marketEventRiskFlag: boolean;
+  notes: string[];
+}
+
+export interface SignalDataQuality {
+  status: SignalDataQualityStatus;
+  candleCount: number;
+  requiredCandleCount: number;
+  freshnessAgeMs: number;
+  maxFreshnessMs: number;
+  missingFields: string[];
+  warnings: string[];
+}
+
+export interface ResearchSignal {
+  symbol: SignalSymbol;
+  horizon: SignalHorizon;
+  generatedAt: string;
+  direction: SignalDirection;
+  confidence: number;
+  score: number;
+  reasons: string[];
+  features: SignalFeatureSnapshot;
+  context: SignalContextSnapshot;
+  dataQuality: SignalDataQuality;
+  sourceMode: "fixture";
+  isResearchOnly: true;
+  isTradeAdvice: false;
+  modelVersion: ResearchSignalModelVersion;
+  invalidation: string[];
+  failClosedReasons: string[];
+}
+
+export interface ResearchSignalsMeta {
+  contractVersion: ApiContractVersion;
+  responseKind: "research_signals";
+  generatedAt: string;
+  status: "ok";
+  source: "research_signal_engine";
+  mode: "fixture";
+  isFixtureBacked: true;
+  isReadOnly: true;
+  isResearchOnly: true;
+  isTradeAdvice: false;
+  modelVersion: ResearchSignalModelVersion;
+  message: string;
+}
+
+export interface ResearchSignalsResponse {
+  signals: ResearchSignal[];
+  meta: ResearchSignalsMeta;
 }
