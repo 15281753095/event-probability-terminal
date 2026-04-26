@@ -6,6 +6,9 @@ The API gateway is the only HTTP surface consumed by the web app. It owns scanne
 organization and calls adapter boundaries internally. The web app must not call vendor APIs
 directly.
 
+The focused OpenAPI-like local publication for scanner/detail consumers is
+`docs/api/ept-api-v1-local-contract.md`.
+
 ## Current Endpoints
 
 Base URL in local development:
