@@ -211,6 +211,8 @@ should be reviewed as public local API contract changes, not incidental formatti
 ## Documentation
 
 - Local development: `docs/runbooks/local-dev.md`
+- Codex handoff: `docs/runbooks/codex-handoff.md`
+- RC-6 prompt: `docs/prompts/rc6-openapi-like-contract-publication.md`
 - Troubleshooting: `docs/runbooks/troubleshooting.md`
 - Architecture: `docs/architecture.md`
 - Phase 1 scope: `docs/prd/phase1.md`
