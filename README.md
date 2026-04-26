@@ -217,6 +217,7 @@ should be reviewed as public local API contract changes, not incidental formatti
 - Architecture: `docs/architecture.md`
 - Phase 1 scope: `docs/prd/phase1.md`
 - API gateway contract: `docs/api/api-gateway.md`
+- EPT API v1 local contract: `docs/api/ept-api-v1-local-contract.md`
 - Polymarket notes: `docs/api/polymarket.md`
 - Pricing-engine v0 contract: `docs/api/pricing-engine.md`
 - Pricing-engine v1 research: `docs/api/pricing-engine-v1-research.md`
