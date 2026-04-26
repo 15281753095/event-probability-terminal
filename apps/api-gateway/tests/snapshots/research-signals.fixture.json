@@ -74,13 +74,24 @@
       },
       "dataQuality": {
         "status": "ok",
+        "source": "fixture",
         "candleCount": 40,
         "requiredCandleCount": 35,
         "freshnessAgeMs": 60000,
         "maxFreshnessMs": 180000,
+        "freshness": {
+          "status": "fresh",
+          "latestStartTime": "2026-04-22T23:59:00.000Z",
+          "latestClosedAt": "2026-04-23T00:00:00.000Z",
+          "ageMs": 60000,
+          "maxAgeMs": 180000
+        },
         "missingFields": [],
-        "warnings": []
+        "warnings": [],
+        "isLive": false,
+        "isFixtureBacked": true
       },
+      "source": "fixture",
       "sourceMode": "fixture",
       "isResearchOnly": true,
       "isTradeAdvice": false,
@@ -162,13 +173,24 @@
       },
       "dataQuality": {
         "status": "ok",
+        "source": "fixture",
         "candleCount": 40,
         "requiredCandleCount": 35,
         "freshnessAgeMs": 60000,
         "maxFreshnessMs": 180000,
+        "freshness": {
+          "status": "fresh",
+          "latestStartTime": "2026-04-22T23:59:00.000Z",
+          "latestClosedAt": "2026-04-23T00:00:00.000Z",
+          "ageMs": 60000,
+          "maxAgeMs": 180000
+        },
         "missingFields": [],
-        "warnings": []
+        "warnings": [],
+        "isLive": false,
+        "isFixtureBacked": true
       },
+      "source": "fixture",
       "sourceMode": "fixture",
       "isResearchOnly": true,
       "isTradeAdvice": false,
@@ -254,13 +276,24 @@
       },
       "dataQuality": {
         "status": "ok",
+        "source": "fixture",
         "candleCount": 40,
         "requiredCandleCount": 35,
         "freshnessAgeMs": 60000,
         "maxFreshnessMs": 180000,
+        "freshness": {
+          "status": "fresh",
+          "latestStartTime": "2026-04-22T23:59:00.000Z",
+          "latestClosedAt": "2026-04-23T00:00:00.000Z",
+          "ageMs": 60000,
+          "maxAgeMs": 180000
+        },
         "missingFields": [],
-        "warnings": []
+        "warnings": [],
+        "isLive": false,
+        "isFixtureBacked": true
       },
+      "source": "fixture",
       "sourceMode": "fixture",
       "isResearchOnly": true,
       "isTradeAdvice": false,
@@ -340,13 +373,24 @@
       },
       "dataQuality": {
         "status": "ok",
+        "source": "fixture",
         "candleCount": 40,
         "requiredCandleCount": 35,
         "freshnessAgeMs": 60000,
         "maxFreshnessMs": 180000,
+        "freshness": {
+          "status": "fresh",
+          "latestStartTime": "2026-04-22T23:59:00.000Z",
+          "latestClosedAt": "2026-04-23T00:00:00.000Z",
+          "ageMs": 60000,
+          "maxAgeMs": 180000
+        },
         "missingFields": [],
-        "warnings": []
+        "warnings": [],
+        "isLive": false,
+        "isFixtureBacked": true
       },
+      "source": "fixture",
       "sourceMode": "fixture",
       "isResearchOnly": true,
       "isTradeAdvice": false,
@@ -363,7 +407,7 @@
   ],
   "meta": {
     "contractVersion": "ept-api-v1",
-    "responseKind": "research_signals",
+    "responseKind": "research_signal",
     "generatedAt": "2026-04-23T00:00:00.000Z",
     "status": "ok",
     "source": "research_signal_engine",
@@ -373,6 +417,7 @@
     "isResearchOnly": true,
     "isTradeAdvice": false,
     "modelVersion": "research-signal-engine-v0",
+    "sourceName": "fixture",
     "message": "Research signals are deterministic, fixture-backed, read-only directional bias outputs. They are not trade advice or order instructions."
   }
 }

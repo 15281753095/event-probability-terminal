@@ -1,6 +1,6 @@
 import Fastify from "fastify";
 import { createPolymarketPublicReadAdapter } from "@ept/market-ingestor";
-import { listResearchSignals } from "@ept/research-signals";
+import { listLiveResearchSignals, listResearchSignals, type OHLCVFetcher } from "@ept/research-signals";
 import type {
   ApiErrorResponse,
   BinaryOutcome,
@@ -11,6 +11,7 @@ import type {
   ResearchSignalsResponse,
   ScannerCandidate,
   ScannerMeta,
+  ResearchSignalSourceMode,
   SignalHorizon,
   SignalSymbol,
   SourceProvenance,
@@ -41,6 +42,7 @@ export type BuildServerOptions = {
   pricingEngine?: PricingEngineLike;
   pricingEngineBaseUrl?: string;
   sourceMode?: SourceProvenance["sourceMode"];
+  researchSignalOhlcvFetcher?: OHLCVFetcher;
 };
 
 export function buildServer(options: BuildServerOptions = {}) {
@@ -192,10 +194,11 @@ export function buildServer(options: BuildServerOptions = {}) {
     };
   });
 
-  server.get<{ Querystring: { symbol?: string; horizon?: string } }>("/signals/research", async (request, reply) => {
+  server.get<{ Querystring: { symbol?: string; horizon?: string; sourceMode?: string } }>("/signals/research", async (request, reply) => {
     const generatedAt = now();
     const symbol = parseSignalSymbol(request.query.symbol);
     const horizon = parseSignalHorizon(request.query.horizon);
+    const signalSourceMode = parseResearchSignalSourceMode(request.query.sourceMode);
 
     if (request.query.symbol && !symbol) {
       return reply.code(400).send(
@@ -217,6 +220,25 @@ export function buildServer(options: BuildServerOptions = {}) {
         })
       );
     }
+    if (request.query.sourceMode && !signalSourceMode) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Research signals currently support sourceMode=fixture or sourceMode=live only.",
+          generatedAt
+        })
+      );
+    }
+
+    if (signalSourceMode === "live") {
+      return (await listLiveResearchSignals({
+        generatedAt,
+        ...(symbol ? { symbol } : {}),
+        ...(horizon ? { horizon } : {}),
+        ...(options.researchSignalOhlcvFetcher ? { fetcher: options.researchSignalOhlcvFetcher } : {})
+      })) satisfies ResearchSignalsResponse;
+    }
 
     return listResearchSignals({
       generatedAt,
@@ -234,6 +256,13 @@ function parseSignalSymbol(value?: string): SignalSymbol | undefined {
 
 function parseSignalHorizon(value?: string): SignalHorizon | undefined {
   return value === "5m" || value === "10m" ? value : undefined;
+}
+
+function parseResearchSignalSourceMode(value?: string): ResearchSignalSourceMode | undefined {
+  if (!value) {
+    return "fixture";
+  }
+  return value === "fixture" || value === "live" ? value : undefined;
 }
 
 function marketNotFound(generatedAt: string, supportedIds?: string[]): ApiErrorResponse {

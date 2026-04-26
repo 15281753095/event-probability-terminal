@@ -1,21 +1,24 @@
 # Research Signals API
 
-Status: implemented for RC-7 as a fixture-backed, read-only research signal slice.
+Status: implemented for RC-8 as a fixture-default, live-optional, read-only research signal slice.
 
-This API publishes deterministic BTC/ETH 5m and 10m research signals. It is not a trading API, not
-investment advice, not a fair-probability pricing model, and not an order-generation system.
+This API publishes BTC/ETH 5m and 10m research signals. Fixture mode remains the default. Live mode
+must be explicitly requested and uses Coinbase Exchange public candles. This is not a trading API,
+not investment advice, not a fair-probability pricing model, and not an order-generation system.
 
 ## Endpoint
 
 ```text
 GET /signals/research
 GET /signals/research?symbol=BTC&horizon=5m
+GET /signals/research?symbol=BTC&horizon=5m&sourceMode=live
 ```
 
 Supported query filters:
 
 - `symbol`: `BTC` or `ETH`
 - `horizon`: `5m` or `10m`
+- `sourceMode`: `fixture` or `live`
 
 Unsupported filters return a typed `ept-api-v1` error with:
 
@@ -36,10 +39,11 @@ interface ResearchSignalsResponse {
 `meta` always marks the response as:
 
 - `contractVersion: "ept-api-v1"`
-- `responseKind: "research_signals"`
+- `responseKind: "research_signal"`
 - `source: "research_signal_engine"`
-- `mode: "fixture"`
-- `isFixtureBacked: true`
+- `mode: "fixture"` or `"live"`
+- `sourceName: "fixture"` or `"coinbase_exchange"`
+- `isFixtureBacked: boolean`
 - `isReadOnly: true`
 - `isResearchOnly: true`
 - `isTradeAdvice: false`
@@ -59,7 +63,8 @@ Each signal includes:
 - `features`: technical indicator snapshot
 - `context`: manual fixture context snapshot
 - `dataQuality`: freshness and completeness report
-- `sourceMode: "fixture"`
+- `source`: `fixture` or `coinbase_exchange`
+- `sourceMode`: `fixture` or `live`
 - `isResearchOnly: true`
 - `isTradeAdvice: false`
 - `modelVersion: "research-signal-engine-v0"`
@@ -78,8 +83,38 @@ The v0 engine computes local deterministic formulas for:
 - 1m/3m/5m momentum;
 - volume z-score and abnormal-volume flag.
 
-These indicators are computed from fixture OHLCV samples. They do not depend on live vendors in
-default runtime or CI.
+These indicators are computed from fixture OHLCV samples by default. With `sourceMode=live`, they
+are computed from Coinbase Exchange public candles after safe parsing, closed-candle filtering, and
+freshness checks. CI uses mocked live adapter responses and does not call Coinbase.
+
+## Live OHLCV Source
+
+RC-8 selects Coinbase Exchange public candles as the default live OHLCV source:
+
+- endpoint: `GET https://api.exchange.coinbase.com/products/{product_id}/candles`
+- product ids: `BTC-USD`, `ETH-USD`
+- adapter intervals: `1m` maps to `granularity=60`, `5m` maps to `granularity=300`
+- no Authorization header, API key, wallet, or private endpoint is used
+
+The signal endpoint currently fetches 1m candles for both `5m` and `10m` horizons so the existing
+1m/3m/5m feature set remains comparable with fixture mode. Coinbase Exchange historical rates may
+be incomplete and should not be polled frequently, so live mode is for explicit local/manual use.
+It is not a CI dependency.
+
+## Fail-Closed Behavior
+
+Live mode returns HTTP 200 with `NO_SIGNAL` when OHLCV evidence is unusable, including:
+
+- network or timeout failure;
+- non-array or unparsable candle response;
+- missing or non-numeric OHLCV fields;
+- insufficient closed candles;
+- incomplete latest candle after filtering;
+- stale latest closed candle.
+
+The response surfaces `dataQuality.warnings`, `dataQuality.freshness`, and `failClosedReasons` so
+the UI can explain why no directional research bias was emitted. It must not synthesize missing
+candles or turn weak evidence into `LONG`/`SHORT`.
 
 ## Rule Semantics
 
@@ -120,3 +155,4 @@ by default.
 - No replay engine.
 - No production pricing model.
 - No CI dependency on external network data.
+- No default live polling; `sourceMode=live` is explicit local/manual use only.
