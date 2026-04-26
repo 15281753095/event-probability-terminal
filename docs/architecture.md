@@ -20,7 +20,7 @@ services/pricing-engine
   -> Python placeholder fair-value service
 
 packages/research-signals
-  -> deterministic fixture-backed technical indicators and RC-7 research signal engine
+  -> deterministic technical indicators, fixture-backed signals, and explicit Coinbase Exchange live OHLCV adapter
 ```
 
 ## Service Boundaries
@@ -35,8 +35,9 @@ detail page shows the selected market, binary outcomes, timings, fixture-backed 
 available, research readiness, token trace, source trace, provenance, open evidence gaps, related
 fixture markets, and placeholder pricing state from a single `MarketDetailResponse` contract.
 
-The scanner page also renders a Research Signal Panel. It shows fixture-backed `LONG bias`,
-`SHORT bias`, and `NO_SIGNAL` outputs for BTC/ETH 5m/10m. It does not show buy/sell language,
+The scanner page also renders a Research Signal Panel. It shows fixture/default or explicit live
+`LONG bias`, `SHORT bias`, and `NO_SIGNAL` outputs for BTC/ETH 5m/10m. It displays source mode,
+source name, freshness, warnings, and fail-closed reasons. It does not show buy/sell language,
 leverage, position size, order forms, or trading controls.
 
 ### API Gateway
@@ -63,9 +64,12 @@ The scanner and detail API contracts are protected by fixture-backed snapshot te
 lock stable response projections while leaving live vendor payloads, wall-clock time, and
 machine-specific fetch errors out of the snapshot surface.
 
-`GET /signals/research` exposes `ResearchSignalsResponse` for the RC-7 research-signal slice. It
-uses deterministic OHLCV fixtures and `@ept/research-signals`; it does not call live price, X, news,
-macro, wallet, or vendor trading APIs.
+`GET /signals/research` exposes `ResearchSignalsResponse` for the research-signal slice. Fixture
+mode uses deterministic OHLCV fixtures. `sourceMode=live` explicitly calls the
+`@ept/research-signals` Coinbase Exchange OHLCV adapter and converts usable closed candles into the
+same indicator and rule engine. The API gateway does not call vendor APIs directly. Live failures
+return `NO_SIGNAL` with fail-closed reasons rather than HTTP 500 for expected data/source failures.
+It does not call X, news, macro, wallet, or vendor trading APIs.
 
 ### Market Ingestor
 
@@ -117,14 +121,20 @@ evidence.
 
 ### Research Signals
 
-`packages/research-signals` is a TypeScript package for deterministic, fixture-backed RC-7 research
-signals. It computes EMA, RSI, MACD, Bollinger bands, ATR, realized volatility, short-horizon
-momentum, and volume z-score from local OHLCV fixtures.
+`packages/research-signals` is a TypeScript package for deterministic research signals. It computes
+EMA, RSI, MACD, Bollinger bands, ATR, realized volatility, short-horizon momentum, and volume
+z-score from local OHLCV fixtures by default. RC-8 adds a Coinbase Exchange public-read OHLCV
+adapter for explicit local live mode.
 
 The v0 engine combines multiple weighted factors into a `ResearchSignal` with direction `LONG`,
 `SHORT`, or `NO_SIGNAL`. It emits reasons, confidence, score, feature snapshots, data quality,
 invalidation notes, and fail-closed reasons. It is not a pricing engine and does not produce fair
 probabilities, trade advice, orders, leverage, or position sizing.
+
+The Coinbase Exchange adapter maps `BTC` to `BTC-USD` and `ETH` to `ETH-USD`, maps `1m` to
+`granularity=60`, safe-parses candle arrays, sorts by start time, drops incomplete candles, enforces
+freshness, and fails closed on network, timeout, parse, stale, or insufficient-data failures. CI
+uses mocked fetches only.
 
 ## Data Flow
 
@@ -136,8 +146,10 @@ probabilities, trade advice, orders, leverage, or position sizing.
 6. API gateway summarizes fail-closed rejection reasons for scanner metadata.
 7. API gateway organizes detail evidence/provenance fields into `MarketDetailResponse`.
 8. API gateway computes fixture-backed research signals through `@ept/research-signals` for
-   `/signals/research`.
-9. API gateway strips raw upstream payloads before returning API responses.
+   `/signals/research` by default.
+9. If `sourceMode=live` is explicitly requested, API gateway calls the research-signals OHLCV
+   adapter boundary for Coinbase Exchange public candles, then uses the same indicator/rule engine.
+10. API gateway strips raw upstream payloads before returning API responses.
 
 ## Current Infrastructure
 
@@ -153,6 +165,8 @@ probabilities, trade advice, orders, leverage, or position sizing.
 - No real pricing model; pricing-engine v0 is contract plus placeholder output only.
 - Research signals are research-only and must not be presented as investment advice or trade
   instructions.
+- Live OHLCV mode is explicit local/manual use. Fixture remains the default, and CI must mock live
+  adapter responses.
 - Pricing-engine v1 is research-only until data freshness and validation gates are satisfied.
 - No non-placeholder Up/Down pricing without confirmed payoff specification, reference level, and
   settlement rule.

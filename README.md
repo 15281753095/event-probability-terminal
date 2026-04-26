@@ -8,12 +8,12 @@ This repository is in Phase 1 foundation work. It has a minimal local end-to-end
 
 - `services/market-ingestor`: Polymarket public-read adapter boundary, fixture-first by default.
 - `packages/shared-types`: shared contracts for `EventMarket`, `OrderBookSnapshot`, `MarketDetailResponse`, and placeholder scanner/pricing objects.
-- `packages/research-signals`: deterministic RC-7 technical-indicator and research-signal engine.
+- `packages/research-signals`: deterministic technical-indicator and research-signal engine with fixture default and explicit Coinbase Exchange live OHLCV mode.
 - `apps/api-gateway`: Fastify read-only API for fixture-backed markets, scanner metadata, contract-backed market detail, and pricing placeholders.
 - `apps/web`: Next.js Markets Scanner RC-2, Research Signal Panel RC-7, and Market Detail RC-3 evidence views that read from the API gateway.
 - `services/pricing-engine`: Python placeholder contract for fair-value output shape.
 
-The current app market data is synthetic fixture data unless explicitly configured otherwise. A limited Polymarket Gamma/public-search live fixture capture was completed on 2026-04-21 to tighten contract tests, but it did not confirm BTC/ETH 10m/1h live classification.
+The current app market data is synthetic fixture data unless explicitly configured otherwise. A limited Polymarket Gamma/public-search live fixture capture was completed on 2026-04-21 to tighten contract tests, but it did not confirm BTC/ETH 10m/1h live classification. Research signals default to fixtures, while `sourceMode=live` can explicitly fetch Coinbase Exchange public BTC/ETH candles for local manual use.
 Pricing-engine v1 research docs now define the additional Up/Down payoff and reference-level
 evidence required before any real fair-probability model can be implemented. A 2026-04-23 public
 fixture capture strengthened 5M Up/Down payoff evidence, but it still does not open 10m/1h runtime
@@ -28,7 +28,7 @@ Supported research scope:
 - Primary venue: Polymarket
 - Secondary/reference venues: Predict.fun and Binance Wallet Prediction Markets are documented only; they are not implemented.
 - Mode: read-only market discovery and display, with pricing-engine v0 placeholder outputs.
-- Research signals: fixture-backed BTC/ETH `5m`/`10m` technical research bias only; not trade advice.
+- Research signals: fixture-default BTC/ETH `5m`/`10m` technical research bias; optional explicit Coinbase Exchange live OHLCV mode; not trade advice.
 - Market contract: binary outcome markets only. The shared contract preserves upstream outcome labels, including fixture-backed `Yes`/`No` and observed `Up`/`Down`; it does not support multi-outcome markets.
 
 Explicit exclusions:
@@ -143,6 +143,7 @@ curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo/detail
 curl http://localhost:4000/scanner/top
 curl http://localhost:4000/signals/research
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
+curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=live"
 ```
 
 Default pricing-engine base URL: `http://127.0.0.1:4100`
@@ -162,9 +163,11 @@ responses expose a stable `meta` block with contract version, response kind, gen
 read-only/fixture/placeholder flags, and status. Typed error responses use the same contract
 version and currently cover `market_not_found`.
 
-`/signals/research` returns deterministic fixture-backed `ResearchSignal` objects for BTC/ETH 5m/10m
-research bias. Directions are limited to `LONG`, `SHORT`, and `NO_SIGNAL`; they are explicitly
-research-only and `isTradeAdvice: false`.
+`/signals/research` returns `ResearchSignal` objects for BTC/ETH 5m/10m research bias. Fixture mode
+is the default. `sourceMode=live` explicitly uses Coinbase Exchange public candles with timeout,
+safe parsing, incomplete-candle filtering, freshness checks, and fail-closed `NO_SIGNAL` behavior.
+Directions are limited to `LONG`, `SHORT`, and `NO_SIGNAL`; they are explicitly research-only and
+`isTradeAdvice: false`.
 
 ## Current Pages
 
@@ -175,7 +178,7 @@ research-only and `isTradeAdvice: false`.
   - research status strip for accepted, visible, rejected, placeholder, and open-gap state
   - market list for BTC/ETH fixture markets
   - right summary, evidence status, and fail-closed reason matrix panels
-  - Research Signal Panel for fixture-backed LONG bias / SHORT bias / NO_SIGNAL outputs
+  - Research Signal Panel for fixture/live LONG bias / SHORT bias / NO_SIGNAL outputs, source mode, freshness, warnings, and fail-closed reasons
   - loading/error/empty states through server-side API fetch handling
 - `/markets/:id`: Market Detail RC-3
   - binary outcomes, timing, liquidity, spread, and provenance
@@ -213,7 +216,7 @@ make smoke
 
 The smoke suite starts the fixture-backed API gateway and web app locally, then checks the scanner
 home page and one deterministic Market Detail URL through `/markets/:id/detail`. It does not call live vendors, compute real
-pricing, or test trading behavior.
+pricing, or test trading behavior. Live OHLCV tests use mocked Coinbase Exchange responses.
 
 API contract snapshots are part of `make test`. They lock stable fixture-backed projections for
 `/scanner/top` and `/markets/:id/detail` under `apps/api-gateway/tests/snapshots/`. Snapshot changes
@@ -243,6 +246,7 @@ should be reviewed as public local API contract changes, not incidental formatti
 - RC-4 API contract snapshot decision: `docs/adr/0009-rc4-api-contract-snapshots-and-ci-hygiene.md`
 - RC-5 response versioning decision: `docs/adr/0010-rc5-response-versioning-and-error-taxonomy.md`
 - RC-7 research signal decision: `docs/adr/0012-rc7-research-signal-engine-v0.md`
+- RC-8 live OHLCV adapter decision: `docs/adr/0013-rc8-live-ohlcv-source-adapter.md`
 - Source registry: `docs/source_registry.md`
 - Collaboration rules: `AGENTS.md`
 

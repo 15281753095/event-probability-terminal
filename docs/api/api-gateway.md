@@ -25,7 +25,7 @@ http://localhost:4000
 | `GET` | `/markets/:id/book` | Current | Fixture-backed order-book snapshot for the market primary outcome token. |
 | `GET` | `/markets/:id/detail` | Current | RC-3 `MarketDetailResponse` for read-only research workflow. |
 | `GET` | `/scanner/top` | Current | Read-only scanner response with placeholder fair value and edge fields. |
-| `GET` | `/signals/research` | Current | RC-7 fixture-backed research signal response for BTC/ETH 5m/10m. |
+| `GET` | `/signals/research` | Current | Fixture-default and explicit Coinbase Exchange live research signal response for BTC/ETH 5m/10m. |
 
 ## Contract Version
 
@@ -47,7 +47,7 @@ Current response kinds:
 
 - `scanner_top`
 - `market_detail`
-- `research_signals`
+- `research_signal`
 
 Current status taxonomy:
 
@@ -117,17 +117,19 @@ Reserved but not broadly emitted yet:
 
 ## `GET /signals/research`
 
-Purpose: provide deterministic, fixture-backed, read-only BTC/ETH 5m/10m research signals.
+Purpose: provide fixture-default and explicit live read-only BTC/ETH 5m/10m research signals.
 
 Current response shape is `ResearchSignalsResponse` from `packages/shared-types`. It includes:
 
 - `signals`: one or more `ResearchSignal` objects;
-- `meta`: contract version, response kind, generated timestamp, fixture mode, research-only flag,
-  not-trade-advice flag, and model version.
+- `meta`: contract version, response kind, generated timestamp, source mode, source name,
+  research-only flag, not-trade-advice flag, and model version.
 
-This endpoint does not compute fair probabilities, does not place orders, does not produce buy/sell
-instructions, and does not call live X/news/macro APIs by default. See
-`docs/api/research-signals.md`.
+Fixture mode is the default. `sourceMode=live` explicitly uses the `@ept/research-signals`
+Coinbase Exchange OHLCV adapter. Expected live source/data failures return `NO_SIGNAL` with
+fail-closed reasons rather than order instructions or HTTP 500. This endpoint does not compute fair
+probabilities, does not place orders, does not produce buy/sell instructions, and does not call live
+X/news/macro APIs. See `docs/api/research-signals.md`.
 
 ## Contract Snapshots
 
@@ -154,6 +156,7 @@ network error text.
 - No Predict.fun or Binance adapter.
 - No live fixture capture or external API expansion from this endpoint.
 - No raw upstream payload in API responses.
+- No CI dependency on live Coinbase Exchange; live OHLCV tests must use mocks.
 
 ## TODO
 

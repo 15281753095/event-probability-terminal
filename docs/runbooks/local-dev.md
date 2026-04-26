@@ -20,6 +20,9 @@ python -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 ```
 
+If the host exposes `python3` but not `python`, use `python3 -m venv .venv` for the same local
+environment.
+
 ## Environment
 
 Copy `.env.example` only if you need local overrides:
@@ -86,10 +89,13 @@ curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo/detail
 curl http://localhost:4000/scanner/top
 curl http://localhost:4000/signals/research
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
+curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=live"
 ```
 
-Research signals are fixture-backed by default and do not call live price, X, news, macro, or
-trading APIs.
+Research signals are fixture-backed by default. `sourceMode=live` explicitly uses Coinbase Exchange
+public candles through the research-signals adapter boundary. It does not use API keys,
+Authorization headers, wallet state, X, news, macro, or trading APIs. Coinbase historical rates may
+be incomplete and should not be polled frequently, so this live path is for local manual smoke only.
 
 ## Start Web
 
@@ -108,7 +114,7 @@ http://localhost:3000
 Current pages:
 
 - `/`: Markets Scanner RC-2 with read-only filters, query state, sorting, summary cards, evidence
-  status, and the RC-7 Research Signal Panel.
+  status, and the Research Signal Panel with Fixture/Live source-mode display.
 - `/markets/:id`: Market Detail RC-3 for a normalized fixture-backed market, backed by `GET /markets/:id/detail`.
 
 Example detail URL:
@@ -172,6 +178,9 @@ make lint
 - `GET /markets/:id/detail`
 - `GET /signals/research`
 
+It also includes mocked Coinbase Exchange adapter coverage for live `sourceMode=live`. CI must not
+call live Coinbase endpoints.
+
 Treat snapshot diffs as API contract diffs. Update them only when the shared/API response contract
 intentionally changes.
 
@@ -210,6 +219,7 @@ Current smoke coverage is intentionally small:
 
 The smoke suite starts the API gateway and web app with fixture-backed data. It does not use live
 vendor data, real pricing, CLOB expansion, paper trading, replay, or any authenticated endpoint.
+The visible Live selector on the web page is not exercised against the real network in smoke.
 
 Root package equivalent:
 
@@ -224,7 +234,8 @@ npx --yes pnpm@10.0.0 check
 - TODO: PostgreSQL has no schema and is not used by the current app flow.
 - TODO: Redis is not used by the current app flow.
 - TODO: Scanner fair probability, confidence, and edge are placeholders.
-- TODO: Research signals are deterministic fixture-backed research outputs, not trade advice.
+- TODO: Research signals are fixture-default and live-optional research outputs, not trade advice.
+- TODO: Coinbase Exchange live OHLCV has no cache layer; use explicit local manual requests only.
 - TODO: Pricing-engine v1 data freshness and calibration requirements are not implemented.
 - TODO: No paper broker, replay, or real pricing model implementation.
 

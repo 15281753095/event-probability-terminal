@@ -26,7 +26,7 @@ export const API_CONTRACT_VERSION = "ept-api-v1" as const;
 
 export type ApiContractVersion = typeof API_CONTRACT_VERSION;
 
-export type ApiResponseKind = "scanner_top" | "market_detail" | "research_signals";
+export type ApiResponseKind = "scanner_top" | "market_detail" | "research_signal";
 
 export type ApiResponseStatus = "ok" | "not_found" | "unsupported" | "fail_closed";
 
@@ -279,6 +279,12 @@ export type SignalDataQualityStatus = "ok" | "stale" | "insufficient" | "conflic
 
 export type ResearchSignalModelVersion = "research-signal-engine-v0";
 
+export type ResearchSignalSourceMode = "fixture" | "live";
+
+export type OhlcvSource = "fixture" | "coinbase_exchange";
+
+export type OhlcvInterval = "1m" | "5m";
+
 export interface OhlcvCandle {
   timestamp: string;
   open: number;
@@ -286,6 +292,41 @@ export interface OhlcvCandle {
   low: number;
   close: number;
   volume: number;
+}
+
+export interface Candle extends OhlcvCandle {
+  source: OhlcvSource;
+  symbol: SignalSymbol;
+  interval: OhlcvInterval;
+  startTime: string;
+  isClosed: boolean;
+}
+
+export interface OHLCVFetchRequest {
+  symbol: SignalSymbol;
+  interval: OhlcvInterval;
+  lookback: number;
+  sourceMode: ResearchSignalSourceMode;
+  requestedAt: string;
+}
+
+export interface OHLCVFreshness {
+  status: "fresh" | "stale" | "unknown";
+  latestStartTime: string | null;
+  latestClosedAt: string | null;
+  ageMs: number | null;
+  maxAgeMs: number;
+}
+
+export interface OHLCVFetchResult {
+  candles: Candle[];
+  source: OhlcvSource;
+  fetchedAt: string;
+  freshness: OHLCVFreshness;
+  warnings: string[];
+  failClosedReasons: string[];
+  isLive: boolean;
+  isFixtureBacked: boolean;
 }
 
 export interface SignalFeatureSnapshot {
@@ -343,12 +384,16 @@ export interface SignalContextSnapshot {
 
 export interface SignalDataQuality {
   status: SignalDataQualityStatus;
+  source: OhlcvSource;
   candleCount: number;
   requiredCandleCount: number;
   freshnessAgeMs: number;
   maxFreshnessMs: number;
+  freshness: OHLCVFreshness;
   missingFields: string[];
   warnings: string[];
+  isLive: boolean;
+  isFixtureBacked: boolean;
 }
 
 export interface ResearchSignal {
@@ -362,7 +407,8 @@ export interface ResearchSignal {
   features: SignalFeatureSnapshot;
   context: SignalContextSnapshot;
   dataQuality: SignalDataQuality;
-  sourceMode: "fixture";
+  source: OhlcvSource;
+  sourceMode: ResearchSignalSourceMode;
   isResearchOnly: true;
   isTradeAdvice: false;
   modelVersion: ResearchSignalModelVersion;
@@ -372,12 +418,13 @@ export interface ResearchSignal {
 
 export interface ResearchSignalsMeta {
   contractVersion: ApiContractVersion;
-  responseKind: "research_signals";
+  responseKind: "research_signal";
   generatedAt: string;
   status: "ok";
   source: "research_signal_engine";
-  mode: "fixture";
-  isFixtureBacked: true;
+  mode: ResearchSignalSourceMode;
+  sourceName: OhlcvSource;
+  isFixtureBacked: boolean;
   isReadOnly: true;
   isResearchOnly: true;
   isTradeAdvice: false;

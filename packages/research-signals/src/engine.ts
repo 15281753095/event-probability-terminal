@@ -2,14 +2,20 @@ import {
   API_CONTRACT_VERSION,
   type ResearchSignal,
   type ResearchSignalModelVersion,
+  type ResearchSignalSourceMode,
   type ResearchSignalsResponse,
   type SignalContextSnapshot,
   type SignalDirection,
   type SignalFeatureSnapshot,
   type SignalHorizon,
   type SignalSymbol,
+  type OhlcvSource,
+  type OHLCVFreshness,
+  type OHLCVFetchRequest,
+  type OHLCVFetchResult,
   type OhlcvCandle
 } from "@ept/shared-types";
+import { emptyFailClosedOHLCVResult, fetchCoinbaseExchangeCandles } from "./ohlcv/coinbase-exchange.js";
 import { buildFeatureSnapshot } from "./indicators.js";
 import { findResearchSignalFixture, researchSignalFixtures, type ResearchSignalFixture } from "./fixtures.js";
 
@@ -22,12 +28,25 @@ export type BuildSignalInput = {
   generatedAt: string;
   candles: OhlcvCandle[];
   context?: SignalContextSnapshot;
+  source?: OhlcvSource;
+  sourceMode?: ResearchSignalSourceMode;
+  freshness?: OHLCVFreshness;
+  sourceWarnings?: string[];
+  sourceFailClosedReasons?: string[];
+  isLive?: boolean;
+  isFixtureBacked?: boolean;
 };
 
 export type ListSignalsInput = {
   generatedAt: string;
   symbol?: SignalSymbol;
   horizon?: SignalHorizon;
+};
+
+export type OHLCVFetcher = (request: OHLCVFetchRequest) => Promise<OHLCVFetchResult>;
+
+export type ListLiveSignalsInput = ListSignalsInput & {
+  fetcher?: OHLCVFetcher;
 };
 
 type ScoreContribution = {
@@ -53,7 +72,7 @@ export function listResearchSignals(input: ListSignalsInput): ResearchSignalsRes
     ),
     meta: {
       contractVersion: API_CONTRACT_VERSION,
-      responseKind: "research_signals",
+      responseKind: "research_signal",
       generatedAt: input.generatedAt,
       status: "ok",
       source: "research_signal_engine",
@@ -63,10 +82,85 @@ export function listResearchSignals(input: ListSignalsInput): ResearchSignalsRes
       isResearchOnly: true,
       isTradeAdvice: false,
       modelVersion: RESEARCH_SIGNAL_MODEL_VERSION,
+      sourceName: "fixture",
       message:
         "Research signals are deterministic, fixture-backed, read-only directional bias outputs. They are not trade advice or order instructions."
     }
   };
+}
+
+export async function listLiveResearchSignals(input: ListLiveSignalsInput): Promise<ResearchSignalsResponse> {
+  const fetcher = input.fetcher ?? fetchCoinbaseExchangeCandles;
+  const signals = await Promise.all(
+    signalTargets(input.symbol, input.horizon).map(async (target) => {
+      const request: OHLCVFetchRequest = {
+        symbol: target.symbol,
+        interval: "1m",
+        lookback: REQUIRED_CANDLE_COUNT,
+        sourceMode: "live",
+        requestedAt: input.generatedAt
+      };
+      let result: OHLCVFetchResult;
+      try {
+        result = await fetcher(request);
+      } catch (error) {
+        result = emptyFailClosedOHLCVResult(
+          request,
+          input.generatedAt,
+          error instanceof Error ? error.message : "OHLCV adapter threw an unknown error."
+        );
+      }
+      return buildResearchSignalFromOHLCV({
+        symbol: target.symbol,
+        horizon: target.horizon,
+        generatedAt: input.generatedAt,
+        result
+      });
+    })
+  );
+
+  return {
+    signals,
+    meta: {
+      contractVersion: API_CONTRACT_VERSION,
+      responseKind: "research_signal",
+      generatedAt: input.generatedAt,
+      status: "ok",
+      source: "research_signal_engine",
+      mode: "live",
+      sourceName: "coinbase_exchange",
+      isFixtureBacked: false,
+      isReadOnly: true,
+      isResearchOnly: true,
+      isTradeAdvice: false,
+      modelVersion: RESEARCH_SIGNAL_MODEL_VERSION,
+      message:
+        "Live research signals use Coinbase Exchange public OHLCV candles when explicitly requested. They are not trade advice or order instructions."
+    }
+  };
+}
+
+export function buildResearchSignalFromOHLCV(input: {
+  symbol: SignalSymbol;
+  horizon: SignalHorizon;
+  generatedAt: string;
+  result: OHLCVFetchResult;
+  context?: SignalContextSnapshot;
+}): ResearchSignal {
+  return buildResearchSignal({
+    symbol: input.symbol,
+    horizon: input.horizon,
+    generatedAt: input.generatedAt,
+    candles: input.result.candles,
+    ...(input.context ? { context: input.context } : {}),
+    source: input.result.source,
+    sourceMode: input.result.isLive ? "live" : "fixture",
+    freshness: input.result.freshness,
+    sourceWarnings: input.result.warnings,
+    sourceFailClosedReasons: input.result.failClosedReasons,
+    isLive: input.result.isLive,
+    isFixtureBacked: input.result.isFixtureBacked
+  });
 }
 
 function rebaseFixtureCandles(candles: OhlcvCandle[], generatedAt: string): OhlcvCandle[] {
@@ -87,12 +181,22 @@ export function getResearchSignalFixture(
 
 export function buildResearchSignal(input: BuildSignalInput): ResearchSignal {
   const context = input.context ?? emptyContext();
-  const dataQuality = assessDataQuality(input.candles, input.generatedAt);
+  const source = input.source ?? "fixture";
+  const sourceMode = input.sourceMode ?? "fixture";
+  const isLive = input.isLive ?? sourceMode === "live";
+  const isFixtureBacked = input.isFixtureBacked ?? sourceMode === "fixture";
+  const dataQuality = assessDataQuality(input.candles, input.generatedAt, {
+    source,
+    ...(input.freshness ? { freshness: input.freshness } : {}),
+    sourceWarnings: input.sourceWarnings ?? [],
+    isLive,
+    isFixtureBacked
+  });
   const features =
     input.candles.length >= REQUIRED_CANDLE_COUNT
       ? buildFeatureSnapshot(input.candles)
       : emptyFeatureSnapshot(input.candles);
-  const failClosedReasons = failClosed(dataQuality, context);
+  const failClosedReasons = [...(input.sourceFailClosedReasons ?? []), ...failClosed(dataQuality, context)];
   const contributions = failClosedReasons.length ? [] : scoreContributions(features, context);
   const rawScore = clamp(contributions.reduce((sum, item) => sum + item.value, 0), -1, 1);
   const conflicts = conflictCount(contributions);
@@ -113,7 +217,8 @@ export function buildResearchSignal(input: BuildSignalInput): ResearchSignal {
     features,
     context,
     dataQuality,
-    sourceMode: "fixture",
+    source,
+    sourceMode,
     isResearchOnly: true,
     isTradeAdvice: false,
     modelVersion: RESEARCH_SIGNAL_MODEL_VERSION,
@@ -126,7 +231,17 @@ export function buildResearchSignal(input: BuildSignalInput): ResearchSignal {
   };
 }
 
-function assessDataQuality(candles: OhlcvCandle[], generatedAt: string) {
+function assessDataQuality(
+  candles: OhlcvCandle[],
+  generatedAt: string,
+  input: {
+    source: OhlcvSource;
+    freshness?: OHLCVFreshness;
+    sourceWarnings: string[];
+    isLive: boolean;
+    isFixtureBacked: boolean;
+  }
+) {
   const missingFields = candles.flatMap((candle, index) =>
     ["open", "high", "low", "close", "volume"].flatMap((field) => {
       const value = candle[field as keyof OhlcvCandle];
@@ -134,11 +249,21 @@ function assessDataQuality(candles: OhlcvCandle[], generatedAt: string) {
     })
   );
   const latest = candles.at(-1);
-  const freshnessAgeMs = latest
+  const rawFreshnessAgeMs = latest
     ? Date.parse(generatedAt) - Date.parse(latest.timestamp)
     : Number.POSITIVE_INFINITY;
-  const maxFreshnessMs = 3 * 60_000;
-  const warnings: string[] = [];
+  const freshness =
+    input.freshness ??
+    ({
+      status: latest && rawFreshnessAgeMs <= 3 * 60_000 ? "fresh" : latest ? "stale" : "unknown",
+      latestStartTime: latest?.timestamp ?? null,
+      latestClosedAt: latest ? new Date(Date.parse(latest.timestamp) + 60_000).toISOString() : null,
+      ageMs: Number.isFinite(rawFreshnessAgeMs) ? rawFreshnessAgeMs : null,
+      maxAgeMs: 3 * 60_000
+    } satisfies OHLCVFreshness);
+  const freshnessAgeMs = freshness.ageMs ?? rawFreshnessAgeMs;
+  const maxFreshnessMs = freshness.maxAgeMs;
+  const warnings: string[] = [...input.sourceWarnings];
   if (freshnessAgeMs > maxFreshnessMs) {
     warnings.push("Latest OHLCV candle is stale for short-horizon research signal generation.");
   }
@@ -150,15 +275,19 @@ function assessDataQuality(candles: OhlcvCandle[], generatedAt: string) {
     status:
       candles.length < REQUIRED_CANDLE_COUNT || missingFields.length
         ? "insufficient"
-        : freshnessAgeMs > maxFreshnessMs
+        : freshness.status === "stale" || freshnessAgeMs > maxFreshnessMs
           ? "stale"
           : "ok",
+    source: input.source,
     candleCount: candles.length,
     requiredCandleCount: REQUIRED_CANDLE_COUNT,
     freshnessAgeMs,
     maxFreshnessMs,
+    freshness,
     missingFields,
-    warnings
+    warnings,
+    isLive: input.isLive,
+    isFixtureBacked: input.isFixtureBacked
   } as ResearchSignal["dataQuality"];
 }
 
@@ -295,6 +424,14 @@ function conflictCount(contributions: ScoreContribution[]): number {
   const positive = contributions.filter((item) => item.value > 0.04).length;
   const negative = contributions.filter((item) => item.value < -0.04).length;
   return Math.min(positive, negative);
+}
+
+function signalTargets(symbol?: SignalSymbol, horizon?: SignalHorizon): Array<{ symbol: SignalSymbol; horizon: SignalHorizon }> {
+  const symbols: SignalSymbol[] = symbol ? [symbol] : ["BTC", "ETH"];
+  const horizons: SignalHorizon[] = horizon ? [horizon] : ["5m", "10m"];
+  return symbols.flatMap((itemSymbol) =>
+    horizons.map((itemHorizon) => ({ symbol: itemSymbol, horizon: itemHorizon }))
+  );
 }
 
 function emptyContext(): SignalContextSnapshot {

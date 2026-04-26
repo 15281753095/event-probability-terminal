@@ -3,6 +3,7 @@ import type {
   Asset,
   EventMarket,
   ResearchSignal,
+  ResearchSignalSourceMode,
   ResearchSignalsResponse,
   ScannerCandidate,
   ScannerTopResponse,
@@ -26,6 +27,7 @@ type SearchParams = Promise<{
   window?: string;
   sort?: string;
   q?: string;
+  signalSourceMode?: string;
 }>;
 
 type SortKey = "expiry" | "liquidity" | "spread" | "marketProb";
@@ -35,6 +37,7 @@ type ScannerFilters = {
   window: TimeWindow | "all";
   sort: SortKey;
   query: string;
+  signalSourceMode: ResearchSignalSourceMode;
 };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
@@ -42,7 +45,10 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:400
 export default async function Home({ searchParams }: { searchParams?: SearchParams }) {
   const params = (await searchParams) ?? {};
   const filters = parseFilters(params);
-  const [scannerState, signalState] = await Promise.all([loadScanner(), loadResearchSignals()]);
+  const [scannerState, signalState] = await Promise.all([
+    loadScanner(),
+    loadResearchSignals(filters.signalSourceMode)
+  ]);
   const state: PageState = {
     ...scannerState,
     signals: signalState.signals,
@@ -185,7 +191,12 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
             value={expiringSoon ? countdown(expiringSoon.market.endAt) : "n/a"}
             detail={expiringSoon?.asset ?? "none"}
           />
-          <ResearchSignalPanel error={state.signalError} meta={state.signalMeta} signals={state.signals} />
+          <ResearchSignalPanel
+            current={filters}
+            error={state.signalError}
+            meta={state.signalMeta}
+            signals={state.signals}
+          />
           <EvidencePanel meta={state.meta} />
         </aside>
       </section>
@@ -220,13 +231,17 @@ async function loadScanner(): Promise<PageState> {
   }
 }
 
-async function loadResearchSignals(): Promise<{
+async function loadResearchSignals(sourceMode: ResearchSignalSourceMode): Promise<{
   signals: ResearchSignal[];
   error?: string;
   meta?: ResearchSignalsResponse["meta"];
 }> {
   try {
-    const response = await fetch(`${apiBaseUrl}/signals/research`, {
+    const url =
+      sourceMode === "live"
+        ? `${apiBaseUrl}/signals/research?sourceMode=live`
+        : `${apiBaseUrl}/signals/research`;
+    const response = await fetch(url, {
       cache: "no-store"
     });
     if (!response.ok) {
@@ -256,7 +271,8 @@ function parseFilters(params: Awaited<SearchParams>): ScannerFilters {
       params.sort === "liquidity" || params.sort === "spread" || params.sort === "marketProb"
         ? params.sort
         : "expiry",
-    query: typeof params.q === "string" ? params.q.trim().slice(0, 80) : ""
+    query: typeof params.q === "string" ? params.q.trim().slice(0, 80) : "",
+    signalSourceMode: params.signalSourceMode === "live" ? "live" : "fixture"
   };
 }
 
@@ -350,6 +366,7 @@ function QuerySearch({ current }: { current: ScannerFilters }) {
         {current.asset !== "all" ? <input name="asset" type="hidden" value={current.asset} /> : null}
         {current.window !== "all" ? <input name="window" type="hidden" value={current.window} /> : null}
         {current.sort !== "expiry" ? <input name="sort" type="hidden" value={current.sort} /> : null}
+        {current.signalSourceMode === "live" ? <input name="signalSourceMode" type="hidden" value="live" /> : null}
         <input
           className="min-h-9 border border-border bg-white px-2 text-sm"
           defaultValue={current.query}
@@ -377,7 +394,8 @@ function scannerHref(current: ScannerFilters, updates: Partial<Record<keyof Scan
     asset: updates.asset ?? current.asset,
     window: updates.window ?? current.window,
     sort: updates.sort ?? current.sort,
-    query: updates.query ?? current.query
+    query: updates.query ?? current.query,
+    signalSourceMode: updates.signalSourceMode ?? current.signalSourceMode
   };
   const params = new URLSearchParams();
   if (next.asset !== "all") {
@@ -391,6 +409,9 @@ function scannerHref(current: ScannerFilters, updates: Partial<Record<keyof Scan
   }
   if (next.query) {
     params.set("q", next.query);
+  }
+  if (next.signalSourceMode === "live") {
+    params.set("signalSourceMode", "live");
   }
   const query = params.toString();
   return query ? `/?${query}` : "/";
@@ -487,11 +508,13 @@ function EvidencePanel({ meta }: { meta: ScannerTopResponse["meta"] | undefined 
 function ResearchSignalPanel({
   signals,
   meta,
-  error
+  error,
+  current
 }: {
   signals: ResearchSignal[];
   meta: ResearchSignalsResponse["meta"] | undefined;
   error: string | undefined;
+  current: ScannerFilters;
 }) {
   return (
     <section className="border border-border bg-white p-4">
@@ -502,9 +525,31 @@ function ResearchSignalPanel({
         </div>
         <Badge>Research only</Badge>
       </div>
+      <div className="mt-3 flex flex-wrap gap-2 text-xs">
+        <Link
+          className={`border px-2 py-1 ${
+            current.signalSourceMode === "fixture" ? "border-teal-700 bg-teal-50 text-teal-800" : "border-border bg-slate-50"
+          }`}
+          href={scannerHref(current, { signalSourceMode: "fixture" })}
+        >
+          Fixture
+        </Link>
+        <Link
+          className={`border px-2 py-1 ${
+            current.signalSourceMode === "live" ? "border-teal-700 bg-teal-50 text-teal-800" : "border-border bg-slate-50"
+          }`}
+          href={scannerHref(current, { signalSourceMode: "live" })}
+        >
+          Live
+        </Link>
+      </div>
       <p className="mt-3 text-xs leading-5 text-slate-600">
-        Direction is a fixture-backed research bias, not trade advice or an order instruction.
+        Direction is a research bias. Research only. Not trade advice.
       </p>
+      <div className="mt-2 grid gap-1 text-xs text-slate-600">
+        <div>Mode: {displaySourceMode(meta?.mode ?? current.signalSourceMode)}</div>
+        <div>Source: {displaySource(meta?.sourceName ?? "fixture")}</div>
+      </div>
       {error ? (
         <div className="mt-3 border border-red-200 bg-red-50 p-2 text-xs text-red-800">
           Signal API unavailable: {error}
@@ -524,8 +569,15 @@ function ResearchSignalPanel({
                 <div>Confidence: {formatProb(signal.confidence)}</div>
                 <div>Score: {formatSigned(signal.score)}</div>
                 <div>Data: {signal.dataQuality.status}</div>
-                <div>Mode: {signal.sourceMode}</div>
+                <div>Mode: {displaySourceMode(signal.sourceMode)}</div>
+                <div>Source: {displaySource(signal.source)}</div>
+                <div>Freshness: {displayFreshness(signal)}</div>
               </div>
+              {signal.dataQuality.warnings.length ? (
+                <div className="mt-2 text-xs text-amber-700">
+                  Warnings: {signal.dataQuality.warnings.slice(0, 2).join("; ")}
+                </div>
+              ) : null}
               <ul className="mt-3 grid gap-1 text-xs leading-5 text-slate-600">
                 {signal.reasons.slice(0, 3).map((reason) => (
                   <li key={reason}>{reason}</li>
@@ -542,6 +594,19 @@ function ResearchSignalPanel({
       ) : null}
     </section>
   );
+}
+
+function displaySourceMode(sourceMode: ResearchSignalSourceMode) {
+  return sourceMode === "live" ? "Live" : "Fixture";
+}
+
+function displaySource(source: ResearchSignal["source"]) {
+  return source === "coinbase_exchange" ? "coinbase-exchange" : "fixture";
+}
+
+function displayFreshness(signal: ResearchSignal) {
+  const ageMs = signal.dataQuality.freshness.ageMs;
+  return `${signal.dataQuality.freshness.status}${ageMs === null ? "" : ` / ${formatDuration(ageMs)}`}`;
 }
 
 function SignalDirectionBadge({ direction }: { direction: ResearchSignal["direction"] }) {
@@ -658,6 +723,17 @@ function formatProb(value?: number) {
 
 function formatSigned(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(3)}`;
+}
+
+function formatDuration(valueMs: number) {
+  if (!Number.isFinite(valueMs)) {
+    return "n/a";
+  }
+  const seconds = Math.max(0, Math.round(valueMs / 1000));
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 }
 
 function formatNumber(value?: number) {

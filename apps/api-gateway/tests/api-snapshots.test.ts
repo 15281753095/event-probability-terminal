@@ -156,6 +156,7 @@ function signalContractSnapshot(payload: ResearchSignalsResponse) {
       features: signal.features,
       context: signal.context,
       dataQuality: signal.dataQuality,
+      source: signal.source,
       sourceMode: signal.sourceMode,
       isResearchOnly: signal.isResearchOnly,
       isTradeAdvice: signal.isTradeAdvice,
