@@ -10,7 +10,7 @@ This repository is in Phase 1 foundation work. It has a minimal local end-to-end
 - `packages/shared-types`: shared contracts for `EventMarket`, `OrderBookSnapshot`, `MarketDetailResponse`, and placeholder scanner/pricing objects.
 - `packages/research-signals`: deterministic technical-indicator, confluence, and research-signal engine with fixture default and explicit Coinbase Exchange live OHLCV mode.
 - `apps/api-gateway`: Fastify read-only API for fixture-backed markets, scanner metadata, contract-backed market detail, research signals, Event Signal Console, and pricing placeholders.
-- `apps/web`: Next.js Markets Scanner RC-2, Research Signal Panel RC-7, Event Signal Console RC-9, and Market Detail RC-3 evidence views that read from the API gateway.
+- `apps/web`: Next.js Markets Scanner RC-2, Research Signal Panel RC-7, Event Signal Workbench RC-10, and Market Detail RC-3 evidence views that read from the API gateway.
 - `services/pricing-engine`: Python placeholder contract for fair-value output shape.
 
 The current app market data is synthetic fixture data unless explicitly configured otherwise. A limited Polymarket Gamma/public-search live fixture capture was completed on 2026-04-21 to tighten contract tests, but it did not confirm BTC/ETH 10m/1h live classification. Research signals default to fixtures, while `sourceMode=live` can explicitly fetch Coinbase Exchange public BTC/ETH candles for local manual use.
@@ -108,6 +108,18 @@ Open:
 http://localhost:3000
 ```
 
+Event Signal Workbench local trial URLs:
+
+```text
+http://localhost:3000/?consoleSymbol=BTC&consoleHorizon=5m&consoleSourceMode=fixture
+http://localhost:3000/?consoleSymbol=ETH&consoleHorizon=10m&consoleSourceMode=fixture
+http://localhost:3000/?consoleSymbol=BTC&consoleHorizon=5m&consoleSourceMode=live
+```
+
+Use fixture mode for deterministic local and CI checks. Live mode is an explicit local manual path
+that reads public Coinbase Exchange candles through the research-signals adapter and fails closed
+when data is stale, incomplete, unavailable, or outside the supported BTC/ETH 5m/10m scope.
+
 Optional local infrastructure:
 
 ```bash
@@ -145,6 +157,8 @@ curl http://localhost:4000/signals/research
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=live"
 curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m"
+curl "http://localhost:4000/signals/console?symbol=ETH&horizon=10m&sourceMode=fixture"
+curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m&sourceMode=live"
 curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m&includeBacktest=true"
 ```
 
@@ -187,9 +201,9 @@ fields, or a real performance claim.
   - market list for BTC/ETH fixture markets
   - right summary, evidence status, and fail-closed reason matrix panels
   - Research Signal Panel for fixture/live LONG bias / SHORT bias / NO_SIGNAL outputs, source mode, freshness, warnings, and fail-closed reasons
-  - Event Signal Console RC-9 with BTC/ETH, 5m/10m, fixture/live selectors, confluence breakdown,
-    risk filters, recent candlestick chart, recent-only signal markers, and an on-demand backtest
-    preview
+  - Event Signal Workbench RC-10 with BTC/ETH, 5m/10m, fixture/live selectors, refresh control,
+    current-signal hero, confluence cards, risk filters, signal explanations, recent candlestick
+    chart, recent-only signal markers, and an on-demand backtest preview
   - loading/error/empty states through server-side API fetch handling
 - `/markets/:id`: Market Detail RC-3
   - binary outcomes, timing, liquidity, spread, and provenance
@@ -197,8 +211,19 @@ fields, or a real performance claim.
   - API-backed research readiness, token trace, source trace, related fixture markets
   - explicit placeholder pricing panel and open evidence gaps
 
-No replay workflow, paper trading UI, or trading control exists. The RC-9 candlestick chart is a
+No replay workflow, paper trading UI, or trading control exists. The RC-10 candlestick chart is a
 recent research-signal display only and does not load full historical signal markers.
+
+## Local Workbench FAQ
+
+- The workbench is research-only and not trade advice. It never returns or displays buy/sell,
+  entry, leverage, position size, order placement, wallet, or private/authenticated controls.
+- Signal markers are capped to recent markers from `/signals/console` and are not a replay of all
+  historical signals.
+- The backtest preview is collapsed by default. Open it only when needed; it is a small-sample
+  research preview, not a predictive guarantee or real trading performance.
+- If live mode shows `NO_SIGNAL`, inspect warnings and fail-closed reasons first. Fixture mode is
+  the deterministic default for local checks.
 
 ## Development Workflow
 

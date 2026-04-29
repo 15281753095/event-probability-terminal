@@ -91,6 +91,8 @@ curl http://localhost:4000/signals/research
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=live"
 curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m"
+curl "http://localhost:4000/signals/console?symbol=ETH&horizon=10m&sourceMode=fixture"
+curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m&sourceMode=live"
 curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m&includeBacktest=true"
 ```
 
@@ -121,7 +123,9 @@ Current pages:
 
 - `/`: Markets Scanner RC-2 with read-only filters, query state, sorting, summary cards, evidence
   status, the Research Signal Panel with Fixture/Live source-mode display, and Event Signal
-  Console RC-9 with confluence, risk filters, recent chart markers, and on-demand backtest preview.
+  Workbench RC-10 with a top signal hero, BTC/ETH and 5m/10m controls, fixture/live source selector,
+  refresh control, confluence cards, risk filters, recent chart markers, and on-demand backtest
+  preview.
 - `/markets/:id`: Market Detail RC-3 for a normalized fixture-backed market, backed by `GET /markets/:id/detail`.
 
 Example detail URL:
@@ -129,6 +133,18 @@ Example detail URL:
 ```text
 http://localhost:3000/markets/polymarket%3Amkt-btc-1h-demo
 ```
+
+Workbench trial URLs:
+
+```text
+http://localhost:3000/?consoleSymbol=BTC&consoleHorizon=5m&consoleSourceMode=fixture
+http://localhost:3000/?consoleSymbol=ETH&consoleHorizon=10m&consoleSourceMode=fixture
+http://localhost:3000/?consoleSymbol=BTC&consoleHorizon=5m&consoleSourceMode=live
+http://localhost:3000/?consoleSymbol=BTC&consoleHorizon=5m&consoleSourceMode=fixture&consoleBacktest=1
+```
+
+Use fixture URLs for repeatable local checks. Use live URLs only for explicit manual inspection of
+public Coinbase Exchange candles; live failures fail closed and do not imply a trading signal.
 
 ## Start Pricing Engine Placeholder Service
 
@@ -220,8 +236,9 @@ make smoke
 Current smoke coverage is intentionally small:
 
 - `/` must render the Markets Scanner RC-2, read-only filters, query URL state, placeholder pricing
-  text, evidence/fail-closed matrix, Research Signal Panel, Event Signal Console, recent chart,
-  default-collapsed backtest drawer, and backtest preview after user action.
+  text, evidence/fail-closed matrix, Research Signal Panel, Event Signal Workbench, controls, signal
+  hero, confluence cards, recent chart, default-collapsed backtest drawer, and backtest preview
+  after user action.
 - `/markets/polymarket%3Amkt-btc-1h-demo` must render Market Detail RC-3 with outcomes, research
   readiness, token trace, source trace, related fixture markets, provenance, placeholder pricing,
   and open evidence gaps.
@@ -249,6 +266,20 @@ npx --yes pnpm@10.0.0 check
   predictive guarantee or real trading performance.
 - TODO: Pricing-engine v1 data freshness and calibration requirements are not implemented.
 - TODO: No paper broker, replay, or real pricing model implementation.
+
+## Common Local Issues
+
+- API data is missing on the web page: start `make dev-api` before `make dev-web`, then reload
+  `http://localhost:3000`.
+- Live source mode returns `NO_SIGNAL`: check warnings and fail-closed reasons. Live mode is allowed
+  to fail closed when Coinbase candles are stale, incomplete, unreachable, or outside supported
+  BTC/ETH 5m/10m scope.
+- Backtest preview is hidden: this is the default. Click `Show backtest preview` or add
+  `consoleBacktest=1` to the local URL.
+- Chart has no candles: verify `GET /signals/console` returns `recentCandles`; otherwise use
+  fixture mode while investigating local API availability.
+- Trading controls are absent by design. The project does not implement order placement, wallets,
+  private/auth endpoints, position sizing, leverage, paper broker, or full replay workflows.
 
 ## Related Runbooks
 
