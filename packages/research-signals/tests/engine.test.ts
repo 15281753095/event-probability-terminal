@@ -27,7 +27,22 @@ describe("research signal engine v0", () => {
     assert.equal(byKey.get("ETH-10m")?.direction, "NO_SIGNAL");
     assert.equal(byKey.get("BTC-5m")?.confluence.direction, "LONG");
     assert.equal(byKey.get("ETH-5m")?.confluence.direction, "SHORT");
+    assert.equal(byKey.get("BTC-5m")?.profileName, "balanced");
+    assert.equal(byKey.get("BTC-5m")?.confluence.profileName, "balanced");
     assert.ok((byKey.get("BTC-10m")?.confluence.vetoReasons.length ?? 0) > 0);
+  });
+
+  it("exposes balanced profile thresholds on console responses", () => {
+    const consoleResponse = buildFixtureEventSignalConsole({
+      symbol: "BTC",
+      horizon: "5m",
+      generatedAt
+    });
+
+    assert.equal(consoleResponse.profileName, "balanced");
+    assert.equal(consoleResponse.currentSignal.profileName, "balanced");
+    assert.equal(consoleResponse.confluence.profileName, "balanced");
+    assert.ok(consoleResponse.confluence.reasons[0]?.includes("balanced profile threshold"));
   });
 
   it("fails closed when candles are stale", () => {
@@ -123,6 +138,31 @@ describe("research signal engine v0", () => {
     assert.equal(signal.direction, "NO_SIGNAL");
     assert.ok(signal.confluence.vetoReasons.some((reason) => reason.includes("Chop veto")));
     assert.equal(signal.riskFilters.chop, "veto");
+  });
+
+  it("vetoes flat EMA, flat MACD, and narrow volatility no-trade conditions", () => {
+    const fixture = getResearchSignalFixture("BTC", "5m");
+    assert.ok(fixture);
+    const flatCandles = fixture.candles.map((candle, index) => ({
+      ...candle,
+      open: 100_000 + index * 0.2,
+      high: 100_001 + index * 0.2,
+      low: 99_999 + index * 0.2,
+      close: 100_000 + index * 0.2,
+      volume: 1_000
+    }));
+    const signal = buildResearchSignal({
+      symbol: "BTC",
+      horizon: "5m",
+      candles: flatCandles,
+      generatedAt
+    });
+
+    assert.equal(signal.direction, "NO_SIGNAL");
+    assert.equal(signal.confidence, 0);
+    assert.ok(signal.confluence.vetoReasons.some((reason) => reason.includes("EMA slope is too flat")));
+    assert.ok(signal.confluence.vetoReasons.some((reason) => reason.includes("MACD histogram is too flat")));
+    assert.ok(signal.confluence.vetoReasons.some((reason) => reason.includes("too-low volatility")));
   });
 
   it("builds a console response with recent-only markers and disabled backtest by default", () => {

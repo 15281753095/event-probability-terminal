@@ -22,6 +22,12 @@ test("scanner home renders fixture-backed research state", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Horizon" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Source" })).toBeVisible();
   await expect(page.getByText("Current signal")).toBeVisible();
+  await expect(page.getByTestId("signal-runtime-panel")).toContainText("Signal Runtime");
+  await expect(page.getByRole("button", { name: "Auto refresh off" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Runtime refresh" })).toBeVisible();
+  await expect(page.getByTestId("signal-runtime-panel")).toContainText("Profile");
+  await expect(page.getByTestId("signal-runtime-panel")).toContainText("balanced");
+  await expect(page.getByTestId("signal-history")).toContainText(/LONG bias|SHORT bias|NO_SIGNAL/);
   await expect(page.getByTestId("event-signal-chart")).toBeVisible();
   await expect(page.getByText("Markers", { exact: true }).first()).toBeVisible();
   await expect(page.getByTestId("confluence-cards")).toContainText("Trend");

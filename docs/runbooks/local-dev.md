@@ -103,7 +103,9 @@ be incomplete and should not be polled frequently, so this live path is for loca
 
 Event Signal Console is also fixture-backed by default. It returns recent candles and recent-only
 markers, not full-history marker overlays. The lightweight backtest preview is disabled unless
-`includeBacktest=true` is explicitly requested.
+`includeBacktest=true` is explicitly requested. RC-11 adds the `balanced` signal profile to the API
+payload and strengthens no-trade vetoes for flat EMA, flat MACD, narrow volatility, extreme
+volatility, conflicting modules, and stale/insufficient data.
 
 ## Start Web
 
@@ -123,9 +125,9 @@ Current pages:
 
 - `/`: Markets Scanner RC-2 with read-only filters, query state, sorting, summary cards, evidence
   status, the Research Signal Panel with Fixture/Live source-mode display, and Event Signal
-  Workbench RC-10 with a top signal hero, BTC/ETH and 5m/10m controls, fixture/live source selector,
-  refresh control, confluence cards, risk filters, recent chart markers, and on-demand backtest
-  preview.
+  Workbench RC-11 with a top signal hero, BTC/ETH and 5m/10m controls, fixture/live source selector,
+  manual refresh, low-frequency auto refresh controls, local recent signal history, profile display,
+  confluence cards, risk filters, recent chart markers, and on-demand backtest preview.
 - `/markets/:id`: Market Detail RC-3 for a normalized fixture-backed market, backed by `GET /markets/:id/detail`.
 
 Example detail URL:
@@ -145,6 +147,8 @@ http://localhost:3000/?consoleSymbol=BTC&consoleHorizon=5m&consoleSourceMode=fix
 
 Use fixture URLs for repeatable local checks. Use live URLs only for explicit manual inspection of
 public Coinbase Exchange candles; live failures fail closed and do not imply a trading signal.
+Auto refresh is off by default; when enabled it is browser-local display polling only and not
+automatic trading. Signal history is capped at 20 browser-local entries and is not a trade log.
 
 ## Start Pricing Engine Placeholder Service
 
@@ -276,6 +280,9 @@ npx --yes pnpm@10.0.0 check
   BTC/ETH 5m/10m scope.
 - Backtest preview is hidden: this is the default. Click `Show backtest preview` or add
   `consoleBacktest=1` to the local URL.
+- Auto refresh is hidden or not updating: confirm the Event Signal Workbench is open and the API
+  gateway is running. Live mode may return `NO_SIGNAL` with warnings and should not be polled
+  faster than the built-in interval controls.
 - Chart has no candles: verify `GET /signals/console` returns `recentCandles`; otherwise use
   fixture mode while investigating local API availability.
 - Trading controls are absent by design. The project does not implement order placement, wallets,

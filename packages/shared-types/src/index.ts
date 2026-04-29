@@ -412,6 +412,7 @@ export interface RiskFilterSummary {
 }
 
 export interface ConfluenceScore {
+  profileName: "balanced";
   trendScore: number;
   momentumScore: number;
   volatilityScore: number;
@@ -441,6 +442,7 @@ export interface ResearchSignal {
   isResearchOnly: true;
   isTradeAdvice: false;
   modelVersion: ResearchSignalModelVersion;
+  profileName: "balanced";
   invalidation: string[];
   failClosedReasons: string[];
   confluence: ConfluenceScore;
@@ -506,6 +508,7 @@ export interface EventSignalConsoleMeta {
 
 export interface EventSignalConsoleResponse {
   meta: EventSignalConsoleMeta;
+  profileName: "balanced";
   symbol: SignalSymbol;
   horizon: SignalHorizon;
   sourceMode: ResearchSignalSourceMode;

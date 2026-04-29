@@ -7,6 +7,7 @@ import type {
   SignalHorizon,
   SignalDirection
 } from "@ept/shared-types";
+import { getSignalProfile, type SignalProfileName } from "./profiles.js";
 
 export type ConfluenceEvaluation = {
   confluence: ConfluenceScore;
@@ -19,6 +20,7 @@ export type EvaluateConfluenceInput = {
   dataQuality: ResearchSignal["dataQuality"];
   context: SignalContextSnapshot;
   failClosedReasons?: string[];
+  profileName?: SignalProfileName;
 };
 
 type ModuleScore = {
@@ -26,31 +28,19 @@ type ModuleScore = {
   reasons: string[];
 };
 
-const thresholdByHorizon = {
-  "5m": {
-    score: 0.68,
-    minTrendAbs: 0.28,
-    maxChop: 0.68
-  },
-  "10m": {
-    score: 0.65,
-    minTrendAbs: 0.44,
-    maxChop: 0.62
-  }
-} satisfies Record<SignalHorizon, { score: number; minTrendAbs: number; maxChop: number }>;
-
 export function evaluateConfluence(input: EvaluateConfluenceInput): ConfluenceEvaluation {
+  const profile = getSignalProfile(input.profileName);
+  const threshold = profile.horizons[input.horizon];
   const trend = trendModule(input.features);
   const momentum = momentumModule(input.features);
   const volatility = volatilityModule(input.features, trend.score, momentum.score);
   const volume = volumeModule(input.features);
   const reversalRisk = meanReversionRisk(input.features, trend.score, momentum.score);
   const chopRisk = chopRiskScore(input.features, trend.score, momentum.score);
-  const threshold = thresholdByHorizon[input.horizon];
   const failClosedReasons = input.failClosedReasons ?? [];
   const vetoReasons = unique([
     ...failClosedReasons,
-    ...filterVetoReasons(input, trend.score, momentum.score, volatility.score, volume.score, reversalRisk, chopRisk)
+    ...filterVetoReasons(input, trend.score, momentum.score, volatility.score, volume.score, reversalRisk, chopRisk, threshold)
   ]);
   if (Math.abs(trend.score) < threshold.minTrendAbs && Math.abs(momentum.score) >= 0.55) {
     vetoReasons.push(`${input.horizon} horizon requires trend alignment before directional bias can be emitted.`);
@@ -60,7 +50,7 @@ export function evaluateConfluence(input: EvaluateConfluenceInput): ConfluenceEv
     trend.score * 0.36 +
     momentum.score * 0.3 +
     volatility.score * 0.14 +
-    volume.score * 0.1 +
+    volume.score * threshold.volumeConfirmWeight +
     contextScore(input.context);
   const rawDirection = baseScore > 0 ? 1 : baseScore < 0 ? -1 : 0;
   const riskPenalty = rawDirection === 0 ? 0 : rawDirection * (reversalRisk * 0.12 + chopRisk * 0.16);
@@ -69,28 +59,28 @@ export function evaluateConfluence(input: EvaluateConfluenceInput): ConfluenceEv
   const direction =
     vetoReasons.length > 0
       ? "NO_SIGNAL"
-      : totalScore >= threshold.score
+      : totalScore >= threshold.longThreshold
         ? "LONG"
-        : totalScore <= -threshold.score
+        : totalScore <= threshold.shortThreshold
           ? "SHORT"
           : "NO_SIGNAL";
-  const riskFilters = buildRiskFilters(input, volatility.score, volume.score, reversalRisk, chopRisk, vetoReasons);
-  const confidence =
-    direction === "NO_SIGNAL"
-      ? 0
-      : round(
-          clamp(
-            absScore * 0.76 +
-              (input.dataQuality.status === "ok" ? 0.12 : 0) -
-              reversalRisk * 0.16 -
-              chopRisk * 0.18 -
-              volumePenalty(volume.score) -
-              (input.features.volatility.regime === "high" ? 0.08 : 0),
-            0,
-            0.9
-          )
-        );
+  const riskFilters = buildRiskFilters(input, volatility.score, volume.score, reversalRisk, chopRisk, vetoReasons, threshold);
+  const rawConfidence = round(
+    clamp(
+      absScore * 0.76 +
+        (input.dataQuality.status === "ok" ? 0.12 : 0) -
+        reversalRisk * 0.16 -
+        chopRisk * 0.18 -
+        volumePenalty(volume.score) -
+        (input.features.volatility.regime === "high" ? 0.08 : 0),
+      0,
+      0.9
+    )
+  );
+  const confidence = direction === "NO_SIGNAL" || rawConfidence < threshold.minConfidence ? 0 : rawConfidence;
+  const finalDirection = confidence === 0 ? "NO_SIGNAL" : direction;
   const confluence: ConfluenceScore = {
+    profileName: profile.name,
     trendScore: round(trend.score),
     momentumScore: round(momentum.score),
     volatilityScore: round(volatility.score),
@@ -98,9 +88,20 @@ export function evaluateConfluence(input: EvaluateConfluenceInput): ConfluenceEv
     reversalRisk: round(reversalRisk),
     chopRisk: round(chopRisk),
     totalScore,
-    direction,
+    direction: finalDirection,
     confidence,
-    reasons: confluenceReasons(direction, trend, momentum, volatility, volume, reversalRisk, chopRisk, input.horizon, threshold.score),
+    reasons: confluenceReasons(
+      finalDirection,
+      trend,
+      momentum,
+      volatility,
+      volume,
+      reversalRisk,
+      chopRisk,
+      input.horizon,
+      Math.abs(threshold.longThreshold),
+      profile.name
+    ),
     vetoReasons
   };
 
@@ -264,10 +265,10 @@ function filterVetoReasons(
   volatilityScore: number,
   volumeScore: number,
   reversalRisk: number,
-  chopRisk: number
+  chopRisk: number,
+  threshold: ReturnType<typeof getSignalProfile>["horizons"][SignalHorizon]
 ): string[] {
   const reasons: string[] = [];
-  const threshold = thresholdByHorizon[input.horizon];
   if (input.dataQuality.status === "stale") {
     reasons.push("Data freshness veto: latest OHLCV candle is stale.");
   }
@@ -277,13 +278,25 @@ function filterVetoReasons(
   if (input.context.marketEventRiskFlag) {
     reasons.push("Context veto: manual event-risk flag is active.");
   }
-  if (input.features.volatility.regime === "low" || input.features.bollinger.squeeze) {
+  const emaSlopeRatio = Math.abs(ratio(input.features.ema.slope, input.features.lastClose));
+  const macdAtrRatio = Math.abs(ratio(input.features.macd.histogram, input.features.volatility.atr || input.features.lastClose));
+  const macdPriceRatio = Math.abs(ratio(input.features.macd.histogram, input.features.lastClose));
+  if (emaSlopeRatio < threshold.minEmaSlopeRatio && Math.abs(momentumScore) < 0.72) {
+    reasons.push("Trend veto: EMA slope is too flat for a short-horizon directional bias.");
+  }
+  if ((macdAtrRatio < threshold.minMacdHistogramAtrRatio || macdPriceRatio < threshold.minMacdHistogramAtrRatio) && Math.abs(momentumScore) < 0.72) {
+    reasons.push("Momentum veto: MACD histogram is too flat for directional confirmation.");
+  }
+  if (input.features.volatility.regime === "low" || input.features.bollinger.squeeze || input.features.bollinger.bandwidth < threshold.minVolatilityBandwidth) {
     reasons.push("Volatility veto: too-low volatility or Bollinger squeeze for short-horizon signal.");
   }
-  if (input.features.bollinger.bandwidth > 0.045 || ratio(input.features.volatility.atr, input.features.lastClose) > 0.012) {
+  if (input.features.bollinger.bandwidth > threshold.maxExtremeVolatilityBandwidth || ratio(input.features.volatility.atr, input.features.lastClose) > threshold.maxExtremeAtrRatio) {
     reasons.push("Volatility veto: extreme short-horizon volatility regime.");
   }
-  if (chopRisk >= threshold.maxChop) {
+  if (reversalRisk >= 0.45 && Math.sign(trendScore) !== 0 && Math.sign(momentumScore) !== Math.sign(trendScore)) {
+    reasons.push("Reversal veto: RSI extreme is not confirmed by trend and momentum alignment.");
+  }
+  if (chopRisk >= threshold.maxChopRisk) {
     reasons.push("Chop veto: short-term direction conflict or range-bound conditions are too high.");
   }
   if (Math.sign(trendScore) !== 0 && Math.sign(momentumScore) !== 0 && Math.sign(trendScore) !== Math.sign(momentumScore)) {
@@ -291,6 +304,14 @@ function filterVetoReasons(
   }
   if (Math.abs(volatilityScore) > 0.1 && Math.sign(volatilityScore) !== Math.sign(trendScore || momentumScore)) {
     reasons.push("Conflict veto: volatility breakout direction disagrees with trend or momentum.");
+  }
+  if (
+    Math.sign(trendScore) !== 0 &&
+    Math.sign(momentumScore) !== 0 &&
+    Math.sign(volumeScore) !== 0 &&
+    new Set([Math.sign(trendScore), Math.sign(momentumScore), Math.sign(volumeScore)]).size > 1
+  ) {
+    reasons.push("Conflict veto: trend, momentum, and volume modules are not aligned.");
   }
   if (Math.abs(volumeScore) < 0.1 && Math.abs(momentumScore) < 0.72) {
     reasons.push("Confirmation veto: no abnormal volume confirmation for a moderate momentum setup.");
@@ -304,7 +325,8 @@ function buildRiskFilters(
   volumeScore: number,
   reversalRisk: number,
   chopRisk: number,
-  vetoReasons: string[]
+  vetoReasons: string[],
+  threshold: ReturnType<typeof getSignalProfile>["horizons"][SignalHorizon]
 ): RiskFilterSummary {
   const volatility =
     input.features.volatility.regime === "low" || input.features.bollinger.squeeze
@@ -317,7 +339,7 @@ function buildRiskFilters(
     dataFreshness: input.dataQuality.status === "ok" ? "pass" : "veto",
     volatility,
     volumeConfirmation: Math.abs(volumeScore) >= 0.5 ? "confirmed" : Math.abs(volumeScore) > 0 ? "weak" : "missing",
-    chop: chopRisk >= thresholdByHorizon[input.horizon].maxChop ? "veto" : chopRisk > 0.38 ? "watch" : "pass",
+    chop: chopRisk >= threshold.maxChopRisk ? "veto" : chopRisk > 0.38 ? "watch" : "pass",
     conflict,
     meanReversion: reversalRisk > 0.35 ? "watch" : "pass",
     reasons: [
@@ -337,7 +359,8 @@ function confluenceReasons(
   reversalRisk: number,
   chopRisk: number,
   horizon: SignalHorizon,
-  threshold: number
+  threshold: number,
+  profileName: SignalProfileName
 ): string[] {
   const label =
     direction === "LONG"
@@ -346,7 +369,7 @@ function confluenceReasons(
         ? "SHORT bias"
         : "NO_SIGNAL";
   return [
-    `${label}: ${horizon} confluence threshold is ${threshold.toFixed(2)}; RSI is auxiliary only.`,
+    `${label}: ${horizon} ${profileName} profile threshold is ${threshold.toFixed(2)}; RSI is auxiliary only.`,
     ...trend.reasons,
     ...momentum.reasons,
     ...volatility.reasons,

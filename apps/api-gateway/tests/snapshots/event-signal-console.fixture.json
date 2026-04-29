@@ -14,6 +14,7 @@
     "modelVersion": "research-signal-engine-v0",
     "message": "Event Signal Console is read-only research output. It emits LONG bias, SHORT bias, or NO_SIGNAL only; it is not trade advice and does not automate orders."
   },
+  "profileName": "balanced",
   "symbol": "BTC",
   "horizon": "5m",
   "sourceMode": "fixture",
@@ -46,9 +47,11 @@
     "isResearchOnly": true,
     "isTradeAdvice": false,
     "modelVersion": "research-signal-engine-v0",
+    "profileName": "balanced",
     "failClosedReasons": []
   },
   "confluence": {
+    "profileName": "balanced",
     "trendScore": 1,
     "momentumScore": 1,
     "volatilityScore": 0.35,
@@ -59,7 +62,7 @@
     "direction": "LONG",
     "confidence": 0.5622,
     "reasons": [
-      "LONG bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+      "LONG bias: 5m balanced profile threshold is 0.68; RSI is auxiliary only.",
       "Trend module: fast EMA is above slow EMA, slope is positive, and price is above slow EMA.",
       "Momentum module: short-horizon returns and MACD histogram are upward.",
       "Volatility module: regime=normal, Bollinger bandwidth=0.0336.",
@@ -107,7 +110,7 @@
       "direction": "LONG",
       "score": 0.7495,
       "confidence": 0.5616,
-      "reasonSummary": "LONG bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+      "reasonSummary": "LONG bias: 5m balanced profile threshold is 0.68; RSI is auxiliary only.",
       "isRecentOnly": true
     },
     {
@@ -116,7 +119,7 @@
       "direction": "LONG",
       "score": 0.7464,
       "confidence": 0.5593,
-      "reasonSummary": "LONG bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+      "reasonSummary": "LONG bias: 5m balanced profile threshold is 0.68; RSI is auxiliary only.",
       "isRecentOnly": true
     },
     {
@@ -125,7 +128,7 @@
       "direction": "LONG",
       "score": 0.7228,
       "confidence": 0.5125,
-      "reasonSummary": "LONG bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+      "reasonSummary": "LONG bias: 5m balanced profile threshold is 0.68; RSI is auxiliary only.",
       "isRecentOnly": true
     },
     {
@@ -134,7 +137,7 @@
       "direction": "LONG",
       "score": 0.7497,
       "confidence": 0.5618,
-      "reasonSummary": "LONG bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+      "reasonSummary": "LONG bias: 5m balanced profile threshold is 0.68; RSI is auxiliary only.",
       "isRecentOnly": true
     },
     {
@@ -143,7 +146,7 @@
       "direction": "LONG",
       "score": 0.7503,
       "confidence": 0.5622,
-      "reasonSummary": "LONG bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+      "reasonSummary": "LONG bias: 5m balanced profile threshold is 0.68; RSI is auxiliary only.",
       "isRecentOnly": true
     },
     {
@@ -152,7 +155,7 @@
       "direction": "LONG",
       "score": 0.7503,
       "confidence": 0.5622,
-      "reasonSummary": "LONG bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+      "reasonSummary": "LONG bias: 5m balanced profile threshold is 0.68; RSI is auxiliary only.",
       "isRecentOnly": true
     }
   ],

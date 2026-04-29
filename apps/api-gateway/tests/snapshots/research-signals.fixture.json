@@ -9,7 +9,7 @@
       "score": 0.7503,
       "reasons": [
         "LONG research bias from multi-strategy confluence inputs.",
-        "LONG bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+        "LONG bias: 5m balanced profile threshold is 0.68; RSI is auxiliary only.",
         "Trend module: fast EMA is above slow EMA, slope is positive, and price is above slow EMA.",
         "Momentum module: short-horizon returns and MACD histogram are upward.",
         "Volatility module: regime=normal, Bollinger bandwidth=0.0336.",
@@ -96,6 +96,7 @@
       "isResearchOnly": true,
       "isTradeAdvice": false,
       "modelVersion": "research-signal-engine-v0",
+      "profileName": "balanced",
       "invalidation": [
         "Signal invalidates when fixture candles are stale relative to generatedAt.",
         "Signal invalidates when fast/slow EMA, MACD histogram, and momentum contributions materially diverge.",
@@ -103,6 +104,7 @@
       ],
       "failClosedReasons": [],
       "confluence": {
+        "profileName": "balanced",
         "trendScore": 1,
         "momentumScore": 1,
         "volatilityScore": 0.35,
@@ -113,7 +115,7 @@
         "direction": "LONG",
         "confidence": 0.5622,
         "reasons": [
-          "LONG bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+          "LONG bias: 5m balanced profile threshold is 0.68; RSI is auxiliary only.",
           "Trend module: fast EMA is above slow EMA, slope is positive, and price is above slow EMA.",
           "Momentum module: short-horizon returns and MACD histogram are upward.",
           "Volatility module: regime=normal, Bollinger bandwidth=0.0336.",
@@ -145,12 +147,14 @@
       "score": -0.0423,
       "reasons": [
         "NO_SIGNAL research bias from multi-strategy confluence inputs.",
-        "NO_SIGNAL: 10m confluence threshold is 0.65; RSI is auxiliary only.",
+        "NO_SIGNAL: 10m balanced profile threshold is 0.65; RSI is auxiliary only.",
         "Trend module: EMA alignment is flat or mixed.",
         "Momentum module: short-horizon returns and MACD histogram are mixed.",
         "Volatility module: low-volatility or Bollinger squeeze state blocks directional upgrade.",
         "Volume module: abnormal volume confirms upward short-horizon move.",
         "Mean reversion risk=0; chop risk=0.64.",
+        "Trend veto: EMA slope is too flat for a short-horizon directional bias.",
+        "Momentum veto: MACD histogram is too flat for directional confirmation.",
         "Volatility veto: too-low volatility or Bollinger squeeze for short-horizon signal.",
         "Chop veto: short-term direction conflict or range-bound conditions are too high.",
         "News/X/macro context is manual fixture input, not verified live external data.",
@@ -234,6 +238,7 @@
       "isResearchOnly": true,
       "isTradeAdvice": false,
       "modelVersion": "research-signal-engine-v0",
+      "profileName": "balanced",
       "invalidation": [
         "Signal invalidates when fixture candles are stale relative to generatedAt.",
         "Signal invalidates when fast/slow EMA, MACD histogram, and momentum contributions materially diverge.",
@@ -241,6 +246,7 @@
       ],
       "failClosedReasons": [],
       "confluence": {
+        "profileName": "balanced",
         "trendScore": 0,
         "momentumScore": -0.0599,
         "volatilityScore": 0,
@@ -251,7 +257,7 @@
         "direction": "NO_SIGNAL",
         "confidence": 0,
         "reasons": [
-          "NO_SIGNAL: 10m confluence threshold is 0.65; RSI is auxiliary only.",
+          "NO_SIGNAL: 10m balanced profile threshold is 0.65; RSI is auxiliary only.",
           "Trend module: EMA alignment is flat or mixed.",
           "Momentum module: short-horizon returns and MACD histogram are mixed.",
           "Volatility module: low-volatility or Bollinger squeeze state blocks directional upgrade.",
@@ -259,6 +265,8 @@
           "Mean reversion risk=0; chop risk=0.64."
         ],
         "vetoReasons": [
+          "Trend veto: EMA slope is too flat for a short-horizon directional bias.",
+          "Momentum veto: MACD histogram is too flat for directional confirmation.",
           "Volatility veto: too-low volatility or Bollinger squeeze for short-horizon signal.",
           "Chop veto: short-term direction conflict or range-bound conditions are too high."
         ]
@@ -275,6 +283,8 @@
           "Chop risk=0.64; mean-reversion risk=0."
         ],
         "vetoReasons": [
+          "Trend veto: EMA slope is too flat for a short-horizon directional bias.",
+          "Momentum veto: MACD histogram is too flat for directional confirmation.",
           "Volatility veto: too-low volatility or Bollinger squeeze for short-horizon signal.",
           "Chop veto: short-term direction conflict or range-bound conditions are too high."
         ]
@@ -289,7 +299,7 @@
       "score": -0.7473,
       "reasons": [
         "SHORT research bias from multi-strategy confluence inputs.",
-        "SHORT bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+        "SHORT bias: 5m balanced profile threshold is 0.68; RSI is auxiliary only.",
         "Trend module: fast EMA is below slow EMA, slope is negative, and price is below slow EMA.",
         "Momentum module: short-horizon returns and MACD histogram are downward.",
         "Volatility module: regime=normal, Bollinger bandwidth=0.0319.",
@@ -376,6 +386,7 @@
       "isResearchOnly": true,
       "isTradeAdvice": false,
       "modelVersion": "research-signal-engine-v0",
+      "profileName": "balanced",
       "invalidation": [
         "Signal invalidates when fixture candles are stale relative to generatedAt.",
         "Signal invalidates when fast/slow EMA, MACD histogram, and momentum contributions materially diverge.",
@@ -383,6 +394,7 @@
       ],
       "failClosedReasons": [],
       "confluence": {
+        "profileName": "balanced",
         "trendScore": -1,
         "momentumScore": -1,
         "volatilityScore": -0.35,
@@ -393,7 +405,7 @@
         "direction": "SHORT",
         "confidence": 0.5599,
         "reasons": [
-          "SHORT bias: 5m confluence threshold is 0.68; RSI is auxiliary only.",
+          "SHORT bias: 5m balanced profile threshold is 0.68; RSI is auxiliary only.",
           "Trend module: fast EMA is below slow EMA, slope is negative, and price is below slow EMA.",
           "Momentum module: short-horizon returns and MACD histogram are downward.",
           "Volatility module: regime=normal, Bollinger bandwidth=0.0319.",
@@ -506,6 +518,7 @@
       "isResearchOnly": true,
       "isTradeAdvice": false,
       "modelVersion": "research-signal-engine-v0",
+      "profileName": "balanced",
       "invalidation": [
         "Signal invalidates when fixture candles are stale relative to generatedAt.",
         "Signal invalidates when fast/slow EMA, MACD histogram, and momentum contributions materially diverge.",
@@ -515,6 +528,7 @@
         "Manual context fixture flags event risk; research signal fails closed."
       ],
       "confluence": {
+        "profileName": "balanced",
         "trendScore": -0.35,
         "momentumScore": -0.8321,
         "volatilityScore": 0,
@@ -525,7 +539,7 @@
         "direction": "NO_SIGNAL",
         "confidence": 0,
         "reasons": [
-          "NO_SIGNAL: 10m confluence threshold is 0.65; RSI is auxiliary only.",
+          "NO_SIGNAL: 10m balanced profile threshold is 0.65; RSI is auxiliary only.",
           "Trend module: fast EMA is below slow EMA, slope is negative, and price is below slow EMA.",
           "Momentum module: short-horizon returns and MACD histogram are downward.",
           "Volatility module: low-volatility or Bollinger squeeze state blocks directional upgrade.",

@@ -10,7 +10,7 @@ This repository is in Phase 1 foundation work. It has a minimal local end-to-end
 - `packages/shared-types`: shared contracts for `EventMarket`, `OrderBookSnapshot`, `MarketDetailResponse`, and placeholder scanner/pricing objects.
 - `packages/research-signals`: deterministic technical-indicator, confluence, and research-signal engine with fixture default and explicit Coinbase Exchange live OHLCV mode.
 - `apps/api-gateway`: Fastify read-only API for fixture-backed markets, scanner metadata, contract-backed market detail, research signals, Event Signal Console, and pricing placeholders.
-- `apps/web`: Next.js Markets Scanner RC-2, Research Signal Panel RC-7, Event Signal Workbench RC-10, and Market Detail RC-3 evidence views that read from the API gateway.
+- `apps/web`: Next.js Markets Scanner RC-2, Research Signal Panel RC-7, Event Signal Workbench RC-11, and Market Detail RC-3 evidence views that read from the API gateway.
 - `services/pricing-engine`: Python placeholder contract for fair-value output shape.
 
 The current app market data is synthetic fixture data unless explicitly configured otherwise. A limited Polymarket Gamma/public-search live fixture capture was completed on 2026-04-21 to tighten contract tests, but it did not confirm BTC/ETH 10m/1h live classification. Research signals default to fixtures, while `sourceMode=live` can explicitly fetch Coinbase Exchange public BTC/ETH candles for local manual use.
@@ -186,10 +186,10 @@ Directions are limited to `LONG`, `SHORT`, and `NO_SIGNAL`; they are explicitly 
 `isTradeAdvice: false`.
 
 `/signals/console` returns one `EventSignalConsoleResponse` for BTC/ETH 5m/10m. It includes the
-current research signal, confluence scores, risk filters, recent candles, recent-only markers capped
-at 20, warnings, and an on-demand lightweight backtest preview. Backtest preview is disabled unless
-`includeBacktest=true`. It does not return trade instructions, leverage, position size, order
-fields, or a real performance claim.
+current research signal, the active `balanced` profile, confluence scores, risk filters, recent
+candles, recent-only markers capped at 20, warnings, and an on-demand lightweight backtest preview.
+Backtest preview is disabled unless `includeBacktest=true`. It does not return trade instructions,
+leverage, position size, order fields, or a real performance claim.
 
 ## Current Pages
 
@@ -201,7 +201,8 @@ fields, or a real performance claim.
   - market list for BTC/ETH fixture markets
   - right summary, evidence status, and fail-closed reason matrix panels
   - Research Signal Panel for fixture/live LONG bias / SHORT bias / NO_SIGNAL outputs, source mode, freshness, warnings, and fail-closed reasons
-  - Event Signal Workbench RC-10 with BTC/ETH, 5m/10m, fixture/live selectors, refresh control,
+  - Event Signal Workbench RC-11 with BTC/ETH, 5m/10m, fixture/live selectors, manual refresh,
+    low-frequency auto refresh controls, local recent signal history, active profile display,
     current-signal hero, confluence cards, risk filters, signal explanations, recent candlestick
     chart, recent-only signal markers, and an on-demand backtest preview
   - loading/error/empty states through server-side API fetch handling
@@ -211,7 +212,7 @@ fields, or a real performance claim.
   - API-backed research readiness, token trace, source trace, related fixture markets
   - explicit placeholder pricing panel and open evidence gaps
 
-No replay workflow, paper trading UI, or trading control exists. The RC-10 candlestick chart is a
+No replay workflow, paper trading UI, or trading control exists. The RC-11 candlestick chart is a
 recent research-signal display only and does not load full historical signal markers.
 
 ## Local Workbench FAQ
@@ -222,6 +223,10 @@ recent research-signal display only and does not load full historical signal mar
   historical signals.
 - The backtest preview is collapsed by default. Open it only when needed; it is a small-sample
   research preview, not a predictive guarantee or real trading performance.
+- Auto refresh is browser-local polling for display freshness only. It is off by default, has
+  15s/30s/60s options, and live mode floors 15s to 30s. It is not automatic trading.
+- Signal history is browser-local recent signal state, capped at 20 entries. It is not a trade log,
+  backtest, replay engine, or performance record.
 - If live mode shows `NO_SIGNAL`, inspect warnings and fail-closed reasons first. Fixture mode is
   the deterministic default for local checks.
 
@@ -288,6 +293,7 @@ should be reviewed as public local API contract changes, not incidental formatti
 - RC-7 research signal decision: `docs/adr/0012-rc7-research-signal-engine-v0.md`
 - RC-8 live OHLCV adapter decision: `docs/adr/0013-rc8-live-ohlcv-source-adapter.md`
 - RC-9 event signal console decision: `docs/adr/0014-rc9-event-signal-console-and-confluence-engine.md`
+- RC-11 signal runtime decision: `docs/adr/0015-rc11-signal-runtime-and-tuning.md`
 - Source registry: `docs/source_registry.md`
 - Collaboration rules: `AGENTS.md`
 

@@ -14,6 +14,7 @@ import type {
 } from "@ept/shared-types";
 import { apiErrorMessage } from "./api-client";
 import { ConsoleCandlestickChart } from "./ConsoleCandlestickChart";
+import { EventSignalRuntimePanel } from "./EventSignalRuntimePanel";
 
 export const dynamic = "force-dynamic";
 
@@ -678,6 +679,8 @@ function EventSignalConsolePanel({
             <HeroMetric label="Freshness" value={displayFreshness(console.currentSignal)} tone={console.currentSignal.dataQuality.status === "ok" ? "good" : "warn"} />
             <HeroMetric label="Markers" value={`${console.recentMarkers.length}/20`} tone={console.recentMarkers.length <= 20 ? "neutral" : "warn"} />
           </section>
+
+          <EventSignalRuntimePanel initialConsole={console} />
 
           <section className="grid gap-4 xl:grid-cols-[minmax(0,1.42fr)_420px]">
             <div className="border border-slate-800 bg-[#070b12] p-3">
