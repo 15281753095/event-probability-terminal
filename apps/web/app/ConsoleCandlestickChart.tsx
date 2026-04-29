@@ -27,21 +27,21 @@ export function ConsoleCandlestickChart({ candles, markers }: Props) {
     }
 
     const chart = createChart(container, {
-      height: 280,
+      height: 360,
       layout: {
-        background: { color: "#ffffff" },
-        textColor: "#334155",
+        background: { color: "#070b12" },
+        textColor: "#cbd5e1",
         attributionLogo: true
       },
       grid: {
-        vertLines: { color: "#e2e8f0" },
-        horzLines: { color: "#e2e8f0" }
+        vertLines: { color: "#101827" },
+        horzLines: { color: "#101827" }
       },
       rightPriceScale: {
-        borderColor: "#cbd5e1"
+        borderColor: "#1e293b"
       },
       timeScale: {
-        borderColor: "#cbd5e1",
+        borderColor: "#1e293b",
         timeVisible: true,
         secondsVisible: false
       },
@@ -50,12 +50,12 @@ export function ConsoleCandlestickChart({ candles, markers }: Props) {
       }
     });
     const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: "#0f766e",
-      downColor: "#be123c",
-      borderUpColor: "#0f766e",
-      borderDownColor: "#be123c",
-      wickUpColor: "#0f766e",
-      wickDownColor: "#be123c",
+      upColor: "#10b981",
+      downColor: "#fb7185",
+      borderUpColor: "#10b981",
+      borderDownColor: "#fb7185",
+      wickUpColor: "#5eead4",
+      wickDownColor: "#fda4af",
       priceLineVisible: false
     });
     candleSeries.setData(candles.map(toCandleData));
@@ -77,8 +77,8 @@ export function ConsoleCandlestickChart({ candles, markers }: Props) {
 
   if (candles.length === 0) {
     return (
-      <div className="flex min-h-[280px] items-center justify-center border border-border bg-slate-50 text-sm text-slate-600">
-        No recent candles available.
+      <div className="flex min-h-[360px] items-center justify-center border border-slate-800 bg-[#070b12] text-sm text-slate-400">
+        No recent candles available. The console is fail-closed.
       </div>
     );
   }
@@ -86,7 +86,7 @@ export function ConsoleCandlestickChart({ candles, markers }: Props) {
   return (
     <div
       aria-label="Recent event signal candlestick chart"
-      className="min-h-[280px] w-full border border-border bg-white"
+      className="min-h-[360px] w-full border border-slate-800 bg-[#070b12]"
       data-testid="event-signal-chart"
       ref={containerRef}
     />
@@ -110,7 +110,7 @@ function toSeriesMarker(marker: SignalMarker): SeriesMarker<UTCTimestamp> {
     time: toUtcTimestamp(marker.time),
     position: isLong ? "belowBar" : isShort ? "aboveBar" : "inBar",
     shape: isLong ? "arrowUp" : isShort ? "arrowDown" : "circle",
-    color: isLong ? "#0f766e" : isShort ? "#be123c" : "#64748b",
+    color: isLong ? "#22c55e" : isShort ? "#f43f5e" : "#94a3b8",
     text: marker.direction === "LONG" ? "LONG bias" : marker.direction === "SHORT" ? "SHORT bias" : "NO_SIGNAL",
     size: 1
   };
@@ -123,6 +123,6 @@ function toUtcTimestamp(value: string): UTCTimestamp {
 function resizeChart(chart: IChartApi, container: HTMLDivElement) {
   chart.applyOptions({
     width: Math.max(320, container.clientWidth),
-    height: 280
+    height: 360
   });
 }

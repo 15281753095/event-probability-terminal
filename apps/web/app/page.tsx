@@ -38,6 +38,7 @@ type SearchParams = Promise<{
   consoleHorizon?: string;
   consoleSourceMode?: string;
   consoleBacktest?: string;
+  consoleRefresh?: string;
 }>;
 
 type SortKey = "expiry" | "liquidity" | "spread" | "marketProb";
@@ -52,6 +53,7 @@ type ScannerFilters = {
   consoleHorizon: SignalHorizon;
   consoleSourceMode: ResearchSignalSourceMode;
   consoleBacktest: boolean;
+  consoleRefresh: string;
 };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
@@ -82,73 +84,75 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
   );
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-5 text-slate-950">
-      <section className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-[240px_minmax(0,1fr)_300px]">
-        <aside className="border border-border bg-white p-4">
-          <h2 className="text-sm font-semibold text-slate-700">Research Filters</h2>
-          <div className="mt-4 grid gap-4">
-            <FilterGroup
-              current={filters}
-              options={["all", "BTC", "ETH"]}
-              paramName="asset"
-              title="Assets"
-            />
-            <FilterGroup
-              current={filters}
-              options={["all", "10m", "1h"]}
-              paramName="window"
-              title="Windows"
-            />
-            <FilterGroup
-              current={filters}
-              options={["expiry", "liquidity", "spread", "marketProb"]}
-              paramName="sort"
-              title="Sort"
-            />
-            <QuerySearch current={filters} />
-          </div>
-          <section className="mt-5 border-t border-border pt-4 text-sm text-slate-600">
-            <div>Venue: Polymarket</div>
-            <div>Mode: {state.meta?.mode ?? "unknown"}</div>
-            <div>Contract: {state.meta?.contractVersion ?? "unknown"}</div>
-            <div>Scope: read-only</div>
-          </section>
-        </aside>
+    <main className="min-h-screen bg-[#070b12] px-4 py-4 text-slate-100">
+      <section className="mx-auto grid max-w-[1500px] gap-4">
+        <EventSignalConsolePanel
+          console={state.console}
+          current={filters}
+          error={state.consoleError}
+        />
 
-        <section className="min-w-0 border border-border bg-white">
-          <header className="flex flex-col gap-2 border-b border-border p-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="text-sm font-medium text-teal-700">Markets Scanner RC-2</p>
-              <h1 className="mt-1 text-2xl font-semibold">BTC / ETH Event Markets</h1>
-              <p className="mt-1 text-sm text-slate-600">
-                Showing {visibleMarkets.length} of {allMarkets.length} fixture-backed candidates.
-                {filters.query ? ` Query: ${filters.query}` : ""}
-              </p>
+        <section className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_320px]">
+          <aside className="border border-slate-800 bg-[#0b111d] p-4">
+            <h2 className="text-sm font-semibold text-slate-100">Market Filters</h2>
+            <div className="mt-4 grid gap-4">
+              <FilterGroup
+                current={filters}
+                options={["all", "BTC", "ETH"]}
+                paramName="asset"
+                title="Assets"
+              />
+              <FilterGroup
+                current={filters}
+                options={["all", "10m", "1h"]}
+                paramName="window"
+                title="Windows"
+              />
+              <FilterGroup
+                current={filters}
+                options={["expiry", "liquidity", "spread", "marketProb"]}
+                paramName="sort"
+                title="Sort"
+              />
+              <QuerySearch current={filters} />
             </div>
-            <div className="text-sm text-slate-600">
-              Source: Polymarket / {state.meta?.mode ?? "unknown"}
-            </div>
-          </header>
+            <section className="mt-5 border-t border-slate-800 pt-4 text-sm text-slate-400">
+              <div>Venue: Polymarket</div>
+              <div>Mode: {state.meta?.mode ?? "unknown"}</div>
+              <div>Contract: {state.meta?.contractVersion ?? "unknown"}</div>
+              <div>Scope: read-only</div>
+            </section>
+          </aside>
 
-          {state.error ? <ErrorState message={state.error} /> : null}
-          {!state.error ? (
-            <ResearchStatusStrip
-              meta={state.meta}
-              totalCount={allMarkets.length}
-              visibleCount={visibleMarkets.length}
-            />
-          ) : null}
-          <EventSignalConsolePanel
-            console={state.console}
-            current={filters}
-            error={state.consoleError}
-          />
-          {!state.error && visibleMarkets.length === 0 ? <EmptyState /> : null}
+          <section className="min-w-0 border border-slate-800 bg-[#0b111d]">
+            <header className="flex flex-col gap-2 border-b border-slate-800 p-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p className="text-sm font-medium text-cyan-300">Markets Scanner RC-2</p>
+                <h1 className="mt-1 text-2xl font-semibold text-slate-50">BTC / ETH Event Markets</h1>
+                <p className="mt-1 text-sm text-slate-400">
+                  Showing {visibleMarkets.length} of {allMarkets.length} fixture-backed candidates.
+                  {filters.query ? ` Query: ${filters.query}` : ""}
+                </p>
+              </div>
+              <div className="text-sm text-slate-400">
+                Source: Polymarket / {state.meta?.mode ?? "unknown"}
+              </div>
+            </header>
 
-          {!state.error && visibleMarkets.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full border-separate border-spacing-0 text-sm">
-                <thead className="bg-slate-50 text-left text-xs text-slate-500">
+            {state.error ? <ErrorState message={state.error} /> : null}
+            {!state.error ? (
+              <ResearchStatusStrip
+                meta={state.meta}
+                totalCount={allMarkets.length}
+                visibleCount={visibleMarkets.length}
+              />
+            ) : null}
+            {!state.error && visibleMarkets.length === 0 ? <EmptyState /> : null}
+
+            {!state.error && visibleMarkets.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-separate border-spacing-0 text-sm">
+                  <thead className="bg-[#0f172a] text-left text-xs text-slate-400">
                   <tr>
                     <TableHead>Question</TableHead>
                     <TableHead>Venue</TableHead>
@@ -167,7 +171,7 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
                       <tr className="border-t border-border" key={market.id}>
                         <TableCell className="min-w-[280px] font-medium">
                           <Link
-                            className="text-slate-950 underline decoration-slate-300 underline-offset-4 hover:text-teal-700"
+                            className="text-slate-100 underline decoration-slate-600 underline-offset-4 hover:text-cyan-300"
                             href={`/markets/${encodeURIComponent(market.id)}`}
                           >
                             {market.question}
@@ -193,10 +197,10 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
                 </tbody>
               </table>
             </div>
-          ) : null}
-        </section>
+            ) : null}
+          </section>
 
-        <aside className="grid content-start gap-4">
+          <aside className="grid content-start gap-4">
           <SummaryPanel title="Visible candidates" value={`${visibleMarkets.length}`} detail="read-only" />
           <SummaryPanel
             title="Highest liquidity"
@@ -220,7 +224,8 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
             signals={state.signals}
           />
           <EvidencePanel meta={state.meta} />
-        </aside>
+          </aside>
+        </section>
       </section>
     </main>
   );
@@ -329,7 +334,8 @@ function parseFilters(params: Awaited<SearchParams>): ScannerFilters {
     consoleSymbol: params.consoleSymbol === "ETH" ? "ETH" : "BTC",
     consoleHorizon: params.consoleHorizon === "10m" ? "10m" : "5m",
     consoleSourceMode: params.consoleSourceMode === "live" ? "live" : "fixture",
-    consoleBacktest: params.consoleBacktest === "1"
+    consoleBacktest: params.consoleBacktest === "1",
+    consoleRefresh: typeof params.consoleRefresh === "string" ? params.consoleRefresh.slice(0, 32) : ""
   };
 }
 
@@ -401,7 +407,7 @@ function FilterGroup({
           return (
             <Link
               className={`border px-2 py-1 text-xs ${
-                active ? "border-teal-700 bg-teal-50 text-teal-800" : "border-border bg-slate-50"
+                active ? "border-cyan-400 bg-cyan-400/10 text-cyan-100" : "border-slate-700 bg-slate-900 text-slate-400"
               }`}
               href={scannerHref(current, update)}
               key={value}
@@ -427,19 +433,20 @@ function QuerySearch({ current }: { current: ScannerFilters }) {
         {current.consoleSymbol !== "BTC" ? <input name="consoleSymbol" type="hidden" value={current.consoleSymbol} /> : null}
         {current.consoleHorizon !== "5m" ? <input name="consoleHorizon" type="hidden" value={current.consoleHorizon} /> : null}
         {current.consoleSourceMode === "live" ? <input name="consoleSourceMode" type="hidden" value="live" /> : null}
+        {current.consoleRefresh ? <input name="consoleRefresh" type="hidden" value={current.consoleRefresh} /> : null}
         <input
-          className="min-h-9 border border-border bg-white px-2 text-sm"
+          className="min-h-9 border border-slate-700 bg-slate-950 px-2 text-sm text-slate-100 placeholder:text-slate-600"
           defaultValue={current.query}
           name="q"
           placeholder="Question, outcome, id"
           type="search"
         />
         <div className="flex items-center gap-2">
-          <button className="border border-teal-700 bg-teal-50 px-2 py-1 text-xs text-teal-800" type="submit">
+          <button className="border border-cyan-400 bg-cyan-400/10 px-2 py-1 text-xs text-cyan-100" type="submit">
             Search
           </button>
           {current.query ? (
-            <Link className="text-xs text-slate-600 underline" href={scannerHref(current, { query: "" })}>
+            <Link className="text-xs text-slate-400 underline" href={scannerHref(current, { query: "" })}>
               Clear
             </Link>
           ) : null}
@@ -459,7 +466,8 @@ function scannerHref(current: ScannerFilters, updates: Partial<ScannerFilters>) 
     consoleSymbol: updates.consoleSymbol ?? current.consoleSymbol,
     consoleHorizon: updates.consoleHorizon ?? current.consoleHorizon,
     consoleSourceMode: updates.consoleSourceMode ?? current.consoleSourceMode,
-    consoleBacktest: updates.consoleBacktest ?? current.consoleBacktest
+    consoleBacktest: updates.consoleBacktest ?? current.consoleBacktest,
+    consoleRefresh: updates.consoleRefresh ?? current.consoleRefresh
   };
   const params = new URLSearchParams();
   if (next.asset !== "all") {
@@ -489,6 +497,9 @@ function scannerHref(current: ScannerFilters, updates: Partial<ScannerFilters>) 
   if (next.consoleBacktest) {
     params.set("consoleBacktest", "1");
   }
+  if (next.consoleRefresh) {
+    params.set("consoleRefresh", next.consoleRefresh);
+  }
   const query = params.toString();
   return query ? `/?${query}` : "/";
 }
@@ -503,7 +514,7 @@ function ResearchStatusStrip({
   meta: ScannerTopResponse["meta"] | undefined;
 }) {
   return (
-    <section className="grid gap-2 border-b border-border bg-slate-50 p-4 text-sm md:grid-cols-5">
+    <section className="grid gap-2 border-b border-slate-800 bg-[#070b12] p-4 text-sm md:grid-cols-5">
       <StatusItem label="Accepted" value={`${totalCount}`} />
       <StatusItem label="Visible" value={`${visibleCount}`} />
       <StatusItem label="Rejected" value={`${meta?.rejectedCount ?? 0}`} />
@@ -515,9 +526,9 @@ function ResearchStatusStrip({
 
 function StatusItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border border-border bg-white px-3 py-2">
+    <div className="border border-slate-800 bg-[#0b111d] px-3 py-2">
       <div className="text-xs text-slate-500">{label}</div>
-      <div className="mt-1 break-words font-semibold text-slate-800">{value}</div>
+      <div className="mt-1 break-words font-semibold text-slate-100">{value}</div>
     </div>
   );
 }
@@ -532,7 +543,7 @@ function SummaryPanel({
   detail: string;
 }) {
   return (
-    <section className="border border-border bg-white p-4">
+    <section className="border border-slate-800 bg-[#0b111d] p-4">
       <h2 className="text-xs font-semibold text-slate-500">{title}</h2>
       <div className="mt-2 text-2xl font-semibold">{value}</div>
       <div className="mt-1 text-sm text-slate-600">{detail}</div>
@@ -542,22 +553,22 @@ function SummaryPanel({
 
 function EvidencePanel({ meta }: { meta: ScannerTopResponse["meta"] | undefined }) {
   return (
-    <section className="border border-border bg-white p-4">
-      <h2 className="text-sm font-semibold text-slate-700">Evidence Status</h2>
-      <ul className="mt-3 grid gap-2 text-sm leading-6 text-slate-700">
+    <section className="border border-slate-800 bg-[#0b111d] p-4">
+      <h2 className="text-sm font-semibold text-slate-100">Evidence Status</h2>
+      <ul className="mt-3 grid gap-2 text-sm leading-6 text-slate-300">
         <li>Pricing: {meta?.pricing ?? "placeholder"}</li>
         <li>Rejected rows: {meta?.rejectedCount ?? 0}</li>
         <li>Fair probability: placeholder only</li>
         <li>Edge: placeholder only</li>
       </ul>
       {meta?.rejectionSummary?.length ? (
-        <div className="mt-4 border-t border-border pt-3">
+        <div className="mt-4 border-t border-slate-800 pt-3">
           <h3 className="text-xs font-semibold text-slate-500">Fail-closed reason matrix</h3>
           <div className="mt-2 grid gap-3">
             {meta.rejectionSummary.map((item) => (
-              <div className="border border-border bg-slate-50 p-2 text-xs text-slate-600" key={item.reason}>
+              <div className="border border-slate-800 bg-slate-950 p-2 text-xs text-slate-400" key={item.reason}>
                 <div>
-                  <span className="font-semibold text-slate-800">{item.count}</span> {item.reason}
+                  <span className="font-semibold text-slate-100">{item.count}</span> {item.reason}
                 </div>
                 {item.sampleMarketIds.length ? (
                   <div className="mt-1 text-slate-500">Samples: {item.sampleMarketIds.join(", ")}</div>
@@ -568,9 +579,9 @@ function EvidencePanel({ meta }: { meta: ScannerTopResponse["meta"] | undefined 
         </div>
       ) : null}
       {meta?.uncertainty?.length ? (
-        <div className="mt-4 border-t border-border pt-3">
+        <div className="mt-4 border-t border-slate-800 pt-3">
           <h3 className="text-xs font-semibold text-slate-500">Open evidence gaps</h3>
-          <ul className="mt-2 grid gap-1 text-xs text-slate-600">
+          <ul className="mt-2 grid gap-1 text-xs text-slate-400">
             {meta.uncertainty.slice(0, 3).map((item) => (
               <li key={item}>{item}</li>
             ))}
@@ -591,113 +602,133 @@ function EventSignalConsolePanel({
   current: ScannerFilters;
 }) {
   return (
-    <section className="border-b border-border bg-white p-4" data-testid="event-signal-console">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+    <section className="border border-slate-800 bg-[#0b111d] shadow-2xl shadow-black/30" data-testid="event-signal-console">
+      <header className="grid gap-4 border-b border-slate-800 p-4 xl:grid-cols-[minmax(0,1fr)_minmax(560px,0.95fr)]">
         <div>
-          <p className="text-sm font-medium text-teal-700">Event Signal Console RC-9</p>
-          <h2 className="mt-1 text-xl font-semibold">BTC / ETH Research Bias Console</h2>
-          <div className="mt-2 flex flex-wrap gap-2 text-xs">
-            <Badge>Research only</Badge>
-            <Badge>Not trade advice</Badge>
-            <Badge>No auto trading</Badge>
+          <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-cyan-300">
+            <span>Event Probability Terminal</span>
+            <span className="text-slate-600">/</span>
+            <span>RC-10 Workbench</span>
+          </div>
+          <h1 className="mt-2 text-2xl font-semibold text-slate-50 md:text-3xl">Event Signal Workbench</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+            BTC/ETH short-horizon research console with recent K-line markers, confluence scoring, and fail-closed risk filters.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            <WorkbenchBadge>Research only</WorkbenchBadge>
+            <WorkbenchBadge>Not trade advice</WorkbenchBadge>
+            <WorkbenchBadge>No auto trading</WorkbenchBadge>
           </div>
         </div>
-        <div className="grid gap-2 text-xs sm:grid-cols-3">
-          <ConsoleSelector
-            current={current}
-            label="Symbol"
-            options={["BTC", "ETH"]}
-            paramName="consoleSymbol"
-          />
-          <ConsoleSelector
-            current={current}
-            label="Horizon"
-            options={["5m", "10m"]}
-            paramName="consoleHorizon"
-          />
-          <ConsoleSelector
-            current={current}
-            label="Source"
-            options={["fixture", "live"]}
-            paramName="consoleSourceMode"
-          />
+        <div className="grid gap-3 rounded border border-slate-800 bg-[#070b12] p-3">
+          <div className="grid gap-3 md:grid-cols-3">
+            <ConsoleSelector current={current} label="Symbol" options={["BTC", "ETH"]} paramName="consoleSymbol" />
+            <ConsoleSelector current={current} label="Horizon" options={["5m", "10m"]} paramName="consoleHorizon" />
+            <ConsoleSelector current={current} label="Source" options={["fixture", "live"]} paramName="consoleSourceMode" />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              className="border border-cyan-500/70 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-500/20"
+              href={scannerHref(current, { consoleRefresh: String(Date.now()) })}
+            >
+              Refresh
+            </a>
+            <Link
+              className={`border px-3 py-2 text-xs font-semibold ${
+                current.consoleBacktest
+                  ? "border-amber-400/70 bg-amber-400/10 text-amber-100"
+                  : "border-slate-700 bg-slate-900 text-slate-300 hover:border-amber-400/70"
+              }`}
+              href={scannerHref(current, { consoleBacktest: !current.consoleBacktest })}
+            >
+              {current.consoleBacktest ? "Hide backtest preview" : "Show backtest preview"}
+            </Link>
+          </div>
         </div>
-      </div>
+      </header>
 
       {error ? (
-        <div className="mt-4 border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+        <div className="m-4 border border-rose-500/50 bg-rose-950/40 p-3 text-sm text-rose-100">
           Event Signal Console unavailable: {error}
         </div>
       ) : null}
 
       {!error && console ? (
-        <div className="mt-4 grid gap-4">
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(280px,0.75fr)]">
-            <div>
-              <ConsoleCandlestickChart candles={console.recentCandles} markers={console.recentMarkers} />
-              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-600">
-                <span>Recent candles: {console.recentCandles.length}</span>
-                <span>Recent markers: {console.recentMarkers.length} / max 20</span>
-                <span>Markers are recent-only.</span>
+        <div className="grid gap-4 p-4">
+          <section className="grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_repeat(4,minmax(130px,0.22fr))]">
+            <div className="border border-slate-800 bg-[#070b12] p-4" data-testid="signal-hero">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Current signal</div>
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    <SignalDirectionBadge direction={console.currentSignal.direction} size="lg" />
+                    <span className="text-lg font-semibold text-slate-100">
+                      {console.symbol} {console.horizon} / {displaySourceMode(console.sourceMode)}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right text-xs text-slate-500">
+                  <div>Source: {displaySource(console.currentSignal.source)}</div>
+                  <div>Generated: {formatTime(console.meta.generatedAt)}</div>
+                </div>
               </div>
             </div>
-            <div className="grid content-start gap-3">
-              <section className="border border-border bg-slate-50 p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <div className="text-xs font-semibold text-slate-500">Current Research Signal</div>
-                    <div className="mt-1 text-sm font-semibold">
-                      {console.symbol} {console.horizon} / {displaySourceMode(console.sourceMode)}
-                    </div>
-                  </div>
-                  <SignalDirectionBadge direction={console.currentSignal.direction} />
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-700">
-                  <Metric label="Total score" value={formatSigned(console.confluence.totalScore)} />
-                  <Metric label="Confidence" value={formatProb(console.confluence.confidence)} />
-                  <Metric label="Freshness" value={displayFreshness(console.currentSignal)} />
-                  <Metric label="Data" value={console.currentSignal.dataQuality.status} />
-                </div>
-              </section>
+            <HeroMetric label="Confidence" value={formatProb(console.confluence.confidence)} tone={scoreTone(console.confluence.confidence)} />
+            <HeroMetric label="Total score" value={formatSigned(console.confluence.totalScore)} tone={directionTone(console.currentSignal.direction)} />
+            <HeroMetric label="Freshness" value={displayFreshness(console.currentSignal)} tone={console.currentSignal.dataQuality.status === "ok" ? "good" : "warn"} />
+            <HeroMetric label="Markers" value={`${console.recentMarkers.length}/20`} tone={console.recentMarkers.length <= 20 ? "neutral" : "warn"} />
+          </section>
 
-              <section className="border border-border bg-white p-3">
-                <h3 className="text-xs font-semibold text-slate-500">Confluence Breakdown</h3>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-700">
-                  <Metric label="Trend" value={formatSigned(console.confluence.trendScore)} />
-                  <Metric label="Momentum" value={formatSigned(console.confluence.momentumScore)} />
-                  <Metric label="Volatility" value={formatSigned(console.confluence.volatilityScore)} />
-                  <Metric label="Volume" value={formatSigned(console.confluence.volumeScore)} />
-                  <Metric label="Reversal risk" value={formatProb(console.confluence.reversalRisk)} />
-                  <Metric label="Chop risk" value={formatProb(console.confluence.chopRisk)} />
+          <section className="grid gap-4 xl:grid-cols-[minmax(0,1.42fr)_420px]">
+            <div className="border border-slate-800 bg-[#070b12] p-3">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-100">Recent K-line</h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {console.recentCandles.length} candles, recent signal markers only. Full-history overlays are not loaded.
+                  </p>
                 </div>
-              </section>
-
-              <section className="border border-border bg-white p-3">
-                <h3 className="text-xs font-semibold text-slate-500">Risk Filters</h3>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-700">
-                  <Metric label="Freshness" value={console.riskFilters.dataFreshness} />
-                  <Metric label="Volatility" value={console.riskFilters.volatility} />
-                  <Metric label="Volume" value={console.riskFilters.volumeConfirmation} />
-                  <Metric label="Chop" value={console.riskFilters.chop} />
-                  <Metric label="Conflict" value={console.riskFilters.conflict} />
-                  <Metric label="Mean revert" value={console.riskFilters.meanReversion} />
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <MarkerKey label="LONG bias" tone="long" />
+                  <MarkerKey label="SHORT bias" tone="short" />
+                  <MarkerKey label="NO_SIGNAL" tone="neutral" />
                 </div>
-              </section>
+              </div>
+              <ConsoleCandlestickChart candles={console.recentCandles} markers={console.recentMarkers} />
             </div>
-          </div>
 
-          <div className="grid gap-3 lg:grid-cols-2">
-            <ReasonList title="Reasons" reasons={console.confluence.reasons} />
-            <ReasonList title="Veto reasons" reasons={console.confluence.vetoReasons} emptyText="No active veto." />
-          </div>
+            <aside className="grid content-start gap-3">
+              <ReasonList title="Why this signal" reasons={console.confluence.reasons} />
+              <ReasonList title="Veto reasons" reasons={console.confluence.vetoReasons} emptyText="No active veto." />
+              <ReasonList title="Fail-closed reasons" reasons={console.currentSignal.failClosedReasons} emptyText="No fail-closed reason." />
+              <ReasonList title="Warnings" reasons={console.warnings} emptyText="No active warning." />
+            </aside>
+          </section>
 
-          {console.warnings.length ? (
-            <div className="border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800">
-              {console.warnings.slice(0, 4).join(" ")}
+          <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="confluence-cards">
+              <ConfluenceCard label="Trend" value={console.confluence.trendScore} />
+              <ConfluenceCard label="Momentum" value={console.confluence.momentumScore} />
+              <ConfluenceCard label="Volatility" value={console.confluence.volatilityScore} />
+              <ConfluenceCard label="Volume" value={console.confluence.volumeScore} />
+              <RiskScoreCard label="Reversal risk" value={console.confluence.reversalRisk} />
+              <RiskScoreCard label="Chop risk" value={console.confluence.chopRisk} />
             </div>
-          ) : null}
-
-          <BacktestPreviewPanel console={console} current={current} />
+            <div className="grid gap-3">
+              <section className="border border-slate-800 bg-[#070b12] p-3">
+                <h3 className="text-sm font-semibold text-slate-100">Risk Filters</h3>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
+                  <RiskPill label="Freshness" value={console.riskFilters.dataFreshness} />
+                  <RiskPill label="Volatility" value={console.riskFilters.volatility} />
+                  <RiskPill label="Volume" value={console.riskFilters.volumeConfirmation} />
+                  <RiskPill label="Chop" value={console.riskFilters.chop} />
+                  <RiskPill label="Conflict" value={console.riskFilters.conflict} />
+                  <RiskPill label="Mean revert" value={console.riskFilters.meanReversion} />
+                </div>
+              </section>
+              <BacktestPreviewPanel console={console} current={current} />
+            </div>
+          </section>
         </div>
       ) : null}
     </section>
@@ -717,14 +748,14 @@ function ConsoleSelector({
 }) {
   return (
     <section>
-      <h3 className="text-xs font-semibold text-slate-500">{label}</h3>
+      <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</h3>
       <div className="mt-2 flex flex-wrap gap-2">
         {options.map((value) => {
           const active = current[paramName] === value;
           return (
             <Link
               className={`border px-2 py-1 ${
-                active ? "border-teal-700 bg-teal-50 text-teal-800" : "border-border bg-slate-50"
+                active ? "border-cyan-400 bg-cyan-400/10 text-cyan-100" : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-500"
               }`}
               href={scannerHref(current, { [paramName]: value, consoleBacktest: false } as Partial<ScannerFilters>)}
               key={value}
@@ -738,11 +769,110 @@ function ConsoleSelector({
   );
 }
 
+function WorkbenchBadge({ children }: { children: React.ReactNode }) {
+  return <span className="border border-slate-700 bg-slate-900 px-2 py-1 text-slate-300">{children}</span>;
+}
+
+function HeroMetric({
+  label,
+  value,
+  tone
+}: {
+  label: string;
+  value: string;
+  tone: "good" | "bad" | "warn" | "neutral";
+}) {
+  const toneClass =
+    tone === "good"
+      ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-100"
+      : tone === "bad"
+        ? "border-rose-500/50 bg-rose-500/10 text-rose-100"
+        : tone === "warn"
+          ? "border-amber-500/50 bg-amber-500/10 text-amber-100"
+          : "border-slate-800 bg-[#070b12] text-slate-100";
+  return (
+    <div className={`border p-4 ${toneClass}`}>
+      <div className="text-xs uppercase tracking-[0.14em] opacity-70">{label}</div>
+      <div className="mt-2 text-xl font-semibold">{value}</div>
+    </div>
+  );
+}
+
+function MarkerKey({ label, tone }: { label: string; tone: "long" | "short" | "neutral" }) {
+  const color = tone === "long" ? "bg-emerald-400" : tone === "short" ? "bg-rose-400" : "bg-slate-400";
+  return (
+    <span className="inline-flex items-center gap-1 text-slate-400">
+      <span className={`h-2 w-2 ${color}`} />
+      {label}
+    </span>
+  );
+}
+
+function ConfluenceCard({ label, value }: { label: string; value: number }) {
+  const tone = value > 0.12 ? "good" : value < -0.12 ? "bad" : "neutral";
+  return (
+    <section className={`border p-3 ${cardToneClass(tone)}`}>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-slate-100">{label}</h3>
+        <span className="text-sm font-semibold">{formatSigned(value)}</span>
+      </div>
+      <div className="mt-3 h-2 bg-slate-900">
+        <div className={`h-2 ${value >= 0 ? "bg-emerald-400" : "bg-rose-400"}`} style={{ width: `${Math.min(Math.abs(value), 1) * 100}%` }} />
+      </div>
+    </section>
+  );
+}
+
+function RiskScoreCard({ label, value }: { label: string; value: number }) {
+  const tone = value > 0.66 ? "bad" : value > 0.33 ? "warn" : "neutral";
+  return (
+    <section className={`border p-3 ${cardToneClass(tone)}`}>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-slate-100">{label}</h3>
+        <span className="text-sm font-semibold">{formatProb(value)}</span>
+      </div>
+      <div className="mt-3 h-2 bg-slate-900">
+        <div className={tone === "bad" ? "h-2 bg-rose-400" : tone === "warn" ? "h-2 bg-amber-400" : "h-2 bg-slate-500"} style={{ width: `${Math.min(value, 1) * 100}%` }} />
+      </div>
+    </section>
+  );
+}
+
+function RiskPill({ label, value }: { label: string; value: string }) {
+  const tone =
+    value === "pass" || value === "confirmed"
+      ? "good"
+      : value === "veto" || value === "missing"
+        ? "bad"
+        : value === "watch" || value === "weak"
+          ? "warn"
+          : "neutral";
+  return (
+    <div className={`border px-3 py-2 ${cardToneClass(tone)}`}>
+      <div className="text-[11px] uppercase tracking-[0.12em] text-slate-500">{label}</div>
+      <div className="mt-1 font-semibold text-slate-100">{value}</div>
+    </div>
+  );
+}
+
+function cardToneClass(tone: "good" | "bad" | "warn" | "neutral") {
+  if (tone === "good") {
+    return "border-emerald-500/30 bg-emerald-500/5";
+  }
+  if (tone === "bad") {
+    return "border-rose-500/30 bg-rose-500/5";
+  }
+  if (tone === "warn") {
+    return "border-amber-500/30 bg-amber-500/5";
+  }
+  return "border-slate-800 bg-[#070b12]";
+}
+
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border border-border bg-slate-50 px-2 py-1">
+    <div className="border border-slate-800 bg-slate-950 px-2 py-1">
       <div className="text-[11px] text-slate-500">{label}</div>
-      <div className="mt-0.5 break-words font-semibold text-slate-800">{value}</div>
+      <div className="mt-0.5 break-words font-semibold text-slate-100">{value}</div>
     </div>
   );
 }
@@ -757,16 +887,16 @@ function ReasonList({
   emptyText?: string;
 }) {
   return (
-    <section className="border border-border bg-white p-3">
-      <h3 className="text-xs font-semibold text-slate-500">{title}</h3>
+    <section className="border border-slate-800 bg-[#070b12] p-3">
+      <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{title}</h3>
       {reasons.length ? (
-        <ul className="mt-2 grid gap-1 text-xs leading-5 text-slate-700">
+        <ul className="mt-2 grid gap-1 text-xs leading-5 text-slate-300">
           {reasons.slice(0, 6).map((reason) => (
             <li key={reason}>{reason}</li>
           ))}
         </ul>
       ) : (
-        <p className="mt-2 text-xs text-slate-600">{emptyText}</p>
+        <p className="mt-2 text-xs text-slate-500">{emptyText}</p>
       )}
     </section>
   );
@@ -781,14 +911,14 @@ function BacktestPreviewPanel({
 }) {
   if (!console.backtestPreview.enabled) {
     return (
-      <section className="border border-border bg-slate-50 p-3" data-testid="backtest-drawer">
+      <section className="border border-slate-800 bg-[#070b12] p-3" data-testid="backtest-drawer">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-slate-700">Backtest Preview</h3>
-            <p className="mt-1 text-xs text-slate-600">Collapsed by default. Loads only after user action.</p>
+            <h3 className="text-sm font-semibold text-slate-100">Backtest Preview</h3>
+            <p className="mt-1 text-xs text-slate-500">Collapsed by default. Loads only after user action.</p>
           </div>
           <Link
-            className="border border-teal-700 bg-teal-50 px-3 py-2 text-xs font-semibold text-teal-800"
+            className="border border-amber-400/70 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-400/20"
             href={scannerHref(current, { consoleBacktest: true })}
           >
             Show backtest preview
@@ -799,26 +929,26 @@ function BacktestPreviewPanel({
   }
 
   return (
-    <section className="border border-border bg-white p-3" data-testid="backtest-drawer">
+    <section className="border border-amber-500/40 bg-amber-500/5 p-3" data-testid="backtest-drawer">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-slate-700">Backtest Preview</h3>
-          <p className="mt-1 text-xs text-slate-600">Small local sample. Research only.</p>
+          <h3 className="text-sm font-semibold text-slate-100">Backtest Preview</h3>
+          <p className="mt-1 text-xs text-amber-100">Small local sample. Research only.</p>
         </div>
         <Link
-          className="border border-border bg-slate-50 px-3 py-2 text-xs text-slate-700"
+          className="border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-300 hover:border-slate-500"
           href={scannerHref(current, { consoleBacktest: false })}
         >
           Hide preview
         </Link>
       </div>
-      <div className="mt-3 grid gap-2 text-xs text-slate-700 sm:grid-cols-4">
+      <div className="mt-3 grid gap-2 text-xs text-slate-300 sm:grid-cols-4">
         <Metric label="Sample size" value={`${console.backtestPreview.sampleSize}`} />
         <Metric label="Win rate" value={formatNullableProb(console.backtestPreview.winRate)} />
         <Metric label="Average move" value={formatNullableReturn(console.backtestPreview.averageReturn)} />
         <Metric label="Max drawdown proxy" value={formatNullableReturn(console.backtestPreview.maxDrawdownProxy)} />
       </div>
-      <ul className="mt-3 grid gap-1 text-xs leading-5 text-slate-600">
+      <ul className="mt-3 grid gap-1 text-xs leading-5 text-slate-400">
         {console.backtestPreview.caveats.map((caveat) => (
           <li key={caveat}>{caveat}</li>
         ))}
@@ -839,10 +969,10 @@ function ResearchSignalPanel({
   current: ScannerFilters;
 }) {
   return (
-    <section className="border border-border bg-white p-4">
+    <section className="border border-slate-800 bg-[#0b111d] p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-slate-700">Research Signal Panel</h2>
+          <h2 className="text-sm font-semibold text-slate-100">Research Signal Panel</h2>
           <p className="mt-1 text-xs text-slate-500">{meta?.modelVersion ?? "research-signal-engine-v0"}</p>
         </div>
         <Badge>Research only</Badge>
@@ -850,7 +980,7 @@ function ResearchSignalPanel({
       <div className="mt-3 flex flex-wrap gap-2 text-xs">
         <Link
           className={`border px-2 py-1 ${
-            current.signalSourceMode === "fixture" ? "border-teal-700 bg-teal-50 text-teal-800" : "border-border bg-slate-50"
+            current.signalSourceMode === "fixture" ? "border-cyan-400 bg-cyan-400/10 text-cyan-100" : "border-slate-700 bg-slate-900 text-slate-400"
           }`}
           href={scannerHref(current, { signalSourceMode: "fixture" })}
         >
@@ -858,36 +988,36 @@ function ResearchSignalPanel({
         </Link>
         <Link
           className={`border px-2 py-1 ${
-            current.signalSourceMode === "live" ? "border-teal-700 bg-teal-50 text-teal-800" : "border-border bg-slate-50"
+            current.signalSourceMode === "live" ? "border-cyan-400 bg-cyan-400/10 text-cyan-100" : "border-slate-700 bg-slate-900 text-slate-400"
           }`}
           href={scannerHref(current, { signalSourceMode: "live" })}
         >
           Live
         </Link>
       </div>
-      <p className="mt-3 text-xs leading-5 text-slate-600">
+      <p className="mt-3 text-xs leading-5 text-slate-400">
         Direction is a research bias. Research only. Not trade advice.
       </p>
-      <div className="mt-2 grid gap-1 text-xs text-slate-600">
+      <div className="mt-2 grid gap-1 text-xs text-slate-400">
         <div>Mode: {displaySourceMode(meta?.mode ?? current.signalSourceMode)}</div>
         <div>Source: {displaySource(meta?.sourceName ?? "fixture")}</div>
       </div>
       {error ? (
-        <div className="mt-3 border border-red-200 bg-red-50 p-2 text-xs text-red-800">
+        <div className="mt-3 border border-rose-500/40 bg-rose-950/40 p-2 text-xs text-rose-100">
           Signal API unavailable: {error}
         </div>
       ) : null}
       {!error ? (
         <div className="mt-3 grid gap-3">
           {signals.map((signal) => (
-            <article className="border border-border bg-slate-50 p-3" key={`${signal.symbol}-${signal.horizon}`}>
+            <article className="border border-slate-800 bg-slate-950 p-3" key={`${signal.symbol}-${signal.horizon}`}>
               <div className="flex items-center justify-between gap-2">
                 <div className="text-sm font-semibold">
                   {signal.symbol} {signal.horizon}
                 </div>
                 <SignalDirectionBadge direction={signal.direction} />
               </div>
-              <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600">
+              <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-400">
                 <div>Confidence: {formatProb(signal.confidence)}</div>
                 <div>Score: {formatSigned(signal.score)}</div>
                 <div>Data: {signal.dataQuality.status}</div>
@@ -896,17 +1026,17 @@ function ResearchSignalPanel({
                 <div>Freshness: {displayFreshness(signal)}</div>
               </div>
               {signal.dataQuality.warnings.length ? (
-                <div className="mt-2 text-xs text-amber-700">
+                <div className="mt-2 text-xs text-amber-200">
                   Warnings: {signal.dataQuality.warnings.slice(0, 2).join("; ")}
                 </div>
               ) : null}
-              <ul className="mt-3 grid gap-1 text-xs leading-5 text-slate-600">
+              <ul className="mt-3 grid gap-1 text-xs leading-5 text-slate-400">
                 {signal.reasons.slice(0, 3).map((reason) => (
                   <li key={reason}>{reason}</li>
                 ))}
               </ul>
               {signal.failClosedReasons.length ? (
-                <div className="mt-2 text-xs font-medium text-amber-700">
+                <div className="mt-2 text-xs font-medium text-amber-200">
                   Fail closed: {signal.failClosedReasons.join("; ")}
                 </div>
               ) : null}
@@ -931,22 +1061,51 @@ function displayFreshness(signal: ResearchSignal) {
   return `${signal.dataQuality.freshness.status}${ageMs === null ? "" : ` / ${formatDuration(ageMs)}`}`;
 }
 
-function SignalDirectionBadge({ direction }: { direction: ResearchSignal["direction"] }) {
+function directionTone(direction: ResearchSignal["direction"]): "good" | "bad" | "warn" | "neutral" {
+  if (direction === "LONG") {
+    return "good";
+  }
+  if (direction === "SHORT") {
+    return "bad";
+  }
+  return "warn";
+}
+
+function scoreTone(value: number): "good" | "bad" | "warn" | "neutral" {
+  if (value >= 0.55) {
+    return "good";
+  }
+  if (value > 0) {
+    return "warn";
+  }
+  return "neutral";
+}
+
+function formatTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "n/a";
+  }
+  return date.toISOString().slice(11, 19);
+}
+
+function SignalDirectionBadge({ direction, size = "sm" }: { direction: ResearchSignal["direction"]; size?: "sm" | "lg" }) {
   const label =
     direction === "LONG" ? "LONG bias" : direction === "SHORT" ? "SHORT bias" : "NO_SIGNAL";
   const className =
     direction === "LONG"
-      ? "border-teal-700 bg-teal-50 text-teal-800"
+      ? "border-emerald-400 bg-emerald-400/10 text-emerald-100"
       : direction === "SHORT"
-        ? "border-rose-700 bg-rose-50 text-rose-800"
-        : "border-slate-300 bg-white text-slate-700";
-  return <span className={`border px-2 py-0.5 text-xs font-semibold ${className}`}>{label}</span>;
+        ? "border-rose-400 bg-rose-400/10 text-rose-100"
+        : "border-slate-600 bg-slate-900 text-slate-200";
+  const sizeClass = size === "lg" ? "px-3 py-1.5 text-base" : "px-2 py-0.5 text-xs";
+  return <span className={`border font-semibold ${sizeClass} ${className}`}>{label}</span>;
 }
 
 function ErrorState({ message }: { message: string }) {
   return (
     <div className="p-6">
-      <div className="border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+      <div className="border border-rose-500/40 bg-rose-950/40 p-4 text-sm text-rose-100">
         API unavailable: {message}
       </div>
     </div>
@@ -956,7 +1115,7 @@ function ErrorState({ message }: { message: string }) {
 function EmptyState() {
   return (
     <div className="p-6">
-      <div className="border border-border bg-slate-50 p-4 text-sm text-slate-700">
+      <div className="border border-slate-800 bg-slate-950 p-4 text-sm text-slate-300">
         No markets returned for the current fixture-backed scope.
       </div>
     </div>
@@ -964,7 +1123,7 @@ function EmptyState() {
 }
 
 function TableHead({ children }: { children: React.ReactNode }) {
-  return <th className="border-b border-border px-3 py-3 font-semibold">{children}</th>;
+  return <th className="border-b border-slate-800 px-3 py-3 font-semibold">{children}</th>;
 }
 
 function TableCell({
@@ -974,17 +1133,17 @@ function TableCell({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <td className={`border-b border-border px-3 py-3 align-top ${className}`}>{children}</td>;
+  return <td className={`border-b border-slate-800 px-3 py-3 align-top text-slate-300 ${className}`}>{children}</td>;
 }
 
 function Badge({ children }: { children: React.ReactNode }) {
-  return <span className="border border-border bg-slate-50 px-2 py-0.5">{children}</span>;
+  return <span className="border border-slate-700 bg-slate-900 px-2 py-0.5 text-slate-300">{children}</span>;
 }
 
 function PlaceholderPricing({ fairValue }: { fairValue: ScannerCandidate["fairValue"] }) {
   return (
     <div className="grid gap-1 text-xs">
-      <span className="font-semibold text-amber-700">placeholder</span>
+      <span className="font-semibold text-amber-200">placeholder</span>
       <span className="text-slate-500">{fairValue.modelVersion}</span>
       <span className="text-slate-500">confidence: n/a</span>
     </div>
