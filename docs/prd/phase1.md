@@ -15,9 +15,10 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - Research Signals: fixture-default BTC/ETH 5m/10m technical research bias with explicit
   `isResearchOnly: true` and `isTradeAdvice: false`. RC-8 adds explicit local live mode using
   Coinbase Exchange public OHLCV candles.
-- Event Signal Console: RC-9 local research console with BTC/ETH, 5m/10m, fixture/live selectors,
+- Event Signal Console: RC-11 local research console with BTC/ETH, 5m/10m, fixture/live selectors,
   multi-strategy confluence breakdown, risk filters, recent candlestick chart, recent-only signal
-  markers capped at 20, and an on-demand lightweight backtest preview.
+  markers capped at 20, browser-local auto refresh controls, recent signal history, active
+  `balanced` profile display, and an on-demand lightweight backtest preview.
 - Market contract: binary outcome markets only. Outcome labels are preserved from upstream, so `Yes`/`No` and observed `Up`/`Down` labels can be represented. Multi-outcome markets are out of scope.
 - Pricing-engine v1: research boundary only; no real probability model is implemented.
 - Up/Down payoff/reference-level extraction: research contract only. The observed 5M Chainlink
@@ -35,9 +36,11 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 7. Inspect the Event Signal Console for current `LONG bias`, `SHORT bias`, or `NO_SIGNAL`
    research output, including confluence scores, risk filters, reasons, veto reasons, and recent
    signal markers.
-8. Open the backtest preview only when needed; treat it as small-sample diagnostics, not a
+8. Optionally enable low-frequency auto refresh or inspect recent signal history. Auto refresh is
+   display polling only, and signal history is not a trade record.
+9. Open the backtest preview only when needed; treat it as small-sample diagnostics, not a
    predictive guarantee.
-9. Inspect API responses for normalized market, order-book, rejection summary, and placeholder fair-value shape.
+10. Inspect API responses for normalized market, order-book, rejection summary, and placeholder fair-value shape.
 
 ## Non-Goals
 
@@ -60,6 +63,9 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - No default backtest load on page open.
 - No CI dependency on live OHLCV vendors; live signal tests must mock Coinbase Exchange.
 - No frequent polling of Coinbase Exchange historical rates.
+- No auto refresh behavior may create orders, connect accounts, or imply automated trading.
+- No signal history may be treated as a trade log, paper broker, replay engine, or performance
+  record.
 
 ## Acceptance Criteria For Current Slice
 
@@ -77,6 +83,8 @@ Provide a local, read-only research terminal for BTC/ETH prediction-market event
 - Event Signal Console exposes `ept-api-v1` metadata, current signal, confluence breakdown, risk
   filters, recent candles, recent-only markers, default-disabled backtest preview, warnings, and
   research-only/not-trade-advice flags.
+- RC-11 console responses expose `profileName: "balanced"`, and tests cover no-trade vetoes for
+  flat EMA, flat MACD, and narrow volatility.
 - Placeholder scanner fields are clearly marked and sourced from the pricing-engine v0 placeholder contract where available.
 - Pricing-engine v1 research documents define required features, freshness rules, and calibration gates before any implementation.
 - Up/Down payoff research documents define fail-closed evidence requirements before extraction or

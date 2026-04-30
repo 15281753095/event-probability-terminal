@@ -29,6 +29,8 @@ export {
 } from "./console.js";
 export type { BuildEventSignalConsoleInput, BuildLiveEventSignalConsoleInput } from "./console.js";
 export { findResearchSignalFixture, researchSignalFixtures } from "./fixtures.js";
+export { BALANCED_SIGNAL_PROFILE, getSignalProfile } from "./profiles.js";
+export type { HorizonThresholdConfig, SignalProfile, SignalProfileName } from "./profiles.js";
 export {
   buildCoinbaseProductId,
   coinbaseGranularity,

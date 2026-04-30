@@ -19,6 +19,7 @@ import { emptyFailClosedOHLCVResult, fetchCoinbaseExchangeCandles } from "./ohlc
 import { buildFeatureSnapshot } from "./indicators.js";
 import { findResearchSignalFixture, researchSignalFixtures, type ResearchSignalFixture } from "./fixtures.js";
 import { evaluateConfluence } from "./confluence.js";
+import { getSignalProfile, type SignalProfileName } from "./profiles.js";
 
 export const RESEARCH_SIGNAL_MODEL_VERSION: ResearchSignalModelVersion = "research-signal-engine-v0";
 export const REQUIRED_CANDLE_COUNT = 35;
@@ -36,6 +37,7 @@ export type BuildSignalInput = {
   sourceFailClosedReasons?: string[];
   isLive?: boolean;
   isFixtureBacked?: boolean;
+  profileName?: SignalProfileName;
 };
 
 export type ListSignalsInput = {
@@ -181,6 +183,7 @@ export function getResearchSignalFixture(
 }
 
 export function buildResearchSignal(input: BuildSignalInput): ResearchSignal {
+  const profile = getSignalProfile(input.profileName);
   const context = input.context ?? emptyContext();
   const source = input.source ?? "fixture";
   const sourceMode = input.sourceMode ?? "fixture";
@@ -203,7 +206,8 @@ export function buildResearchSignal(input: BuildSignalInput): ResearchSignal {
     features,
     dataQuality,
     context,
-    failClosedReasons
+    failClosedReasons,
+    profileName: profile.name
   });
   const direction = confluence.direction;
   const score = confluence.totalScore;
@@ -225,6 +229,7 @@ export function buildResearchSignal(input: BuildSignalInput): ResearchSignal {
     isResearchOnly: true,
     isTradeAdvice: false,
     modelVersion: RESEARCH_SIGNAL_MODEL_VERSION,
+    profileName: profile.name,
     invalidation: [
       "Signal invalidates when fixture candles are stale relative to generatedAt.",
       "Signal invalidates when fast/slow EMA, MACD histogram, and momentum contributions materially diverge.",

@@ -179,6 +179,7 @@ function signalContractSnapshot(payload: ResearchSignalsResponse) {
       isResearchOnly: signal.isResearchOnly,
       isTradeAdvice: signal.isTradeAdvice,
       modelVersion: signal.modelVersion,
+      profileName: signal.profileName,
       invalidation: signal.invalidation,
       failClosedReasons: signal.failClosedReasons,
       confluence: signal.confluence,
@@ -191,6 +192,7 @@ function signalContractSnapshot(payload: ResearchSignalsResponse) {
 function eventSignalConsoleContractSnapshot(payload: EventSignalConsoleResponse) {
   return {
     meta: payload.meta,
+    profileName: payload.profileName,
     symbol: payload.symbol,
     horizon: payload.horizon,
     sourceMode: payload.sourceMode,
@@ -205,6 +207,7 @@ function eventSignalConsoleContractSnapshot(payload: EventSignalConsoleResponse)
       isResearchOnly: payload.currentSignal.isResearchOnly,
       isTradeAdvice: payload.currentSignal.isTradeAdvice,
       modelVersion: payload.currentSignal.modelVersion,
+      profileName: payload.currentSignal.profileName,
       failClosedReasons: payload.currentSignal.failClosedReasons
     },
     confluence: payload.confluence,

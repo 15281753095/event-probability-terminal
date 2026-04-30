@@ -40,11 +40,12 @@ The scanner page also renders a Research Signal Panel. It shows fixture/default 
 source name, freshness, warnings, and fail-closed reasons. It does not show buy/sell language,
 leverage, position size, order forms, or trading controls.
 
-The scanner page also renders Event Signal Console RC-9. It provides BTC/ETH, 5m/10m, and
+The scanner page also renders Event Signal Workbench RC-11. It provides BTC/ETH, 5m/10m, and
 fixture/live selectors; a current research signal; confluence score breakdown; risk filters;
-recent candlestick chart; recent-only signal markers capped at 20; and an on-demand backtest
+recent candlestick chart; recent-only signal markers capped at 20; low-frequency browser-local auto
+refresh controls; local recent signal history; active profile display; and an on-demand backtest
 preview. The backtest preview is collapsed by default and does not run unless requested by the
-user.
+user. Auto refresh is display polling only and is not automated trading.
 
 ### API Gateway
 
@@ -82,7 +83,8 @@ It does not call X, news, macro, wallet, or vendor trading APIs.
 research console. Fixture mode is default. `sourceMode=live` uses the same Coinbase Exchange
 adapter boundary and fail-closed behavior as `/signals/research`. `includeBacktest=true` is the
 only path that computes the lightweight backtest preview. The endpoint returns recent candles and
-recent markers only; it does not return a full historical signal overlay.
+recent markers only; it does not return a full historical signal overlay. RC-11 includes the active
+`balanced` profile name in signal/console payloads.
 
 ### Market Ingestor
 
@@ -153,6 +155,11 @@ snapshots, data quality, risk filters, invalidation notes, and fail-closed reaso
 pricing engine and does not produce fair probabilities, trade advice, orders, leverage, or position
 sizing.
 
+RC-11 moves key confluence thresholds into the `balanced` signal profile with separate 5m and 10m
+thresholds. The no-trade filter vetoes flat EMA slope, flat MACD histogram, narrow volatility,
+extreme volatility, stale/insufficient data, and module conflicts before any directional bias can
+be emitted.
+
 The Coinbase Exchange adapter maps `BTC` to `BTC-USD` and `ETH` to `ETH-USD`, maps `1m` to
 `granularity=60`, safe-parses candle arrays, sorts by start time, drops incomplete candles, enforces
 freshness, and fails closed on network, timeout, parse, stale, or insufficient-data failures. CI
@@ -174,7 +181,9 @@ uses mocked fetches only.
 10. API gateway computes Event Signal Console payloads through `@ept/research-signals`, returning
     recent candles, recent markers, confluence, risk filters, and optionally a small backtest
     preview.
-11. API gateway strips raw upstream payloads before returning API responses.
+11. Web runtime controls may poll the same console endpoint at user-selected low-frequency
+    intervals and keep a browser-local recent signal history capped at 20 entries.
+12. API gateway strips raw upstream payloads before returning API responses.
 
 ## Current Infrastructure
 
@@ -195,6 +204,8 @@ uses mocked fetches only.
 - Event Signal Console markers must remain recent-only; full-history signal display belongs in
   future replay/stats workflows, not the primary chart.
 - Backtest preview must remain on-demand, small-sample, and explicitly non-predictive.
+- Auto refresh must remain UI polling only; it must not submit orders, connect accounts, or imply
+  automated trading. Signal history must remain browser-local and must not become a trade log.
 - Pricing-engine v1 is research-only until data freshness and validation gates are satisfied.
 - No non-placeholder Up/Down pricing without confirmed payoff specification, reference level, and
   settlement rule.

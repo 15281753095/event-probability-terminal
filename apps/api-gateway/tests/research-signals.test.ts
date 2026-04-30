@@ -35,6 +35,7 @@ describe("research signals API", () => {
     assert.ok(payload.signals.some((signal) => signal.symbol === "BTC" && signal.horizon === "5m" && signal.direction === "LONG"));
     assert.ok(payload.signals.some((signal) => signal.symbol === "ETH" && signal.horizon === "5m" && signal.direction === "SHORT"));
     assert.ok(payload.signals.every((signal) => signal.isResearchOnly && !signal.isTradeAdvice));
+    assert.ok(payload.signals.every((signal) => signal.profileName === "balanced"));
 
     await server.close();
   });
@@ -163,7 +164,9 @@ describe("research signals API", () => {
     assert.equal(payload.meta.contractVersion, API_CONTRACT_VERSION);
     assert.equal(payload.meta.responseKind, "event_signal_console");
     assert.equal(payload.meta.mode, "fixture");
+    assert.equal(payload.profileName, "balanced");
     assert.equal(payload.currentSignal.direction, "LONG");
+    assert.equal(payload.currentSignal.profileName, "balanced");
     assert.equal(payload.currentSignal.isTradeAdvice, false);
     assert.equal(payload.confluence.direction, "LONG");
     assert.equal(payload.riskFilters.dataFreshness, "pass");

@@ -1,6 +1,7 @@
 # Event Signal Console API
 
-Status: implemented for RC-9 as a fixture-default, live-optional, read-only research console.
+Status: implemented as a fixture-default, live-optional, read-only research console with RC-11
+runtime/profile fields.
 
 This API returns one BTC/ETH short-horizon research console payload. It is not a trading API, not
 investment advice, not a fair-probability pricing model, and not an order-generation system.
@@ -36,6 +37,7 @@ Top-level fields:
 - `symbol`: selected `BTC` or `ETH`
 - `horizon`: selected `5m` or `10m`
 - `sourceMode`: `fixture` or `live`
+- `profileName`: currently `balanced`
 - `currentSignal`: current `ResearchSignal`
 - `confluence`: current `ConfluenceScore`
 - `riskFilters`: current `RiskFilterSummary`
@@ -59,6 +61,7 @@ Top-level fields:
 
 `ConfluenceScore` contains:
 
+- `profileName`
 - `trendScore`
 - `momentumScore`
 - `volatilityScore`
@@ -71,9 +74,9 @@ Top-level fields:
 - `reasons`
 - `vetoReasons`
 
-Rules are multi-factor. A single RSI, MACD, Bollinger, volume, or EMA condition cannot decide
-direction alone. Direction is emitted only when confluence clears the horizon threshold and no veto
-is active.
+Rules are multi-factor and use the `balanced` profile. A single RSI, MACD, Bollinger, volume, or
+EMA condition cannot decide direction alone. Direction is emitted only when confluence clears the
+5m/10m profile threshold and no veto is active.
 
 ## Risk Filters
 
@@ -87,7 +90,14 @@ The console exposes:
 - mean-reversion risk
 
 `NO_SIGNAL` is expected when data is stale, insufficient, conflicted, choppy, too quiet, extremely
-volatile, or blocked by manual event-risk context.
+volatile, flat by EMA/MACD checks, missing confirmation, or blocked by manual event-risk context.
+
+## Runtime UI Notes
+
+The Web workbench can auto-refresh `/signals/console` from the browser, but this is display polling
+only. It is off by default, supports 15s/30s/60s intervals, floors live 15s refreshes to 30s, and
+does not place orders or connect accounts. Browser-local signal history is capped at 20 entries and
+is not a trade log, replay engine, paper broker, or performance record.
 
 ## Markers
 

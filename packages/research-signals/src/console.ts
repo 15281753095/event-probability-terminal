@@ -154,6 +154,7 @@ function buildConsoleResponse(input: {
       message:
         "Event Signal Console is read-only research output. It emits LONG bias, SHORT bias, or NO_SIGNAL only; it is not trade advice and does not automate orders."
     },
+    profileName: input.signal.profileName,
     symbol: input.signal.symbol,
     horizon: input.signal.horizon,
     sourceMode: input.signal.sourceMode,
