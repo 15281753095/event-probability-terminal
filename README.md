@@ -10,7 +10,7 @@ This repository is in Phase 1 foundation work. It has a minimal local end-to-end
 - `packages/shared-types`: shared contracts for `EventMarket`, `OrderBookSnapshot`, `MarketDetailResponse`, and placeholder scanner/pricing objects.
 - `packages/research-signals`: deterministic technical-indicator, confluence, and research-signal engine with fixture default and explicit Coinbase Exchange live OHLCV mode.
 - `apps/api-gateway`: Fastify read-only API for fixture-backed markets, scanner metadata, contract-backed market detail, research signals, Event Signal Console, and pricing placeholders.
-- `apps/web`: Next.js Markets Scanner RC-2, Research Signal Panel RC-7, Event Signal Workbench RC-11, and Market Detail RC-3 evidence views that read from the API gateway.
+- `apps/web`: Next.js Markets Scanner RC-2, Research Signal Panel RC-7, Event Signal Reality Mode RC-12, and Market Detail RC-3 evidence views that read from the API gateway.
 - `services/pricing-engine`: Python placeholder contract for fair-value output shape.
 
 The current app market data is synthetic fixture data unless explicitly configured otherwise. A limited Polymarket Gamma/public-search live fixture capture was completed on 2026-04-21 to tighten contract tests, but it did not confirm BTC/ETH 10m/1h live classification. Research signals default to fixtures, while `sourceMode=live` can explicitly fetch Coinbase Exchange public BTC/ETH candles for local manual use.
@@ -28,7 +28,7 @@ Supported research scope:
 - Primary venue: Polymarket
 - Secondary/reference venues: Predict.fun and Binance Wallet Prediction Markets are documented only; they are not implemented.
 - Mode: read-only market discovery and display, with pricing-engine v0 placeholder outputs.
-- Research signals: fixture-default BTC/ETH `5m`/`10m` technical research bias, Event Signal Console confluence breakdown, recent-only markers, and optional explicit Coinbase Exchange live OHLCV mode; not trade advice.
+- Research signals: fixture-default BTC/ETH `5m`/`10m` technical research bias, Event Signal Console confluence breakdown, recent-only markers, balanced/conservative/aggressive research profiles, local observation logging, and optional explicit Coinbase Exchange live OHLCV mode; not trade advice.
 - Market contract: binary outcome markets only. The shared contract preserves upstream outcome labels, including fixture-backed `Yes`/`No` and observed `Up`/`Down`; it does not support multi-outcome markets.
 
 Explicit exclusions:
@@ -108,12 +108,13 @@ Open:
 http://localhost:3000
 ```
 
-Event Signal Workbench local trial URLs:
+Event Signal Reality Mode local trial URLs:
 
 ```text
 http://localhost:3000/?consoleSymbol=BTC&consoleHorizon=5m&consoleSourceMode=fixture
 http://localhost:3000/?consoleSymbol=ETH&consoleHorizon=10m&consoleSourceMode=fixture
 http://localhost:3000/?consoleSymbol=BTC&consoleHorizon=5m&consoleSourceMode=live
+http://localhost:3000/?consoleSymbol=BTC&consoleHorizon=10m&consoleSourceMode=live&consoleProfile=conservative
 ```
 
 Use fixture mode for deterministic local and CI checks. Live mode is an explicit local manual path
@@ -159,7 +160,9 @@ curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=li
 curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/console?symbol=ETH&horizon=10m&sourceMode=fixture"
 curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m&sourceMode=live"
-curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m&includeBacktest=true"
+curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m&sourceMode=fixture&profile=balanced"
+curl "http://localhost:4000/signals/console?symbol=BTC&horizon=10m&sourceMode=live&profile=conservative"
+curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m&includeObservationPreview=true"
 ```
 
 Default pricing-engine base URL: `http://127.0.0.1:4100`
@@ -186,10 +189,11 @@ Directions are limited to `LONG`, `SHORT`, and `NO_SIGNAL`; they are explicitly 
 `isTradeAdvice: false`.
 
 `/signals/console` returns one `EventSignalConsoleResponse` for BTC/ETH 5m/10m. It includes the
-current research signal, the active `balanced` profile, confluence scores, risk filters, recent
-candles, recent-only markers capped at 20, warnings, and an on-demand lightweight backtest preview.
-Backtest preview is disabled unless `includeBacktest=true`. It does not return trade instructions,
-leverage, position size, order fields, or a real performance claim.
+current research signal, active research profile, confluence scores, risk filters, event window,
+observation candidate, recent candles, recent-only markers capped at 20, warnings, and an on-demand
+Observation Preview. `profile=balanced|conservative|aggressive` changes research thresholds only.
+Observation Preview is disabled unless `includeObservationPreview=true`. It does not return trade
+instructions, leverage, position size, order fields, or a real performance claim.
 
 ## Current Pages
 
@@ -201,10 +205,11 @@ leverage, position size, order fields, or a real performance claim.
   - market list for BTC/ETH fixture markets
   - right summary, evidence status, and fail-closed reason matrix panels
   - Research Signal Panel for fixture/live LONG bias / SHORT bias / NO_SIGNAL outputs, source mode, freshness, warnings, and fail-closed reasons
-  - Event Signal Workbench RC-11 with BTC/ETH, 5m/10m, fixture/live selectors, manual refresh,
-    low-frequency auto refresh controls, local recent signal history, active profile display,
-    current-signal hero, confluence cards, risk filters, signal explanations, recent candlestick
-    chart, recent-only signal markers, and an on-demand backtest preview
+  - Event Signal Reality Mode RC-12 with BTC/ETH, 5m/10m, fixture/live selectors, profile selector,
+    manual refresh, low-frequency auto refresh controls, local Signal Observation Log, Observation
+    Feedback, current-signal hero, confluence cards, risk filters, event-window fields, signal
+    explanations, recent candlestick chart, recent-only signal markers, and an on-demand
+    Observation Preview
   - loading/error/empty states through server-side API fetch handling
 - `/markets/:id`: Market Detail RC-3
   - binary outcomes, timing, liquidity, spread, and provenance
@@ -212,7 +217,7 @@ leverage, position size, order fields, or a real performance claim.
   - API-backed research readiness, token trace, source trace, related fixture markets
   - explicit placeholder pricing panel and open evidence gaps
 
-No replay workflow, paper trading UI, or trading control exists. The RC-11 candlestick chart is a
+No replay workflow, paper trading UI, or trading control exists. The RC-12 candlestick chart is a
 recent research-signal display only and does not load full historical signal markers.
 
 ## Local Workbench FAQ
@@ -221,12 +226,13 @@ recent research-signal display only and does not load full historical signal mar
   entry, leverage, position size, order placement, wallet, or private/authenticated controls.
 - Signal markers are capped to recent markers from `/signals/console` and are not a replay of all
   historical signals.
-- The backtest preview is collapsed by default. Open it only when needed; it is a small-sample
-  research preview, not a predictive guarantee or real trading performance.
+- Observation Preview is collapsed by default. Open it only when needed; it is a small-sample
+  directional check, not a backtest, predictive guarantee, or real trading performance.
 - Auto refresh is browser-local polling for display freshness only. It is off by default, has
   15s/30s/60s options, and live mode floors 15s to 30s. It is not automatic trading.
-- Signal history is browser-local recent signal state, capped at 20 entries. It is not a trade log,
-  backtest, replay engine, or performance record.
+- Signal Observation Log is browser-local localStorage state, keeps the latest 100 observations,
+  displays the latest 20, and resolves pending observations close-to-close after 5m/10m. Directional
+  match rate is not return, win rate, trading performance, or settlement accuracy.
 - If live mode shows `NO_SIGNAL`, inspect warnings and fail-closed reasons first. Fixture mode is
   the deterministic default for local checks.
 
@@ -257,7 +263,7 @@ make smoke
 ```
 
 The smoke suite starts the fixture-backed API gateway and web app locally, then checks the scanner
-home page, Event Signal Console default state, on-demand backtest preview, and one deterministic
+home page, Event Signal Console default state, on-demand Observation Preview, and one deterministic
 Market Detail URL through `/markets/:id/detail`. It does not call live vendors, compute real
 pricing, or test trading behavior. Live OHLCV tests use mocked Coinbase Exchange responses.
 
@@ -294,6 +300,7 @@ should be reviewed as public local API contract changes, not incidental formatti
 - RC-8 live OHLCV adapter decision: `docs/adr/0013-rc8-live-ohlcv-source-adapter.md`
 - RC-9 event signal console decision: `docs/adr/0014-rc9-event-signal-console-and-confluence-engine.md`
 - RC-11 signal runtime decision: `docs/adr/0015-rc11-signal-runtime-and-tuning.md`
+- RC-12 reality observation decision: `docs/adr/0016-rc12-reality-observation-and-strategy-tuning.md`
 - Source registry: `docs/source_registry.md`
 - Collaboration rules: `AGENTS.md`
 

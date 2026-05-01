@@ -9,6 +9,7 @@ import type {
   ScannerCandidate,
   ScannerTopResponse,
   SignalHorizon,
+  SignalProfileName,
   SignalSymbol,
   TimeWindow
 } from "@ept/shared-types";
@@ -38,6 +39,8 @@ type SearchParams = Promise<{
   consoleSymbol?: string;
   consoleHorizon?: string;
   consoleSourceMode?: string;
+  consoleProfile?: string;
+  consoleObservationPreview?: string;
   consoleBacktest?: string;
   consoleRefresh?: string;
 }>;
@@ -53,7 +56,8 @@ type ScannerFilters = {
   consoleSymbol: SignalSymbol;
   consoleHorizon: SignalHorizon;
   consoleSourceMode: ResearchSignalSourceMode;
-  consoleBacktest: boolean;
+  consoleProfile: SignalProfileName;
+  consoleObservationPreview: boolean;
   consoleRefresh: string;
 };
 
@@ -298,10 +302,11 @@ async function loadEventSignalConsole(filters: ScannerFilters): Promise<{
   const params = new URLSearchParams({
     symbol: filters.consoleSymbol,
     horizon: filters.consoleHorizon,
-    sourceMode: filters.consoleSourceMode
+    sourceMode: filters.consoleSourceMode,
+    profile: filters.consoleProfile
   });
-  if (filters.consoleBacktest) {
-    params.set("includeBacktest", "true");
+  if (filters.consoleObservationPreview) {
+    params.set("includeObservationPreview", "true");
   }
   try {
     const response = await fetch(`${apiBaseUrl}/signals/console?${params.toString()}`, {
@@ -335,7 +340,8 @@ function parseFilters(params: Awaited<SearchParams>): ScannerFilters {
     consoleSymbol: params.consoleSymbol === "ETH" ? "ETH" : "BTC",
     consoleHorizon: params.consoleHorizon === "10m" ? "10m" : "5m",
     consoleSourceMode: params.consoleSourceMode === "live" ? "live" : "fixture",
-    consoleBacktest: params.consoleBacktest === "1",
+    consoleProfile: parseConsoleProfile(params.consoleProfile),
+    consoleObservationPreview: params.consoleObservationPreview === "1" || params.consoleBacktest === "1",
     consoleRefresh: typeof params.consoleRefresh === "string" ? params.consoleRefresh.slice(0, 32) : ""
   };
 }
@@ -434,6 +440,8 @@ function QuerySearch({ current }: { current: ScannerFilters }) {
         {current.consoleSymbol !== "BTC" ? <input name="consoleSymbol" type="hidden" value={current.consoleSymbol} /> : null}
         {current.consoleHorizon !== "5m" ? <input name="consoleHorizon" type="hidden" value={current.consoleHorizon} /> : null}
         {current.consoleSourceMode === "live" ? <input name="consoleSourceMode" type="hidden" value="live" /> : null}
+        {current.consoleProfile !== "balanced" ? <input name="consoleProfile" type="hidden" value={current.consoleProfile} /> : null}
+        {current.consoleObservationPreview ? <input name="consoleObservationPreview" type="hidden" value="1" /> : null}
         {current.consoleRefresh ? <input name="consoleRefresh" type="hidden" value={current.consoleRefresh} /> : null}
         <input
           className="min-h-9 border border-slate-700 bg-slate-950 px-2 text-sm text-slate-100 placeholder:text-slate-600"
@@ -467,7 +475,8 @@ function scannerHref(current: ScannerFilters, updates: Partial<ScannerFilters>) 
     consoleSymbol: updates.consoleSymbol ?? current.consoleSymbol,
     consoleHorizon: updates.consoleHorizon ?? current.consoleHorizon,
     consoleSourceMode: updates.consoleSourceMode ?? current.consoleSourceMode,
-    consoleBacktest: updates.consoleBacktest ?? current.consoleBacktest,
+    consoleProfile: updates.consoleProfile ?? current.consoleProfile,
+    consoleObservationPreview: updates.consoleObservationPreview ?? current.consoleObservationPreview,
     consoleRefresh: updates.consoleRefresh ?? current.consoleRefresh
   };
   const params = new URLSearchParams();
@@ -495,14 +504,21 @@ function scannerHref(current: ScannerFilters, updates: Partial<ScannerFilters>) 
   if (next.consoleSourceMode === "live") {
     params.set("consoleSourceMode", "live");
   }
-  if (next.consoleBacktest) {
-    params.set("consoleBacktest", "1");
+  if (next.consoleProfile !== "balanced") {
+    params.set("consoleProfile", next.consoleProfile);
+  }
+  if (next.consoleObservationPreview) {
+    params.set("consoleObservationPreview", "1");
   }
   if (next.consoleRefresh) {
     params.set("consoleRefresh", next.consoleRefresh);
   }
   const query = params.toString();
   return query ? `/?${query}` : "/";
+}
+
+function parseConsoleProfile(value?: string): SignalProfileName {
+  return value === "conservative" || value === "aggressive" ? value : "balanced";
 }
 
 function ResearchStatusStrip({
@@ -604,46 +620,50 @@ function EventSignalConsolePanel({
 }) {
   return (
     <section className="border border-slate-800 bg-[#0b111d] shadow-2xl shadow-black/30" data-testid="event-signal-console">
-      <header className="grid gap-4 border-b border-slate-800 p-4 xl:grid-cols-[minmax(0,1fr)_minmax(560px,0.95fr)]">
-        <div>
-          <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-cyan-300">
-            <span>Event Probability Terminal</span>
-            <span className="text-slate-600">/</span>
-            <span>RC-10 Workbench</span>
+      <header className="grid gap-4 border-b border-slate-800 p-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-cyan-300">
+              <span>Event Probability Terminal</span>
+              <span className="text-slate-600">/</span>
+              <span>Reality Mode</span>
+              <SourceModeBadge sourceMode={current.consoleSourceMode} />
+            </div>
+            <h1 className="mt-2 text-2xl font-semibold text-slate-50 md:text-3xl">Event Probability Terminal</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+              One-screen research console for signal reason, veto state, event window, and local directional observation.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              <WorkbenchBadge>Research only</WorkbenchBadge>
+              <WorkbenchBadge>Not trade advice</WorkbenchBadge>
+              <WorkbenchBadge>No auto trading</WorkbenchBadge>
+            </div>
           </div>
-          <h1 className="mt-2 text-2xl font-semibold text-slate-50 md:text-3xl">Event Signal Workbench</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-            BTC/ETH short-horizon research console with recent K-line markers, confluence scoring, and fail-closed risk filters.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2 text-xs">
-            <WorkbenchBadge>Research only</WorkbenchBadge>
-            <WorkbenchBadge>Not trade advice</WorkbenchBadge>
-            <WorkbenchBadge>No auto trading</WorkbenchBadge>
-          </div>
-        </div>
-        <div className="grid gap-3 rounded border border-slate-800 bg-[#070b12] p-3">
-          <div className="grid gap-3 md:grid-cols-3">
-            <ConsoleSelector current={current} label="Symbol" options={["BTC", "ETH"]} paramName="consoleSymbol" />
-            <ConsoleSelector current={current} label="Horizon" options={["5m", "10m"]} paramName="consoleHorizon" />
-            <ConsoleSelector current={current} label="Source" options={["fixture", "live"]} paramName="consoleSourceMode" />
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <a
-              className="border border-cyan-500/70 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-500/20"
-              href={scannerHref(current, { consoleRefresh: String(Date.now()) })}
-            >
-              Refresh
-            </a>
-            <Link
-              className={`border px-3 py-2 text-xs font-semibold ${
-                current.consoleBacktest
-                  ? "border-amber-400/70 bg-amber-400/10 text-amber-100"
-                  : "border-slate-700 bg-slate-900 text-slate-300 hover:border-amber-400/70"
-              }`}
-              href={scannerHref(current, { consoleBacktest: !current.consoleBacktest })}
-            >
-              {current.consoleBacktest ? "Hide backtest preview" : "Show backtest preview"}
-            </Link>
+          <div className="grid gap-3 border border-slate-800 bg-[#070b12] p-3 xl:min-w-[720px]">
+            <div className="grid gap-3 md:grid-cols-4">
+              <ConsoleSelector current={current} label="Symbol" options={["BTC", "ETH"]} paramName="consoleSymbol" />
+              <ConsoleSelector current={current} label="Horizon" options={["5m", "10m"]} paramName="consoleHorizon" />
+              <ConsoleSelector current={current} label="Source" options={["live", "fixture"]} paramName="consoleSourceMode" />
+              <ConsoleSelector current={current} label="Profile" options={["balanced", "conservative", "aggressive"]} paramName="consoleProfile" />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                className="border border-cyan-500/70 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-500/20"
+                href={scannerHref(current, { consoleRefresh: String(Date.now()) })}
+              >
+                Refresh
+              </a>
+              <Link
+                className={`border px-3 py-2 text-xs font-semibold ${
+                  current.consoleObservationPreview
+                    ? "border-amber-400/70 bg-amber-400/10 text-amber-100"
+                    : "border-slate-700 bg-slate-900 text-slate-300 hover:border-amber-400/70"
+                }`}
+                href={scannerHref(current, { consoleObservationPreview: !current.consoleObservationPreview })}
+              >
+                {current.consoleObservationPreview ? "Hide observation preview" : "Open observation preview"}
+              </Link>
+            </div>
           </div>
         </div>
       </header>
@@ -660,17 +680,24 @@ function EventSignalConsolePanel({
             <div className="border border-slate-800 bg-[#070b12] p-4" data-testid="signal-hero">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Current signal</div>
+                  <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Signal Hero</div>
                   <div className="mt-2 flex flex-wrap items-center gap-3">
                     <SignalDirectionBadge direction={console.currentSignal.direction} size="lg" />
+                    <SourceModeBadge sourceMode={console.sourceMode} />
                     <span className="text-lg font-semibold text-slate-100">
-                      {console.symbol} {console.horizon} / {displaySourceMode(console.sourceMode)}
+                      {console.symbol} {console.horizon}
                     </span>
+                  </div>
+                  <div className="mt-3 grid gap-1 text-xs text-slate-500 sm:grid-cols-2">
+                    <div>Profile: {console.profileName}</div>
+                    <div>Observation: {console.observationCandidate.canObserve ? "ready" : "limited"}</div>
+                    <div>Latest candle: {formatTime(console.currentSignal.dataQuality.freshness.latestClosedAt)}</div>
+                    <div>Source: {displaySource(console.meta.sourceName)}</div>
                   </div>
                 </div>
                 <div className="text-right text-xs text-slate-500">
-                  <div>Source: {displaySource(console.currentSignal.source)}</div>
                   <div>Generated: {formatTime(console.meta.generatedAt)}</div>
+                  <div>{console.eventWindow.isReferenceApproximation ? "Reference approximation" : "Reference confirmed"}</div>
                 </div>
               </div>
             </div>
@@ -694,7 +721,9 @@ function EventSignalConsolePanel({
                 <div className="flex flex-wrap gap-2 text-xs">
                   <MarkerKey label="LONG bias" tone="long" />
                   <MarkerKey label="SHORT bias" tone="short" />
-                  <MarkerKey label="NO_SIGNAL" tone="neutral" />
+                  <MarkerKey label="pending" tone="pending" />
+                  <MarkerKey label="hit" tone="hit" />
+                  <MarkerKey label="miss" tone="miss" />
                 </div>
               </div>
               <ConsoleCandlestickChart candles={console.recentCandles} markers={console.recentMarkers} />
@@ -729,7 +758,7 @@ function EventSignalConsolePanel({
                   <RiskPill label="Mean revert" value={console.riskFilters.meanReversion} />
                 </div>
               </section>
-              <BacktestPreviewPanel console={console} current={current} />
+              <ObservationPreviewPanel console={console} current={current} />
             </div>
           </section>
         </div>
@@ -746,7 +775,7 @@ function ConsoleSelector({
 }: {
   label: string;
   options: string[];
-  paramName: "consoleSymbol" | "consoleHorizon" | "consoleSourceMode";
+  paramName: "consoleSymbol" | "consoleHorizon" | "consoleSourceMode" | "consoleProfile";
   current: ScannerFilters;
 }) {
   return (
@@ -760,10 +789,10 @@ function ConsoleSelector({
               className={`border px-2 py-1 ${
                 active ? "border-cyan-400 bg-cyan-400/10 text-cyan-100" : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-500"
               }`}
-              href={scannerHref(current, { [paramName]: value, consoleBacktest: false } as Partial<ScannerFilters>)}
+              href={scannerHref(current, { [paramName]: value, consoleObservationPreview: false } as Partial<ScannerFilters>)}
               key={value}
             >
-              {value}
+              {displaySelectorValue(paramName, value)}
             </Link>
           );
         })}
@@ -774,6 +803,29 @@ function ConsoleSelector({
 
 function WorkbenchBadge({ children }: { children: React.ReactNode }) {
   return <span className="border border-slate-700 bg-slate-900 px-2 py-1 text-slate-300">{children}</span>;
+}
+
+function SourceModeBadge({ sourceMode }: { sourceMode: ResearchSignalSourceMode }) {
+  const fixture = sourceMode === "fixture";
+  return (
+    <span
+      className={`border px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${
+        fixture
+          ? "border-amber-400/70 bg-amber-400/10 text-amber-100"
+          : "border-emerald-400/70 bg-emerald-400/10 text-emerald-100"
+      }`}
+      data-testid={fixture ? "dev-fixture-badge" : "live-badge"}
+    >
+      {fixture ? "DEV FIXTURE" : "LIVE"}
+    </span>
+  );
+}
+
+function displaySelectorValue(paramName: "consoleSymbol" | "consoleHorizon" | "consoleSourceMode" | "consoleProfile", value: string) {
+  if (paramName === "consoleSourceMode") {
+    return value === "fixture" ? "DEV FIXTURE" : "LIVE";
+  }
+  return value;
 }
 
 function HeroMetric({
@@ -801,8 +853,17 @@ function HeroMetric({
   );
 }
 
-function MarkerKey({ label, tone }: { label: string; tone: "long" | "short" | "neutral" }) {
-  const color = tone === "long" ? "bg-emerald-400" : tone === "short" ? "bg-rose-400" : "bg-slate-400";
+function MarkerKey({ label, tone }: { label: string; tone: "long" | "short" | "pending" | "hit" | "miss" }) {
+  const color =
+    tone === "long"
+      ? "bg-emerald-400"
+      : tone === "short"
+        ? "bg-rose-400"
+        : tone === "pending"
+          ? "bg-amber-300"
+          : tone === "hit"
+            ? "bg-cyan-300"
+            : "bg-fuchsia-300";
   return (
     <span className="inline-flex items-center gap-1 text-slate-400">
       <span className={`h-2 w-2 ${color}`} />
@@ -905,26 +966,26 @@ function ReasonList({
   );
 }
 
-function BacktestPreviewPanel({
+function ObservationPreviewPanel({
   console,
   current
 }: {
   console: EventSignalConsoleResponse;
   current: ScannerFilters;
 }) {
-  if (!console.backtestPreview.enabled) {
+  if (!console.observationPreview.enabled) {
     return (
-      <section className="border border-slate-800 bg-[#070b12] p-3" data-testid="backtest-drawer">
+      <section className="border border-slate-800 bg-[#070b12] p-3" data-testid="observation-preview">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-slate-100">Backtest Preview</h3>
-            <p className="mt-1 text-xs text-slate-500">Collapsed by default. Loads only after user action.</p>
+            <h3 className="text-sm font-semibold text-slate-100">Observation Preview</h3>
+            <p className="mt-1 text-xs text-slate-500">Collapsed by default. Local observation only.</p>
           </div>
           <Link
             className="border border-amber-400/70 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-400/20"
-            href={scannerHref(current, { consoleBacktest: true })}
+            href={scannerHref(current, { consoleObservationPreview: true })}
           >
-            Show backtest preview
+            Open observation preview
           </Link>
         </div>
       </section>
@@ -932,27 +993,27 @@ function BacktestPreviewPanel({
   }
 
   return (
-    <section className="border border-amber-500/40 bg-amber-500/5 p-3" data-testid="backtest-drawer">
+    <section className="border border-amber-500/40 bg-amber-500/5 p-3" data-testid="observation-preview">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-slate-100">Backtest Preview</h3>
-          <p className="mt-1 text-xs text-amber-100">Small local sample. Research only.</p>
+          <h3 className="text-sm font-semibold text-slate-100">Observation Preview</h3>
+          <p className="mt-1 text-xs text-amber-100">Small-sample directional check. Not trading performance.</p>
         </div>
         <Link
           className="border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-300 hover:border-slate-500"
-          href={scannerHref(current, { consoleBacktest: false })}
+          href={scannerHref(current, { consoleObservationPreview: false })}
         >
           Hide preview
         </Link>
       </div>
       <div className="mt-3 grid gap-2 text-xs text-slate-300 sm:grid-cols-4">
-        <Metric label="Sample size" value={`${console.backtestPreview.sampleSize}`} />
-        <Metric label="Win rate" value={formatNullableProb(console.backtestPreview.winRate)} />
-        <Metric label="Average move" value={formatNullableReturn(console.backtestPreview.averageReturn)} />
-        <Metric label="Max drawdown proxy" value={formatNullableReturn(console.backtestPreview.maxDrawdownProxy)} />
+        <Metric label="Sample size" value={`${console.observationPreview.sampleSize}`} />
+        <Metric label="Directional match rate" value={formatNullableProb(console.observationPreview.directionalMatchRate)} />
+        <Metric label="Pending" value={`${console.observationPreview.pendingCount}`} />
+        <Metric label="Invalidated" value={`${console.observationPreview.invalidatedCount}`} />
       </div>
       <ul className="mt-3 grid gap-1 text-xs leading-5 text-slate-400">
-        {console.backtestPreview.caveats.map((caveat) => (
+        {console.observationPreview.caveats.map((caveat) => (
           <li key={caveat}>{caveat}</li>
         ))}
       </ul>
@@ -1052,7 +1113,7 @@ function ResearchSignalPanel({
 }
 
 function displaySourceMode(sourceMode: ResearchSignalSourceMode) {
-  return sourceMode === "live" ? "Live" : "Fixture";
+  return sourceMode === "live" ? "LIVE" : "DEV FIXTURE";
 }
 
 function displaySource(source: ResearchSignal["source"]) {
@@ -1084,7 +1145,10 @@ function scoreTone(value: number): "good" | "bad" | "warn" | "neutral" {
   return "neutral";
 }
 
-function formatTime(value: string) {
+function formatTime(value: string | null) {
+  if (!value) {
+    return "n/a";
+  }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return "n/a";

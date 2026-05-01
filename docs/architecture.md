@@ -40,12 +40,13 @@ The scanner page also renders a Research Signal Panel. It shows fixture/default 
 source name, freshness, warnings, and fail-closed reasons. It does not show buy/sell language,
 leverage, position size, order forms, or trading controls.
 
-The scanner page also renders Event Signal Workbench RC-11. It provides BTC/ETH, 5m/10m, and
-fixture/live selectors; a current research signal; confluence score breakdown; risk filters;
-recent candlestick chart; recent-only signal markers capped at 20; low-frequency browser-local auto
-refresh controls; local recent signal history; active profile display; and an on-demand backtest
-preview. The backtest preview is collapsed by default and does not run unless requested by the
-user. Auto refresh is display polling only and is not automated trading.
+The scanner page also renders Event Signal Reality Mode RC-12. It provides BTC/ETH, 5m/10m,
+LIVE/DEV FIXTURE, and profile selectors; a current research signal; confluence score breakdown;
+risk filters; event-window metadata; recent candlestick chart; recent-only signal markers capped at
+20; low-frequency browser-local auto refresh controls; browser-local Signal Observation Log;
+Observation Feedback; and an on-demand Observation Preview. Observation Preview is collapsed by
+default and does not run unless requested by the user. Auto refresh is display polling only and is
+not automated trading. Observation data lives in localStorage only and is not a trade log.
 
 ### API Gateway
 
@@ -81,10 +82,12 @@ It does not call X, news, macro, wallet, or vendor trading APIs.
 
 `GET /signals/console` exposes `EventSignalConsoleResponse` for one selected BTC/ETH 5m/10m
 research console. Fixture mode is default. `sourceMode=live` uses the same Coinbase Exchange
-adapter boundary and fail-closed behavior as `/signals/research`. `includeBacktest=true` is the
-only path that computes the lightweight backtest preview. The endpoint returns recent candles and
-recent markers only; it does not return a full historical signal overlay. RC-11 includes the active
-`balanced` profile name in signal/console payloads.
+adapter boundary and fail-closed behavior as `/signals/research`. `profile=balanced|conservative|aggressive`
+selects research thresholds only. `includeObservationPreview=true` is the only path that computes
+the lightweight local directional preview. The endpoint returns event-window fields, an
+observation candidate, recent candles, and recent markers only; it does not return a full
+historical signal overlay. The legacy `backtestPreview` field remains as a compatibility alias but
+the UI labels this surface Observation Preview.
 
 ### Market Ingestor
 
@@ -113,6 +116,9 @@ Live public mode exists as an adapter transport path, but BTC/ETH and 10m/1h cla
 - `RiskFilterSummary`
 - `SignalMarker`
 - `BacktestPreview`
+- `ObservationPreview`
+- `EventWindow`
+- `SignalObservationCandidate`
 - `EventSignalConsoleResponse`
 
 The types intentionally avoid encoding unconfirmed upstream Polymarket fields as stable domain contracts.
@@ -155,10 +161,10 @@ snapshots, data quality, risk filters, invalidation notes, and fail-closed reaso
 pricing engine and does not produce fair probabilities, trade advice, orders, leverage, or position
 sizing.
 
-RC-11 moves key confluence thresholds into the `balanced` signal profile with separate 5m and 10m
-thresholds. The no-trade filter vetoes flat EMA slope, flat MACD histogram, narrow volatility,
-extreme volatility, stale/insufficient data, and module conflicts before any directional bias can
-be emitted.
+RC-12 moves strategy tuning into `balanced`, `conservative`, and `aggressive` research profiles
+with separate 5m and 10m thresholds. The no-trade filter vetoes flat EMA slope, flat MACD
+histogram, Bollinger squeeze, extreme volatility, stale/insufficient data, event-risk context, and
+module conflicts before any directional bias can be emitted.
 
 The Coinbase Exchange adapter maps `BTC` to `BTC-USD` and `ETH` to `ETH-USD`, maps `1m` to
 `granularity=60`, safe-parses candle arrays, sorts by start time, drops incomplete candles, enforces
@@ -179,10 +185,12 @@ uses mocked fetches only.
 9. If `sourceMode=live` is explicitly requested, API gateway calls the research-signals OHLCV
    adapter boundary for Coinbase Exchange public candles, then uses the same indicator/rule engine.
 10. API gateway computes Event Signal Console payloads through `@ept/research-signals`, returning
-    recent candles, recent markers, confluence, risk filters, and optionally a small backtest
-    preview.
+    recent candles, recent markers, confluence, risk filters, event-window metadata, observation
+    candidates, and optionally a small Observation Preview.
 11. Web runtime controls may poll the same console endpoint at user-selected low-frequency
-    intervals and keep a browser-local recent signal history capped at 20 entries.
+    intervals, resolve pending local observations when their 5m/10m window has elapsed, dedupe new
+    observations by cooldown/score/profile, and keep browser-local observation storage capped at
+    100 entries with 20 displayed.
 12. API gateway strips raw upstream payloads before returning API responses.
 
 ## Current Infrastructure
@@ -203,9 +211,10 @@ uses mocked fetches only.
   adapter responses.
 - Event Signal Console markers must remain recent-only; full-history signal display belongs in
   future replay/stats workflows, not the primary chart.
-- Backtest preview must remain on-demand, small-sample, and explicitly non-predictive.
+- Observation Preview must remain on-demand, small-sample, and explicitly non-predictive. Directional
+  match rate is not return, settlement accuracy, or trading performance.
 - Auto refresh must remain UI polling only; it must not submit orders, connect accounts, or imply
-  automated trading. Signal history must remain browser-local and must not become a trade log.
+  automated trading. Signal Observation Log must remain browser-local and must not become a trade log.
 - Pricing-engine v1 is research-only until data freshness and validation gates are satisfied.
 - No non-placeholder Up/Down pricing without confirmed payoff specification, reference level, and
   settlement rule.

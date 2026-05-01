@@ -89,6 +89,7 @@ export function ConsoleCandlestickChart({ candles, markers }: Props) {
       className="min-h-[360px] w-full border border-slate-800 bg-[#070b12]"
       data-testid="event-signal-chart"
       ref={containerRef}
+      style={{ minHeight: 360 }}
     />
   );
 }

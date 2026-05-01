@@ -278,23 +278,24 @@ function filterVetoReasons(
   if (input.context.marketEventRiskFlag) {
     reasons.push("Context veto: manual event-risk flag is active.");
   }
+  const emaGapRatio = Math.abs(ratio(input.features.ema.fast - input.features.ema.slow, input.features.lastClose));
   const emaSlopeRatio = Math.abs(ratio(input.features.ema.slope, input.features.lastClose));
   const macdAtrRatio = Math.abs(ratio(input.features.macd.histogram, input.features.volatility.atr || input.features.lastClose));
   const macdPriceRatio = Math.abs(ratio(input.features.macd.histogram, input.features.lastClose));
-  if (emaSlopeRatio < threshold.minEmaSlopeRatio && Math.abs(momentumScore) < 0.72) {
-    reasons.push("Trend veto: EMA slope is too flat for a short-horizon directional bias.");
+  if (emaSlopeRatio < threshold.minEmaSlopeRatio && emaGapRatio < threshold.minTrendAbs * 0.0018 && Math.abs(momentumScore) < threshold.strongMomentumBypassAbs) {
+    reasons.push("Trend veto: fast/slow EMA are too close and EMA slope is too flat for a short-horizon directional bias.");
   }
-  if ((macdAtrRatio < threshold.minMacdHistogramAtrRatio || macdPriceRatio < threshold.minMacdHistogramAtrRatio) && Math.abs(momentumScore) < 0.72) {
-    reasons.push("Momentum veto: MACD histogram is too flat for directional confirmation.");
+  if ((macdAtrRatio < threshold.minMacdHistogramAtrRatio || macdPriceRatio < threshold.minMacdHistogramAtrRatio) && Math.abs(momentumScore) < threshold.strongMomentumBypassAbs) {
+    reasons.push("Momentum veto: MACD histogram is too flat and histogram slope is not decisive.");
   }
   if (input.features.volatility.regime === "low" || input.features.bollinger.squeeze || input.features.bollinger.bandwidth < threshold.minVolatilityBandwidth) {
-    reasons.push("Volatility veto: too-low volatility or Bollinger squeeze for short-horizon signal.");
+    reasons.push("Volatility veto: Bollinger bandwidth squeeze or too-low volatility for short-horizon signal.");
   }
   if (input.features.bollinger.bandwidth > threshold.maxExtremeVolatilityBandwidth || ratio(input.features.volatility.atr, input.features.lastClose) > threshold.maxExtremeAtrRatio) {
     reasons.push("Volatility veto: extreme short-horizon volatility regime.");
   }
   if (reversalRisk >= 0.45 && Math.sign(trendScore) !== 0 && Math.sign(momentumScore) !== Math.sign(trendScore)) {
-    reasons.push("Reversal veto: RSI extreme is not confirmed by trend and momentum alignment.");
+    reasons.push("Reversal veto: RSI reversal risk conflicts with trend-continuation evidence.");
   }
   if (chopRisk >= threshold.maxChopRisk) {
     reasons.push("Chop veto: short-term direction conflict or range-bound conditions are too high.");
@@ -313,8 +314,15 @@ function filterVetoReasons(
   ) {
     reasons.push("Conflict veto: trend, momentum, and volume modules are not aligned.");
   }
-  if (Math.abs(volumeScore) < 0.1 && Math.abs(momentumScore) < 0.72) {
-    reasons.push("Confirmation veto: no abnormal volume confirmation for a moderate momentum setup.");
+  const fiveMinute = input.features.returns.fiveMinute ?? 0;
+  if (Math.sign(fiveMinute) !== 0 && Math.sign(volumeScore) !== 0 && Math.sign(fiveMinute) !== Math.sign(volumeScore)) {
+    reasons.push("Conflict veto: price action and volume confirmation point in opposite directions.");
+  }
+  if (Math.sign(fiveMinute) !== 0 && input.features.volume.zScore < -0.4 && Math.abs(momentumScore) > 0.2) {
+    reasons.push("Conflict veto: price action and volume participation conflict for the attempted direction.");
+  }
+  if (Math.abs(volumeScore) < threshold.minDirectionalVolumeScore && Math.abs(momentumScore) < threshold.strongMomentumBypassAbs) {
+    reasons.push("Confirmation veto: volume confirmation is below the selected profile requirement.");
   }
   return reasons;
 }

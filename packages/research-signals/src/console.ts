@@ -2,15 +2,19 @@ import {
   API_CONTRACT_VERSION,
   type BacktestPreview,
   type EventSignalConsoleResponse,
+  type EventWindow,
   type OHLCVFetchRequest,
   type OHLCVFetchResult,
   type OhlcvCandle,
   type OhlcvSource,
+  type ObservationPreview,
   type ResearchSignal,
   type ResearchSignalSourceMode,
+  type SignalObservationCandidate,
   type SignalContextSnapshot,
   type SignalHorizon,
   type SignalMarker,
+  type SignalProfileName,
   type SignalSymbol
 } from "@ept/shared-types";
 import { buildFeatureSnapshot } from "./indicators.js";
@@ -34,7 +38,9 @@ export type BuildEventSignalConsoleInput = {
   symbol: SignalSymbol;
   horizon: SignalHorizon;
   generatedAt: string;
+  includeObservationPreview?: boolean;
   includeBacktest?: boolean;
+  profileName?: SignalProfileName;
 };
 
 export type BuildLiveEventSignalConsoleInput = BuildEventSignalConsoleInput & {
@@ -51,13 +57,14 @@ export function buildFixtureEventSignalConsole(input: BuildEventSignalConsoleInp
       candles: [],
       sourceMode: "fixture",
       source: "fixture",
-      isFixtureBacked: true
+      isFixtureBacked: true,
+      ...(input.profileName ? { profileName: input.profileName } : {})
     });
     return buildConsoleResponse({
       signal: emptySignal,
       candles: [],
       generatedAt: input.generatedAt,
-      includeBacktest: input.includeBacktest ?? false
+      includeObservationPreview: input.includeObservationPreview ?? input.includeBacktest ?? false
     });
   }
 
@@ -70,13 +77,14 @@ export function buildFixtureEventSignalConsole(input: BuildEventSignalConsoleInp
     generatedAt: input.generatedAt,
     sourceMode: "fixture",
     source: "fixture",
-    isFixtureBacked: true
+    isFixtureBacked: true,
+    ...(input.profileName ? { profileName: input.profileName } : {})
   });
   return buildConsoleResponse({
     signal,
     candles,
     generatedAt: input.generatedAt,
-    includeBacktest: input.includeBacktest ?? false
+    includeObservationPreview: input.includeObservationPreview ?? input.includeBacktest ?? false
   });
 }
 
@@ -105,13 +113,14 @@ export async function buildLiveEventSignalConsole(
     symbol: input.symbol,
     horizon: input.horizon,
     generatedAt: input.generatedAt,
-    result
+    result,
+    ...(input.profileName ? { profileName: input.profileName } : {})
   });
   return buildConsoleResponse({
     signal,
     candles: result.candles,
     generatedAt: input.generatedAt,
-    includeBacktest: input.includeBacktest ?? false
+    includeObservationPreview: input.includeObservationPreview ?? input.includeBacktest ?? false
   });
 }
 
@@ -119,21 +128,24 @@ function buildConsoleResponse(input: {
   signal: ResearchSignal;
   candles: OhlcvCandle[];
   generatedAt: string;
-  includeBacktest: boolean;
+  includeObservationPreview: boolean;
 }): EventSignalConsoleResponse {
   const recentCandles = input.candles.slice(-RECENT_CANDLE_LIMIT);
+  const eventWindow = buildEventWindow(input.signal, input.candles);
   const recentMarkers = buildRecentSignalMarkers({
     signal: input.signal,
     candles: input.candles,
     maxMarkers: RECENT_MARKER_LIMIT
   });
-  const backtestPreview = input.includeBacktest
-    ? runLightweightBacktest(input.signal, input.candles)
-    : disabledBacktestPreview();
+  const observationPreview = input.includeObservationPreview
+    ? runObservationPreview(input.signal, input.candles)
+    : disabledObservationPreview();
+  const backtestPreview = toLegacyBacktestPreview(observationPreview);
   const warnings = unique([
     ...input.signal.dataQuality.warnings,
     ...input.signal.confluence.vetoReasons,
     ...input.signal.failClosedReasons,
+    ...eventWindow.warnings,
     "Research only. Not trade advice. No auto trading."
   ]);
 
@@ -158,11 +170,14 @@ function buildConsoleResponse(input: {
     symbol: input.signal.symbol,
     horizon: input.signal.horizon,
     sourceMode: input.signal.sourceMode,
+    eventWindow,
+    observationCandidate: buildObservationCandidate(input.signal, eventWindow, input.generatedAt),
     currentSignal: input.signal,
     confluence: input.signal.confluence,
     riskFilters: input.signal.riskFilters,
     recentCandles,
     recentMarkers,
+    observationPreview,
     backtestPreview,
     warnings
   };
@@ -186,24 +201,12 @@ function buildRecentSignalMarkers(input: {
       source: input.signal.source,
       sourceMode: input.signal.sourceMode,
       isLive: input.signal.sourceMode === "live",
-      isFixtureBacked: input.signal.sourceMode === "fixture"
+      isFixtureBacked: input.signal.sourceMode === "fixture",
+      profileName: input.signal.profileName
     });
     if (marker && marker.direction !== "NO_SIGNAL") {
       markers.push(marker);
     }
-  }
-
-  const latest = input.candles.at(-1);
-  if (latest && markers.length === 0) {
-    markers.push({
-      time: latest.timestamp,
-      price: latest.close,
-      direction: "NO_SIGNAL",
-      score: input.signal.score,
-      confidence: input.signal.confidence,
-      reasonSummary: input.signal.confluence.vetoReasons[0] ?? input.signal.reasons[0] ?? "No recent directional confluence.",
-      isRecentOnly: true
-    });
   }
 
   return markers.slice(-input.maxMarkers);
@@ -218,6 +221,7 @@ function markerFromWindow(input: {
   sourceMode: ResearchSignalSourceMode;
   isLive: boolean;
   isFixtureBacked: boolean;
+  profileName: SignalProfileName;
 }): SignalMarker | undefined {
   const latest = input.window.at(-1);
   if (!latest || input.window.length < REQUIRED_CANDLE_COUNT) {
@@ -233,7 +237,8 @@ function markerFromWindow(input: {
     source: input.source,
     sourceMode: input.sourceMode,
     isLive: input.isLive,
-    isFixtureBacked: input.isFixtureBacked
+    isFixtureBacked: input.isFixtureBacked,
+    profileName: input.profileName
   });
   return {
     time: latest.timestamp,
@@ -242,13 +247,14 @@ function markerFromWindow(input: {
     score: signal.score,
     confidence: signal.confidence,
     reasonSummary: signal.confluence.vetoReasons[0] ?? signal.confluence.reasons[0] ?? signal.reasons[0] ?? "Confluence evaluated.",
-    isRecentOnly: true
+    isRecentOnly: true,
+    markerType: "signal"
   };
 }
 
-function runLightweightBacktest(signal: ResearchSignal, candles: OhlcvCandle[]): BacktestPreview {
+function runObservationPreview(signal: ResearchSignal, candles: OhlcvCandle[]): ObservationPreview {
   const horizonSteps = signal.horizon === "5m" ? 5 : 10;
-  const records: number[] = [];
+  const records: boolean[] = [];
   for (let endIndex = REQUIRED_CANDLE_COUNT - 1; endIndex + horizonSteps < candles.length; endIndex += 1) {
     const window = candles.slice(endIndex - REQUIRED_CANDLE_COUNT + 1, endIndex + 1);
     const latest = window.at(-1);
@@ -278,14 +284,15 @@ function runLightweightBacktest(signal: ResearchSignal, candles: OhlcvCandle[]):
       context: signal.context,
       failClosedReasons: signal.context.marketEventRiskFlag
         ? ["Context veto: manual event-risk flag is active."]
-        : []
+        : [],
+      profileName: signal.profileName
     });
     const direction = evaluation.confluence.direction;
     if (direction === "NO_SIGNAL") {
       continue;
     }
     const rawMove = latest.close === 0 ? 0 : (future.close - latest.close) / latest.close;
-    records.push(direction === "LONG" ? rawMove : -rawMove);
+    records.push(direction === "LONG" ? rawMove > 0 : rawMove < 0);
   }
 
   if (records.length === 0) {
@@ -293,10 +300,10 @@ function runLightweightBacktest(signal: ResearchSignal, candles: OhlcvCandle[]):
       enabled: true,
       status: "insufficient",
       sampleSize: 0,
-      winRate: null,
-      averageReturn: null,
-      maxDrawdownProxy: null,
-      caveats: backtestCaveats()
+      directionalMatchRate: null,
+      pendingCount: 0,
+      invalidatedCount: 0,
+      caveats: observationPreviewCaveats()
     };
   }
 
@@ -304,46 +311,109 @@ function runLightweightBacktest(signal: ResearchSignal, candles: OhlcvCandle[]):
     enabled: true,
     status: "ready",
     sampleSize: records.length,
-    winRate: round(records.filter((value) => value > 0).length / records.length),
-    averageReturn: round(records.reduce((sum, value) => sum + value, 0) / records.length),
-    maxDrawdownProxy: round(maxDrawdownProxy(records)),
-    caveats: backtestCaveats()
+    directionalMatchRate: round(records.filter(Boolean).length / records.length),
+    pendingCount: 0,
+    invalidatedCount: 0,
+    caveats: observationPreviewCaveats()
   };
 }
 
-function disabledBacktestPreview(): BacktestPreview {
+function disabledObservationPreview(): ObservationPreview {
   return {
     enabled: false,
     status: "not_loaded",
     sampleSize: 0,
-    winRate: null,
-    averageReturn: null,
-    maxDrawdownProxy: null,
+    directionalMatchRate: null,
+    pendingCount: 0,
+    invalidatedCount: 0,
     caveats: [
-      "Backtest preview is disabled by default and loads only after user action.",
-      "Research only; not predictive guarantee and not real trading performance."
+      "Observation Preview is collapsed by default and loads only after user action.",
+      "Local directional check only; not a backtest, not trading performance, and not a predictive guarantee."
     ]
   };
 }
 
-function backtestCaveats(): string[] {
+function observationPreviewCaveats(): string[] {
   return [
-    "Small local candle sample only; not a predictive guarantee.",
-    "No fees, slippage, fills, order book queue, funding, or real event-contract settlement is modeled.",
-    "Research only; not trade advice, not paper trading, and not real trading performance."
+    "Small local candle sample only; not predictive guarantee.",
+    "Close-to-close directional check only; not event-contract settlement.",
+    "Local observation only; not trading performance and not investment advice."
   ];
 }
 
-function maxDrawdownProxy(returns: number[]): number {
-  let equity = 0;
-  let peak = 0;
-  let maxDrawdown = 0;
-  for (const value of returns) {
-    equity += value;
-    peak = Math.max(peak, equity);
-    maxDrawdown = Math.min(maxDrawdown, equity - peak);
+function toLegacyBacktestPreview(preview: ObservationPreview): BacktestPreview {
+  return {
+    enabled: preview.enabled,
+    status: preview.status,
+    sampleSize: preview.sampleSize,
+    winRate: preview.directionalMatchRate,
+    averageReturn: null,
+    maxDrawdownProxy: null,
+    caveats: preview.caveats
+  };
+}
+
+function buildEventWindow(signal: ResearchSignal, candles: OhlcvCandle[]): EventWindow {
+  const latest = candles.at(-1);
+  const horizonMs = signal.horizon === "5m" ? 5 * 60_000 : 10 * 60_000;
+  if (!latest) {
+    return {
+      horizon: signal.horizon,
+      expectedResolveAt: null,
+      windowStart: null,
+      windowEnd: null,
+      referencePrice: null,
+      currentPrice: null,
+      distanceFromReferencePct: null,
+      canObserve: false,
+      referencePriceSource: "unavailable",
+      isReferenceApproximation: true,
+      warnings: ["Reference price unavailable; observation window cannot be evaluated."]
+    };
   }
-  return maxDrawdown;
+  const expectedResolveAt = new Date(Date.parse(latest.timestamp) + horizonMs).toISOString();
+  return {
+    horizon: signal.horizon,
+    expectedResolveAt,
+    windowStart: latest.timestamp,
+    windowEnd: expectedResolveAt,
+    referencePrice: latest.close,
+    currentPrice: latest.close,
+    distanceFromReferencePct: 0,
+    canObserve: signal.dataQuality.status === "ok",
+    referencePriceSource: "latest_closed_candle",
+    isReferenceApproximation: true,
+    warnings: [
+      "Reference price uses the latest closed candle close; this is an approximation, not official event-contract settlement."
+    ]
+  };
+}
+
+function buildObservationCandidate(
+  signal: ResearchSignal,
+  eventWindow: EventWindow,
+  generatedAt: string
+): SignalObservationCandidate {
+  return {
+    createdAt: generatedAt,
+    symbol: signal.symbol,
+    horizon: signal.horizon,
+    sourceMode: signal.sourceMode,
+    direction: signal.direction,
+    score: signal.score,
+    confidence: signal.confidence,
+    profileName: signal.profileName,
+    entryPrice: eventWindow.referencePrice,
+    entryCandleTime: eventWindow.windowStart,
+    expectedResolveAt: eventWindow.expectedResolveAt,
+    reasonSummary: signal.confluence.vetoReasons[0] ?? signal.confluence.reasons[0] ?? "Confluence evaluated.",
+    caveats: [
+      "Local observation only, not trading performance.",
+      "Resolution uses close-to-close direction over the selected event window.",
+      ...(eventWindow.isReferenceApproximation ? eventWindow.warnings : [])
+    ],
+    canObserve: eventWindow.canObserve
+  };
 }
 
 function unique(values: string[]): string[] {
