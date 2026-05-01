@@ -196,6 +196,8 @@ function eventSignalConsoleContractSnapshot(payload: EventSignalConsoleResponse)
     symbol: payload.symbol,
     horizon: payload.horizon,
     sourceMode: payload.sourceMode,
+    eventWindow: payload.eventWindow,
+    observationCandidate: payload.observationCandidate,
     currentSignal: {
       symbol: payload.currentSignal.symbol,
       horizon: payload.currentSignal.horizon,
@@ -218,6 +220,7 @@ function eventSignalConsoleContractSnapshot(payload: EventSignalConsoleResponse)
       last: payload.recentCandles.at(-1)
     },
     recentMarkers: payload.recentMarkers,
+    observationPreview: payload.observationPreview,
     backtestPreview: payload.backtestPreview,
     warnings: payload.warnings
   };

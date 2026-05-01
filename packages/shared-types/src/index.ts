@@ -275,6 +275,8 @@ export type SignalHorizon = "5m" | "10m";
 
 export type SignalDirection = "LONG" | "SHORT" | "NO_SIGNAL";
 
+export type SignalProfileName = "balanced" | "conservative" | "aggressive";
+
 export type SignalDataQualityStatus = "ok" | "stale" | "insufficient" | "conflicted";
 
 export type ResearchSignalModelVersion = "research-signal-engine-v0";
@@ -412,7 +414,7 @@ export interface RiskFilterSummary {
 }
 
 export interface ConfluenceScore {
-  profileName: "balanced";
+  profileName: SignalProfileName;
   trendScore: number;
   momentumScore: number;
   volatilityScore: number;
@@ -442,7 +444,7 @@ export interface ResearchSignal {
   isResearchOnly: true;
   isTradeAdvice: false;
   modelVersion: ResearchSignalModelVersion;
-  profileName: "balanced";
+  profileName: SignalProfileName;
   invalidation: string[];
   failClosedReasons: string[];
   confluence: ConfluenceScore;
@@ -478,6 +480,7 @@ export interface SignalMarker {
   confidence: number;
   reasonSummary: string;
   isRecentOnly: true;
+  markerType?: "signal" | "observation_pending" | "observation_hit" | "observation_miss";
 }
 
 export interface BacktestPreview {
@@ -488,6 +491,47 @@ export interface BacktestPreview {
   averageReturn: number | null;
   maxDrawdownProxy: number | null;
   caveats: string[];
+}
+
+export interface ObservationPreview {
+  enabled: boolean;
+  status: "not_loaded" | "ready" | "insufficient";
+  sampleSize: number;
+  directionalMatchRate: number | null;
+  pendingCount: number;
+  invalidatedCount: number;
+  caveats: string[];
+}
+
+export interface EventWindow {
+  horizon: SignalHorizon;
+  expectedResolveAt: string | null;
+  windowStart: string | null;
+  windowEnd: string | null;
+  referencePrice: number | null;
+  currentPrice: number | null;
+  distanceFromReferencePct: number | null;
+  canObserve: boolean;
+  referencePriceSource: "latest_closed_candle" | "unavailable";
+  isReferenceApproximation: boolean;
+  warnings: string[];
+}
+
+export interface SignalObservationCandidate {
+  createdAt: string;
+  symbol: SignalSymbol;
+  horizon: SignalHorizon;
+  sourceMode: ResearchSignalSourceMode;
+  direction: SignalDirection;
+  score: number;
+  confidence: number;
+  profileName: SignalProfileName;
+  entryPrice: number | null;
+  entryCandleTime: string | null;
+  expectedResolveAt: string | null;
+  reasonSummary: string;
+  caveats: string[];
+  canObserve: boolean;
 }
 
 export interface EventSignalConsoleMeta {
@@ -508,15 +552,18 @@ export interface EventSignalConsoleMeta {
 
 export interface EventSignalConsoleResponse {
   meta: EventSignalConsoleMeta;
-  profileName: "balanced";
+  profileName: SignalProfileName;
   symbol: SignalSymbol;
   horizon: SignalHorizon;
   sourceMode: ResearchSignalSourceMode;
+  eventWindow: EventWindow;
+  observationCandidate: SignalObservationCandidate;
   currentSignal: ResearchSignal;
   confluence: ConfluenceScore;
   riskFilters: RiskFilterSummary;
   recentCandles: OhlcvCandle[];
   recentMarkers: SignalMarker[];
+  observationPreview: ObservationPreview;
   backtestPreview: BacktestPreview;
   warnings: string[];
 }

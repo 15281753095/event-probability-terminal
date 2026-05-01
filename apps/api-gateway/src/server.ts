@@ -20,6 +20,7 @@ import type {
   ScannerMeta,
   ResearchSignalSourceMode,
   SignalHorizon,
+  SignalProfileName,
   SignalSymbol,
   SourceProvenance,
   TradeCandidate
@@ -201,11 +202,12 @@ export function buildServer(options: BuildServerOptions = {}) {
     };
   });
 
-  server.get<{ Querystring: { symbol?: string; horizon?: string; sourceMode?: string } }>("/signals/research", async (request, reply) => {
+  server.get<{ Querystring: { symbol?: string; horizon?: string; sourceMode?: string; profile?: string } }>("/signals/research", async (request, reply) => {
     const generatedAt = now();
     const symbol = parseSignalSymbol(request.query.symbol);
     const horizon = parseSignalHorizon(request.query.horizon);
     const signalSourceMode = parseResearchSignalSourceMode(request.query.sourceMode);
+    const profileName = parseSignalProfileName(request.query.profile);
 
     if (request.query.symbol && !symbol) {
       return reply.code(400).send(
@@ -237,12 +239,23 @@ export function buildServer(options: BuildServerOptions = {}) {
         })
       );
     }
+    if (request.query.profile && !profileName) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Research signal profile currently supports balanced, conservative, or aggressive only.",
+          generatedAt
+        })
+      );
+    }
 
     if (signalSourceMode === "live") {
       return (await listLiveResearchSignals({
         generatedAt,
         ...(symbol ? { symbol } : {}),
         ...(horizon ? { horizon } : {}),
+        ...(profileName ? { profileName } : {}),
         ...(options.researchSignalOhlcvFetcher ? { fetcher: options.researchSignalOhlcvFetcher } : {})
       })) satisfies ResearchSignalsResponse;
     }
@@ -250,16 +263,18 @@ export function buildServer(options: BuildServerOptions = {}) {
     return listResearchSignals({
       generatedAt,
       ...(symbol ? { symbol } : {}),
-      ...(horizon ? { horizon } : {})
+      ...(horizon ? { horizon } : {}),
+      ...(profileName ? { profileName } : {})
     }) satisfies ResearchSignalsResponse;
   });
 
-  server.get<{ Querystring: { symbol?: string; horizon?: string; sourceMode?: string; includeBacktest?: string } }>("/signals/console", async (request, reply) => {
+  server.get<{ Querystring: { symbol?: string; horizon?: string; sourceMode?: string; includeBacktest?: string; includeObservationPreview?: string; profile?: string } }>("/signals/console", async (request, reply) => {
     const generatedAt = now();
     const symbol = parseSignalSymbol(request.query.symbol) ?? "BTC";
     const horizon = parseSignalHorizon(request.query.horizon) ?? "5m";
     const signalSourceMode = parseResearchSignalSourceMode(request.query.sourceMode);
-    const includeBacktest = request.query.includeBacktest === "true";
+    const profileName = parseSignalProfileName(request.query.profile);
+    const includeObservationPreview = request.query.includeObservationPreview === "true" || request.query.includeBacktest === "true";
 
     if (request.query.symbol && !parseSignalSymbol(request.query.symbol)) {
       return reply.code(400).send(
@@ -291,13 +306,24 @@ export function buildServer(options: BuildServerOptions = {}) {
         })
       );
     }
+    if (request.query.profile && !profileName) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Event Signal Console profile currently supports balanced, conservative, or aggressive only.",
+          generatedAt
+        })
+      );
+    }
 
     if (signalSourceMode === "live") {
       return (await buildLiveEventSignalConsole({
         symbol,
         horizon,
         generatedAt,
-        includeBacktest,
+        includeObservationPreview,
+        ...(profileName ? { profileName } : {}),
         ...(options.researchSignalOhlcvFetcher ? { fetcher: options.researchSignalOhlcvFetcher } : {})
       })) satisfies EventSignalConsoleResponse;
     }
@@ -306,7 +332,8 @@ export function buildServer(options: BuildServerOptions = {}) {
       symbol,
       horizon,
       generatedAt,
-      includeBacktest
+      includeObservationPreview,
+      ...(profileName ? { profileName } : {})
     }) satisfies EventSignalConsoleResponse;
   });
 
@@ -326,6 +353,13 @@ function parseResearchSignalSourceMode(value?: string): ResearchSignalSourceMode
     return "fixture";
   }
   return value === "fixture" || value === "live" ? value : undefined;
+}
+
+function parseSignalProfileName(value?: string): SignalProfileName | undefined {
+  if (!value) {
+    return "balanced";
+  }
+  return value === "balanced" || value === "conservative" || value === "aggressive" ? value : undefined;
 }
 
 function marketNotFound(generatedAt: string, supportedIds?: string[]): ApiErrorResponse {

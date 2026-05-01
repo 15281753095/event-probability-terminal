@@ -1,7 +1,7 @@
 # Event Signal Console API
 
-Status: implemented as a fixture-default, live-optional, read-only research console with RC-11
-runtime/profile fields.
+Status: implemented as a fixture-default, live-optional, read-only research console with RC-12
+Reality Mode, strategy profiles, event windows, and local observation support.
 
 This API returns one BTC/ETH short-horizon research console payload. It is not a trading API, not
 investment advice, not a fair-probability pricing model, and not an order-generation system.
@@ -12,7 +12,8 @@ investment advice, not a fair-probability pricing model, and not an order-genera
 GET /signals/console
 GET /signals/console?symbol=BTC&horizon=5m
 GET /signals/console?symbol=BTC&horizon=5m&sourceMode=live
-GET /signals/console?symbol=BTC&horizon=5m&includeBacktest=true
+GET /signals/console?symbol=BTC&horizon=5m&profile=conservative
+GET /signals/console?symbol=BTC&horizon=5m&includeObservationPreview=true
 ```
 
 Supported query filters:
@@ -20,7 +21,9 @@ Supported query filters:
 - `symbol`: `BTC` or `ETH`; default `BTC`
 - `horizon`: `5m` or `10m`; default `5m`
 - `sourceMode`: `fixture` or `live`; default `fixture`
-- `includeBacktest`: `true` only when the user explicitly requests the preview
+- `profile`: `balanced`, `conservative`, or `aggressive`; default `balanced`
+- `includeObservationPreview`: `true` only when the user explicitly requests the preview
+- `includeBacktest`: legacy alias for `includeObservationPreview`
 
 Unsupported filters return a typed `ept-api-v1` error with:
 
@@ -37,13 +40,16 @@ Top-level fields:
 - `symbol`: selected `BTC` or `ETH`
 - `horizon`: selected `5m` or `10m`
 - `sourceMode`: `fixture` or `live`
-- `profileName`: currently `balanced`
+- `profileName`: active research profile
+- `eventWindow`: 5m/10m observation window metadata, including expected resolution time
+- `observationCandidate`: local observation seed fields for the web UI
 - `currentSignal`: current `ResearchSignal`
 - `confluence`: current `ConfluenceScore`
 - `riskFilters`: current `RiskFilterSummary`
 - `recentCandles`: recent OHLCV candles only
 - `recentMarkers`: recent signal markers only, capped at 20
-- `backtestPreview`: disabled unless `includeBacktest=true`
+- `observationPreview`: disabled unless `includeObservationPreview=true`
+- `backtestPreview`: legacy-compatible alias of the observation preview metrics
 - `warnings`: user-facing research-only and fail-closed warnings
 
 `meta` always marks the response as:
@@ -74,9 +80,19 @@ Top-level fields:
 - `reasons`
 - `vetoReasons`
 
-Rules are multi-factor and use the `balanced` profile. A single RSI, MACD, Bollinger, volume, or
-EMA condition cannot decide direction alone. Direction is emitted only when confluence clears the
-5m/10m profile threshold and no veto is active.
+Rules are multi-factor and use the selected research profile. A single RSI, MACD, Bollinger,
+volume, or EMA condition cannot decide direction alone. Direction is emitted only when confluence
+clears the profile's 5m/10m threshold and no veto is active.
+
+Profiles are research parameters, not trading strategies:
+
+- `balanced`: current default behavior.
+- `conservative`: higher threshold, higher minimum confidence, stricter chop and volume confirmation.
+- `aggressive`: lower threshold and weaker volume requirement, while still retaining stale,
+  extreme-volatility, chop, and conflict vetoes.
+
+5m and 10m use separate profile settings. 5m is stricter on freshness, momentum, and volume.
+10m gives more weight to trend stability and EMA slope.
 
 ## Risk Filters
 
@@ -92,12 +108,38 @@ The console exposes:
 `NO_SIGNAL` is expected when data is stale, insufficient, conflicted, choppy, too quiet, extremely
 volatile, flat by EMA/MACD checks, missing confirmation, or blocked by manual event-risk context.
 
+## Event Window And Observation Candidate
+
+`eventWindow` describes the local observation window:
+
+- `horizon`
+- `expectedResolveAt`
+- `windowStart`
+- `windowEnd`
+- `referencePrice`
+- `currentPrice`
+- `distanceFromReferencePct`
+- `canObserve`
+- `referencePriceSource`
+- `isReferenceApproximation`
+- `warnings`
+
+The reference price currently uses the latest closed candle close. It is explicitly marked as an
+approximation and is not official event-contract settlement.
+
+`observationCandidate` is used by the web UI to create a localStorage observation. It is not a
+trade record and is not persisted server-side.
+
 ## Runtime UI Notes
 
 The Web workbench can auto-refresh `/signals/console` from the browser, but this is display polling
 only. It is off by default, supports 15s/30s/60s intervals, floors live 15s refreshes to 30s, and
-does not place orders or connect accounts. Browser-local signal history is capped at 20 entries and
-is not a trade log, replay engine, paper broker, or performance record.
+does not place orders or connect accounts.
+
+Signal Observation Log is browser-local. It keeps the latest 100 observations, displays the latest
+20, and resolves pending 5m/10m observations close-to-close after refresh. `NO_SIGNAL` observations
+are recorded as `no_signal` but excluded from directional match rate. Directional match rate is not
+return, win rate, settlement accuracy, or real trading performance.
 
 ## Markers
 
@@ -109,11 +151,13 @@ Marker text is limited to:
 
 - `LONG bias`
 - `SHORT bias`
-- `NO_SIGNAL`
 
-## Backtest Preview
+`NO_SIGNAL` is not drawn as a primary chart marker. Pending/hit/miss observation status can be
+shown in the observation log; hit/miss does not need to be drawn across the K-line chart.
 
-Backtest preview is disabled by default:
+## Observation Preview
+
+Observation Preview is disabled by default:
 
 ```json
 {
@@ -122,18 +166,18 @@ Backtest preview is disabled by default:
 }
 ```
 
-When `includeBacktest=true`, the API computes a lightweight local preview from the currently
-available candle sample. It may include:
+When `includeObservationPreview=true`, the API computes a lightweight local directional check from
+the currently available candle sample. It may include:
 
 - `sampleSize`
-- `winRate`
-- `averageReturn`
-- `maxDrawdownProxy`
+- `directionalMatchRate`
+- `pendingCount`
+- `invalidatedCount`
 - `caveats`
 
-The preview is small-sample research diagnostics only. It does not model fees, slippage, fills,
-order-book queue, funding, latency, settlement rules, or real trading performance. It is not a
-predictive guarantee.
+The preview is small-sample research diagnostics only. It is not a backtest, does not model fees,
+slippage, fills, order-book queue, funding, latency, settlement rules, or real trading performance,
+and is not a predictive guarantee.
 
 ## Explicit Non-Goals
 

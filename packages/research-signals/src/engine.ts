@@ -44,6 +44,7 @@ export type ListSignalsInput = {
   generatedAt: string;
   symbol?: SignalSymbol;
   horizon?: SignalHorizon;
+  profileName?: SignalProfileName;
 };
 
 export type OHLCVFetcher = (request: OHLCVFetchRequest) => Promise<OHLCVFetchResult>;
@@ -70,7 +71,8 @@ export function listResearchSignals(input: ListSignalsInput): ResearchSignalsRes
         horizon: fixture.horizon,
         candles: rebaseFixtureCandles(fixture.candles, input.generatedAt),
         context: fixture.context,
-        generatedAt: input.generatedAt
+        generatedAt: input.generatedAt,
+        ...(input.profileName ? { profileName: input.profileName } : {})
       })
     ),
     meta: {
@@ -117,7 +119,8 @@ export async function listLiveResearchSignals(input: ListLiveSignalsInput): Prom
         symbol: target.symbol,
         horizon: target.horizon,
         generatedAt: input.generatedAt,
-        result
+        result,
+        ...(input.profileName ? { profileName: input.profileName } : {})
       });
     })
   );
@@ -149,6 +152,7 @@ export function buildResearchSignalFromOHLCV(input: {
   generatedAt: string;
   result: OHLCVFetchResult;
   context?: SignalContextSnapshot;
+  profileName?: SignalProfileName;
 }): ResearchSignal {
   return buildResearchSignal({
     symbol: input.symbol,
@@ -162,7 +166,8 @@ export function buildResearchSignalFromOHLCV(input: {
     sourceWarnings: input.result.warnings,
     sourceFailClosedReasons: input.result.failClosedReasons,
     isLive: input.result.isLive,
-    isFixtureBacked: input.result.isFixtureBacked
+    isFixtureBacked: input.result.isFixtureBacked,
+    ...(input.profileName ? { profileName: input.profileName } : {})
   });
 }
 

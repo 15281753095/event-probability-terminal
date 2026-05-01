@@ -153,9 +153,9 @@
         "Volatility module: low-volatility or Bollinger squeeze state blocks directional upgrade.",
         "Volume module: abnormal volume confirms upward short-horizon move.",
         "Mean reversion risk=0; chop risk=0.64.",
-        "Trend veto: EMA slope is too flat for a short-horizon directional bias.",
-        "Momentum veto: MACD histogram is too flat for directional confirmation.",
-        "Volatility veto: too-low volatility or Bollinger squeeze for short-horizon signal.",
+        "Trend veto: fast/slow EMA are too close and EMA slope is too flat for a short-horizon directional bias.",
+        "Momentum veto: MACD histogram is too flat and histogram slope is not decisive.",
+        "Volatility veto: Bollinger bandwidth squeeze or too-low volatility for short-horizon signal.",
         "Chop veto: short-term direction conflict or range-bound conditions are too high.",
         "News/X/macro context is manual fixture input, not verified live external data.",
         "No execution instruction or automated trading action is produced."
@@ -265,9 +265,9 @@
           "Mean reversion risk=0; chop risk=0.64."
         ],
         "vetoReasons": [
-          "Trend veto: EMA slope is too flat for a short-horizon directional bias.",
-          "Momentum veto: MACD histogram is too flat for directional confirmation.",
-          "Volatility veto: too-low volatility or Bollinger squeeze for short-horizon signal.",
+          "Trend veto: fast/slow EMA are too close and EMA slope is too flat for a short-horizon directional bias.",
+          "Momentum veto: MACD histogram is too flat and histogram slope is not decisive.",
+          "Volatility veto: Bollinger bandwidth squeeze or too-low volatility for short-horizon signal.",
           "Chop veto: short-term direction conflict or range-bound conditions are too high."
         ]
       },
@@ -283,9 +283,9 @@
           "Chop risk=0.64; mean-reversion risk=0."
         ],
         "vetoReasons": [
-          "Trend veto: EMA slope is too flat for a short-horizon directional bias.",
-          "Momentum veto: MACD histogram is too flat for directional confirmation.",
-          "Volatility veto: too-low volatility or Bollinger squeeze for short-horizon signal.",
+          "Trend veto: fast/slow EMA are too close and EMA slope is too flat for a short-horizon directional bias.",
+          "Momentum veto: MACD histogram is too flat and histogram slope is not decisive.",
+          "Volatility veto: Bollinger bandwidth squeeze or too-low volatility for short-horizon signal.",
           "Chop veto: short-term direction conflict or range-bound conditions are too high."
         ]
       }
@@ -549,7 +549,7 @@
         "vetoReasons": [
           "Manual context fixture flags event risk; research signal fails closed.",
           "Context veto: manual event-risk flag is active.",
-          "Volatility veto: too-low volatility or Bollinger squeeze for short-horizon signal.",
+          "Volatility veto: Bollinger bandwidth squeeze or too-low volatility for short-horizon signal.",
           "10m horizon requires trend alignment before directional bias can be emitted."
         ]
       },
@@ -567,7 +567,7 @@
         "vetoReasons": [
           "Manual context fixture flags event risk; research signal fails closed.",
           "Context veto: manual event-risk flag is active.",
-          "Volatility veto: too-low volatility or Bollinger squeeze for short-horizon signal.",
+          "Volatility veto: Bollinger bandwidth squeeze or too-low volatility for short-horizon signal.",
           "10m horizon requires trend alignment before directional bias can be emitted."
         ]
       }

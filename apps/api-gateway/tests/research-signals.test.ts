@@ -152,6 +152,22 @@ describe("research signals API", () => {
     await server.close();
   });
 
+  it("returns typed errors for unsupported console profile", async () => {
+    const server = buildServer({ logger: false, now: () => fixedGeneratedAt });
+    const response = await server.inject({
+      method: "GET",
+      url: "/signals/console?profile=max-risk"
+    });
+
+    assert.equal(response.statusCode, 400);
+    const payload = response.json<ApiErrorResponse>();
+    assert.equal(payload.contractVersion, API_CONTRACT_VERSION);
+    assert.equal(payload.status, "unsupported");
+    assert.equal(payload.error, "out_of_scope");
+
+    await server.close();
+  });
+
   it("returns a fixture-backed Event Signal Console with backtest disabled by default", async () => {
     const server = buildServer({ logger: false, now: () => fixedGeneratedAt });
     const response = await server.inject({
@@ -173,6 +189,13 @@ describe("research signals API", () => {
     assert.ok(payload.recentCandles.length > 0);
     assert.ok(payload.recentMarkers.length <= 20);
     assert.equal(payload.recentMarkers.every((marker) => marker.isRecentOnly), true);
+    assert.equal(payload.eventWindow.horizon, "5m");
+    assert.equal(payload.eventWindow.canObserve, true);
+    assert.equal(payload.eventWindow.isReferenceApproximation, true);
+    assert.equal(payload.observationCandidate.profileName, "balanced");
+    assert.equal(payload.observationCandidate.sourceMode, "fixture");
+    assert.equal(payload.observationPreview.enabled, false);
+    assert.equal(payload.observationPreview.status, "not_loaded");
     assert.equal(payload.backtestPreview.enabled, false);
     assert.equal(payload.backtestPreview.status, "not_loaded");
     assert.ok(payload.warnings.some((warning) => warning.includes("Research only")));
@@ -180,19 +203,40 @@ describe("research signals API", () => {
     await server.close();
   });
 
-  it("loads lightweight backtest preview only when explicitly requested", async () => {
+  it("supports profile query param and event-window fields", async () => {
     const server = buildServer({ logger: false, now: () => fixedGeneratedAt });
     const response = await server.inject({
       method: "GET",
-      url: "/signals/console?symbol=BTC&horizon=5m&includeBacktest=true"
+      url: "/signals/console?symbol=BTC&horizon=10m&profile=conservative"
     });
 
     assert.equal(response.statusCode, 200);
     const payload = response.json<EventSignalConsoleResponse>();
+    assert.equal(payload.profileName, "conservative");
+    assert.equal(payload.currentSignal.profileName, "conservative");
+    assert.equal(payload.eventWindow.horizon, "10m");
+    assert.equal(payload.eventWindow.expectedResolveAt, "2026-04-23T00:09:00.000Z");
+    assert.equal(payload.observationCandidate.profileName, "conservative");
+
+    await server.close();
+  });
+
+  it("loads small-sample observation preview only when explicitly requested", async () => {
+    const server = buildServer({ logger: false, now: () => fixedGeneratedAt });
+    const response = await server.inject({
+      method: "GET",
+      url: "/signals/console?symbol=BTC&horizon=5m&includeObservationPreview=true"
+    });
+
+    assert.equal(response.statusCode, 200);
+    const payload = response.json<EventSignalConsoleResponse>();
+    assert.equal(payload.observationPreview.enabled, true);
+    assert.ok(payload.observationPreview.status === "ready" || payload.observationPreview.status === "insufficient");
+    assert.ok(payload.observationPreview.caveats.some((caveat) => caveat.includes("Small local candle sample")));
+    assert.ok(payload.observationPreview.caveats.some((caveat) => caveat.includes("not predictive guarantee")));
     assert.equal(payload.backtestPreview.enabled, true);
     assert.ok(payload.backtestPreview.status === "ready" || payload.backtestPreview.status === "insufficient");
-    assert.ok(payload.backtestPreview.caveats.some((caveat) => caveat.includes("Small local candle sample")));
-    assert.ok(payload.backtestPreview.caveats.some((caveat) => caveat.includes("not a predictive guarantee")));
+    assert.equal(payload.backtestPreview.winRate, payload.observationPreview.directionalMatchRate);
 
     await server.close();
   });

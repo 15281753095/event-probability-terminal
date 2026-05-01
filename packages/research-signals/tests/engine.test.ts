@@ -5,10 +5,12 @@ import {
   buildResearchSignalFromOHLCV,
   buildFixtureEventSignalConsole,
   emptyFailClosedOHLCVResult,
+  evaluateConfluence,
+  getSignalProfile,
   getResearchSignalFixture,
   listResearchSignals
 } from "../src/index.js";
-import type { Candle, OHLCVFetchRequest, OHLCVFetchResult, OhlcvCandle } from "@ept/shared-types";
+import type { Candle, OHLCVFetchRequest, OHLCVFetchResult, OhlcvCandle, ResearchSignal } from "@ept/shared-types";
 
 const generatedAt = "2026-04-23T00:00:00.000Z";
 
@@ -43,6 +45,42 @@ describe("research signal engine v0", () => {
     assert.equal(consoleResponse.currentSignal.profileName, "balanced");
     assert.equal(consoleResponse.confluence.profileName, "balanced");
     assert.ok(consoleResponse.confluence.reasons[0]?.includes("balanced profile threshold"));
+  });
+
+  it("configures balanced, conservative, and aggressive profiles per horizon", () => {
+    const balanced = getSignalProfile("balanced");
+    const conservative = getSignalProfile("conservative");
+    const aggressive = getSignalProfile("aggressive");
+
+    assert.ok(conservative.horizons["5m"].longThreshold > balanced.horizons["5m"].longThreshold);
+    assert.ok(conservative.horizons["5m"].minConfidence > balanced.horizons["5m"].minConfidence);
+    assert.ok(conservative.horizons["5m"].maxChopRisk < balanced.horizons["5m"].maxChopRisk);
+    assert.ok(aggressive.horizons["5m"].longThreshold < balanced.horizons["5m"].longThreshold);
+    assert.ok(aggressive.horizons["5m"].minDirectionalVolumeScore < balanced.horizons["5m"].minDirectionalVolumeScore);
+    assert.notEqual(balanced.horizons["5m"].longThreshold, balanced.horizons["10m"].longThreshold);
+    assert.ok(balanced.horizons["10m"].minTrendAbs > balanced.horizons["5m"].minTrendAbs);
+  });
+
+  it("applies selected profile to console scoring", () => {
+    const conservative = buildFixtureEventSignalConsole({
+      symbol: "BTC",
+      horizon: "5m",
+      generatedAt,
+      profileName: "conservative"
+    });
+    const aggressive = buildFixtureEventSignalConsole({
+      symbol: "BTC",
+      horizon: "5m",
+      generatedAt,
+      profileName: "aggressive"
+    });
+
+    assert.equal(conservative.profileName, "conservative");
+    assert.equal(conservative.currentSignal.profileName, "conservative");
+    assert.equal(aggressive.profileName, "aggressive");
+    assert.equal(aggressive.currentSignal.profileName, "aggressive");
+    assert.ok(conservative.confluence.reasons[0]?.includes("conservative profile threshold"));
+    assert.ok(aggressive.confluence.reasons[0]?.includes("aggressive profile threshold"));
   });
 
   it("fails closed when candles are stale", () => {
@@ -177,21 +215,102 @@ describe("research signal engine v0", () => {
     assert.ok(consoleResponse.recentCandles.length <= 60);
     assert.ok(consoleResponse.recentMarkers.length <= 20);
     assert.equal(consoleResponse.recentMarkers.every((marker) => marker.isRecentOnly), true);
+    assert.equal(consoleResponse.eventWindow.horizon, "5m");
+    assert.equal(consoleResponse.eventWindow.canObserve, true);
+    assert.equal(consoleResponse.eventWindow.isReferenceApproximation, true);
+    assert.equal(consoleResponse.observationCandidate.profileName, "balanced");
+    assert.equal(consoleResponse.observationPreview.enabled, false);
+    assert.equal(consoleResponse.observationPreview.status, "not_loaded");
     assert.equal(consoleResponse.backtestPreview.enabled, false);
     assert.equal(consoleResponse.backtestPreview.status, "not_loaded");
   });
 
-  it("runs lightweight backtest preview only when requested", () => {
+  it("runs small-sample observation preview only when requested", () => {
     const consoleResponse = buildFixtureEventSignalConsole({
       symbol: "BTC",
       horizon: "5m",
       generatedAt,
-      includeBacktest: true
+      includeObservationPreview: true
     });
 
-    assert.equal(consoleResponse.backtestPreview.enabled, true);
-    assert.ok(consoleResponse.backtestPreview.status === "ready" || consoleResponse.backtestPreview.status === "insufficient");
-    assert.ok(consoleResponse.backtestPreview.caveats.some((item) => item.includes("Small local candle sample")));
+    assert.equal(consoleResponse.observationPreview.enabled, true);
+    assert.ok(consoleResponse.observationPreview.status === "ready" || consoleResponse.observationPreview.status === "insufficient");
+    assert.ok(consoleResponse.observationPreview.caveats.some((item) => item.includes("Small local candle sample")));
+    assert.equal(consoleResponse.backtestPreview.winRate, consoleResponse.observationPreview.directionalMatchRate);
+  });
+
+  it("vetoes extreme volatility and event-risk conditions", () => {
+    const fixture = getResearchSignalFixture("BTC", "5m");
+    assert.ok(fixture);
+    const volatileCandles = fixture.candles.map((candle, index) => ({
+      ...candle,
+      open: 100_000,
+      high: 108_000 + index * 10,
+      low: 92_000 - index * 10,
+      close: index % 2 === 0 ? 107_000 : 93_000,
+      volume: 5_000
+    }));
+    const volatileSignal = buildResearchSignal({
+      symbol: "BTC",
+      horizon: "5m",
+      candles: volatileCandles,
+      generatedAt
+    });
+    const eventRiskSignal = buildResearchSignal({
+      symbol: "BTC",
+      horizon: "5m",
+      candles: fixture.candles,
+      generatedAt,
+      context: {
+        sourceMode: "manual_fixture",
+        newsScore: 0,
+        xSignalScore: 0,
+        macroRiskState: "neutral",
+        marketEventRiskFlag: true,
+        notes: ["test event-risk flag"]
+      }
+    });
+
+    assert.equal(volatileSignal.direction, "NO_SIGNAL");
+    assert.ok(volatileSignal.confluence.vetoReasons.some((reason) => reason.includes("extreme short-horizon volatility")));
+    assert.equal(eventRiskSignal.direction, "NO_SIGNAL");
+    assert.ok(eventRiskSignal.confluence.vetoReasons.some((reason) => reason.includes("event-risk flag")));
+  });
+
+  it("vetoes trend/momentum, price/volume, and RSI continuation conflicts", () => {
+    const base = buildConfluenceInput();
+    const trendMomentum = evaluateConfluence({
+      ...base,
+      features: {
+        ...base.features,
+        returns: { oneMinute: -0.004, threeMinute: -0.006, fiveMinute: -0.008 },
+        ema: { fast: 101, slow: 100, slope: 0.08 },
+        macd: { line: -1, signal: -0.2, histogram: -0.8, histogramSlope: -0.1 },
+        volume: { latest: 2_000, mean: 1_000, zScore: 2, abnormal: true }
+      }
+    });
+    const priceVolume = evaluateConfluence({
+      ...base,
+      features: {
+        ...base.features,
+        returns: { oneMinute: 0.004, threeMinute: 0.006, fiveMinute: 0.008 },
+        volume: { latest: 2_000, mean: 1_000, zScore: -2, abnormal: true }
+      }
+    });
+    const rsiConflict = evaluateConfluence({
+      ...base,
+      features: {
+        ...base.features,
+        returns: { oneMinute: -0.004, threeMinute: -0.006, fiveMinute: -0.008 },
+        ema: { fast: 101, slow: 100, slope: 0.08 },
+        rsi: { value: 78, period: 14 },
+        macd: { line: -1, signal: -0.2, histogram: -0.8, histogramSlope: -0.1 }
+      }
+    });
+
+    assert.ok(trendMomentum.confluence.vetoReasons.some((reason) => reason.includes("trend and momentum")));
+    assert.ok(priceVolume.confluence.vetoReasons.some((reason) => reason.includes("price action and volume")));
+    assert.ok(rsiConflict.confluence.vetoReasons.some((reason) => reason.includes("RSI reversal risk")));
   });
 });
 
@@ -203,5 +322,57 @@ function toLiveCandle(candle: OhlcvCandle): Candle {
     interval: "1m",
     startTime: candle.timestamp,
     isClosed: true
+  };
+}
+
+function buildConfluenceInput(): Parameters<typeof evaluateConfluence>[0] {
+  const features: ResearchSignal["features"] = {
+    lastClose: 102,
+    returns: { oneMinute: 0.004, threeMinute: 0.006, fiveMinute: 0.008 },
+    ema: { fast: 101, slow: 100, slope: 0.08 },
+    rsi: { value: 50, period: 14 },
+    macd: { line: 1, signal: 0.2, histogram: 0.8, histogramSlope: 0.1 },
+    bollinger: {
+      middle: 100,
+      upper: 103,
+      lower: 97,
+      bandwidth: 0.03,
+      bandPosition: 0.75,
+      squeeze: false,
+      expansion: true
+    },
+    volatility: { atr: 1.2, realizedVolatility: 0.001, regime: "normal" },
+    volume: { latest: 2_000, mean: 1_000, zScore: 2, abnormal: true }
+  };
+  return {
+    horizon: "5m",
+    features,
+    dataQuality: {
+      status: "ok",
+      source: "fixture",
+      candleCount: 35,
+      requiredCandleCount: 35,
+      freshnessAgeMs: 60_000,
+      maxFreshnessMs: 180_000,
+      freshness: {
+        status: "fresh",
+        latestStartTime: "2026-04-22T23:59:00.000Z",
+        latestClosedAt: generatedAt,
+        ageMs: 60_000,
+        maxAgeMs: 180_000
+      },
+      missingFields: [],
+      warnings: [],
+      isLive: false,
+      isFixtureBacked: true
+    },
+    context: {
+      sourceMode: "manual_fixture",
+      newsScore: 0,
+      xSignalScore: 0,
+      macroRiskState: "neutral",
+      marketEventRiskFlag: false,
+      notes: []
+    }
   };
 }

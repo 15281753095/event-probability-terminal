@@ -93,7 +93,9 @@ curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=li
 curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/console?symbol=ETH&horizon=10m&sourceMode=fixture"
 curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m&sourceMode=live"
-curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m&includeBacktest=true"
+curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m&sourceMode=fixture&profile=balanced"
+curl "http://localhost:4000/signals/console?symbol=BTC&horizon=10m&sourceMode=live&profile=conservative"
+curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m&includeObservationPreview=true"
 ```
 
 Research signals are fixture-backed by default. `sourceMode=live` explicitly uses Coinbase Exchange
@@ -102,10 +104,11 @@ Authorization headers, wallet state, X, news, macro, or trading APIs. Coinbase h
 be incomplete and should not be polled frequently, so this live path is for local manual smoke only.
 
 Event Signal Console is also fixture-backed by default. It returns recent candles and recent-only
-markers, not full-history marker overlays. The lightweight backtest preview is disabled unless
-`includeBacktest=true` is explicitly requested. RC-11 adds the `balanced` signal profile to the API
-payload and strengthens no-trade vetoes for flat EMA, flat MACD, narrow volatility, extreme
-volatility, conflicting modules, and stale/insufficient data.
+markers, not full-history marker overlays. Observation Preview is disabled unless
+`includeObservationPreview=true` is explicitly requested. RC-12 adds `balanced`, `conservative`, and
+`aggressive` research profiles; event-window metadata; local observation candidates; and stronger
+no-trade vetoes for flat EMA, flat MACD, Bollinger squeeze, extreme volatility, conflicting
+modules, event-risk context, and stale/insufficient data.
 
 ## Start Web
 
@@ -125,9 +128,10 @@ Current pages:
 
 - `/`: Markets Scanner RC-2 with read-only filters, query state, sorting, summary cards, evidence
   status, the Research Signal Panel with Fixture/Live source-mode display, and Event Signal
-  Workbench RC-11 with a top signal hero, BTC/ETH and 5m/10m controls, fixture/live source selector,
-  manual refresh, low-frequency auto refresh controls, local recent signal history, profile display,
-  confluence cards, risk filters, recent chart markers, and on-demand backtest preview.
+  Reality Mode RC-12 with a top signal hero, BTC/ETH and 5m/10m controls, LIVE/DEV FIXTURE source
+  selector, profile selector, manual refresh, low-frequency auto refresh controls, local Signal
+  Observation Log, Observation Feedback, confluence cards, risk filters, event-window fields, recent
+  chart markers, and on-demand Observation Preview.
 - `/markets/:id`: Market Detail RC-3 for a normalized fixture-backed market, backed by `GET /markets/:id/detail`.
 
 Example detail URL:
@@ -142,13 +146,16 @@ Workbench trial URLs:
 http://localhost:3000/?consoleSymbol=BTC&consoleHorizon=5m&consoleSourceMode=fixture
 http://localhost:3000/?consoleSymbol=ETH&consoleHorizon=10m&consoleSourceMode=fixture
 http://localhost:3000/?consoleSymbol=BTC&consoleHorizon=5m&consoleSourceMode=live
-http://localhost:3000/?consoleSymbol=BTC&consoleHorizon=5m&consoleSourceMode=fixture&consoleBacktest=1
+http://localhost:3000/?consoleSymbol=BTC&consoleHorizon=10m&consoleSourceMode=live&consoleProfile=conservative
+http://localhost:3000/?consoleSymbol=BTC&consoleHorizon=5m&consoleSourceMode=fixture&consoleObservationPreview=1
 ```
 
 Use fixture URLs for repeatable local checks. Use live URLs only for explicit manual inspection of
 public Coinbase Exchange candles; live failures fail closed and do not imply a trading signal.
 Auto refresh is off by default; when enabled it is browser-local display polling only and not
-automatic trading. Signal history is capped at 20 browser-local entries and is not a trade log.
+automatic trading. Signal Observation Log stores only browser-local localStorage observations, keeps
+the latest 100, displays the latest 20, and is not a trade log, backtest, replay engine, or
+performance record.
 
 ## Start Pricing Engine Placeholder Service
 
@@ -241,8 +248,8 @@ Current smoke coverage is intentionally small:
 
 - `/` must render the Markets Scanner RC-2, read-only filters, query URL state, placeholder pricing
   text, evidence/fail-closed matrix, Research Signal Panel, Event Signal Workbench, controls, signal
-  hero, confluence cards, recent chart, default-collapsed backtest drawer, and backtest preview
-  after user action.
+  hero, confluence cards, recent chart, Signal Observation Log, Observation Feedback,
+  default-collapsed Observation Preview, and Observation Preview after user action.
 - `/markets/polymarket%3Amkt-btc-1h-demo` must render Market Detail RC-3 with outcomes, research
   readiness, token trace, source trace, related fixture markets, provenance, placeholder pricing,
   and open evidence gaps.
@@ -266,8 +273,8 @@ npx --yes pnpm@10.0.0 check
 - TODO: Scanner fair probability, confidence, and edge are placeholders.
 - TODO: Research signals are fixture-default and live-optional research outputs, not trade advice.
 - TODO: Coinbase Exchange live OHLCV has no cache layer; use explicit local manual requests only.
-- TODO: Event Signal Console backtest preview is small-sample and on-demand only; it is not a
-  predictive guarantee or real trading performance.
+- TODO: Event Signal Console Observation Preview is small-sample and on-demand only; it is not a
+  predictive guarantee, backtest, or real trading performance.
 - TODO: Pricing-engine v1 data freshness and calibration requirements are not implemented.
 - TODO: No paper broker, replay, or real pricing model implementation.
 
@@ -278,8 +285,8 @@ npx --yes pnpm@10.0.0 check
 - Live source mode returns `NO_SIGNAL`: check warnings and fail-closed reasons. Live mode is allowed
   to fail closed when Coinbase candles are stale, incomplete, unreachable, or outside supported
   BTC/ETH 5m/10m scope.
-- Backtest preview is hidden: this is the default. Click `Show backtest preview` or add
-  `consoleBacktest=1` to the local URL.
+- Observation Preview is hidden: this is the default. Click `Open observation preview` or add
+  `consoleObservationPreview=1` to the local URL.
 - Auto refresh is hidden or not updating: confirm the Event Signal Workbench is open and the API
   gateway is running. Live mode may return `NO_SIGNAL` with warnings and should not be polled
   faster than the built-in interval controls.
