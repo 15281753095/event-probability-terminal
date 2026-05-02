@@ -22,17 +22,21 @@ import {
   REQUIRED_CANDLE_COUNT,
   RESEARCH_SIGNAL_MODEL_VERSION,
   buildResearchSignal,
-  buildResearchSignalFromOHLCV,
   rebaseFixtureCandles,
   type OHLCVFetcher
 } from "./engine.js";
 import { findResearchSignalFixture } from "./fixtures.js";
-import { emptyFailClosedOHLCVResult, fetchCoinbaseExchangeCandles } from "./ohlcv/coinbase-exchange.js";
+import {
+  emptyFailClosedOHLCVResult,
+  fetchCoinbaseExchangeCandles,
+  fetchCoinbaseExchangeMarketData,
+  type LiveMarketDataFetcher
+} from "./ohlcv/coinbase-exchange.js";
 import { evaluateConfluence } from "./confluence.js";
 
 export const CONSOLE_CANDLE_LOOKBACK = 80;
 export const RECENT_CANDLE_LIMIT = 60;
-export const RECENT_MARKER_LIMIT = 20;
+export const RECENT_MARKER_LIMIT = 10;
 
 export type BuildEventSignalConsoleInput = {
   symbol: SignalSymbol;
@@ -45,6 +49,7 @@ export type BuildEventSignalConsoleInput = {
 
 export type BuildLiveEventSignalConsoleInput = BuildEventSignalConsoleInput & {
   fetcher?: OHLCVFetcher;
+  liveMarketDataFetcher?: LiveMarketDataFetcher;
 };
 
 export function buildFixtureEventSignalConsole(input: BuildEventSignalConsoleInput): EventSignalConsoleResponse {
@@ -64,6 +69,7 @@ export function buildFixtureEventSignalConsole(input: BuildEventSignalConsoleInp
       signal: emptySignal,
       candles: [],
       generatedAt: input.generatedAt,
+      currentPrice: null,
       includeObservationPreview: input.includeObservationPreview ?? input.includeBacktest ?? false
     });
   }
@@ -84,6 +90,7 @@ export function buildFixtureEventSignalConsole(input: BuildEventSignalConsoleInp
     signal,
     candles,
     generatedAt: input.generatedAt,
+    currentPrice: candles.at(-1)?.close ?? null,
     includeObservationPreview: input.includeObservationPreview ?? input.includeBacktest ?? false
   });
 }
@@ -91,6 +98,10 @@ export function buildFixtureEventSignalConsole(input: BuildEventSignalConsoleInp
 export async function buildLiveEventSignalConsole(
   input: BuildLiveEventSignalConsoleInput
 ): Promise<EventSignalConsoleResponse> {
+  if (input.liveMarketDataFetcher || !input.fetcher) {
+    return buildLiveEventSignalConsoleFromMarketData(input);
+  }
+
   const fetcher = input.fetcher ?? fetchCoinbaseExchangeCandles;
   const request: OHLCVFetchRequest = {
     symbol: input.symbol,
@@ -109,29 +120,107 @@ export async function buildLiveEventSignalConsole(
       error instanceof Error ? error.message : "OHLCV adapter threw an unknown error."
     );
   }
-  const signal = buildResearchSignalFromOHLCV({
+  const signal = buildResearchSignal({
     symbol: input.symbol,
     horizon: input.horizon,
     generatedAt: input.generatedAt,
-    result,
+    candles: result.candles,
+    source: result.source,
+    sourceMode: "live",
+    freshness: result.freshness,
+    sourceWarnings: result.warnings,
+    sourceFailClosedReasons: result.failClosedReasons,
+    isLive: true,
+    isFixtureBacked: false,
     ...(input.profileName ? { profileName: input.profileName } : {})
   });
   return buildConsoleResponse({
     signal,
     candles: result.candles,
     generatedAt: input.generatedAt,
+    currentPrice: result.candles.at(-1)?.close ?? null,
     includeObservationPreview: input.includeObservationPreview ?? input.includeBacktest ?? false
   });
+}
+
+async function buildLiveEventSignalConsoleFromMarketData(
+  input: BuildLiveEventSignalConsoleInput
+): Promise<EventSignalConsoleResponse> {
+  const liveMarketDataFetcher = input.liveMarketDataFetcher ?? fetchCoinbaseExchangeMarketData;
+  try {
+    const marketData = await liveMarketDataFetcher({
+      symbol: input.symbol,
+      interval: "1m",
+      lookback: CONSOLE_CANDLE_LOOKBACK,
+      sourceMode: "live",
+      requestedAt: input.generatedAt
+    });
+    const signal = buildResearchSignal({
+      symbol: input.symbol,
+      horizon: input.horizon,
+      generatedAt: input.generatedAt,
+      candles: marketData.candles,
+      source: "coinbase_exchange",
+      sourceMode: "live",
+      sourceWarnings: marketData.warnings,
+      sourceFailClosedReasons: marketData.failClosedReasons,
+      isLive: true,
+      isFixtureBacked: false,
+      ...(input.profileName ? { profileName: input.profileName } : {})
+    });
+    return buildConsoleResponse({
+      signal,
+      candles: marketData.candles,
+      generatedAt: input.generatedAt,
+      currentPrice: marketData.latestPrice,
+      includeObservationPreview: input.includeObservationPreview ?? input.includeBacktest ?? false
+    });
+  } catch (error) {
+    const reason =
+      error instanceof Error
+        ? `Live data unavailable: Coinbase Exchange market-data adapter failed: ${error.message}`
+        : "Live data unavailable: Coinbase Exchange market-data adapter failed with an unknown error.";
+    const request: OHLCVFetchRequest = {
+      symbol: input.symbol,
+      interval: "1m",
+      lookback: CONSOLE_CANDLE_LOOKBACK,
+      sourceMode: "live",
+      requestedAt: input.generatedAt
+    };
+    const result = emptyFailClosedOHLCVResult(request, input.generatedAt, reason);
+    const signal = buildResearchSignal({
+      symbol: input.symbol,
+      horizon: input.horizon,
+      generatedAt: input.generatedAt,
+      candles: result.candles,
+      source: result.source,
+      sourceMode: "live",
+      freshness: result.freshness,
+      sourceWarnings: result.warnings,
+      sourceFailClosedReasons: result.failClosedReasons,
+      isLive: true,
+      isFixtureBacked: false,
+      ...(input.profileName ? { profileName: input.profileName } : {})
+    });
+    return buildConsoleResponse({
+      signal,
+      candles: result.candles,
+      generatedAt: input.generatedAt,
+      currentPrice: null,
+      includeObservationPreview: input.includeObservationPreview ?? input.includeBacktest ?? false
+    });
+  }
 }
 
 function buildConsoleResponse(input: {
   signal: ResearchSignal;
   candles: OhlcvCandle[];
   generatedAt: string;
+  currentPrice: number | null;
   includeObservationPreview: boolean;
 }): EventSignalConsoleResponse {
   const recentCandles = input.candles.slice(-RECENT_CANDLE_LIMIT);
-  const eventWindow = buildEventWindow(input.signal, input.candles);
+  const eventWindow = buildEventWindow(input.signal, input.candles, input.currentPrice);
   const recentMarkers = buildRecentSignalMarkers({
     signal: input.signal,
     candles: input.candles,
@@ -353,7 +442,11 @@ function toLegacyBacktestPreview(preview: ObservationPreview): BacktestPreview {
   };
 }
 
-function buildEventWindow(signal: ResearchSignal, candles: OhlcvCandle[]): EventWindow {
+function buildEventWindow(
+  signal: ResearchSignal,
+  candles: OhlcvCandle[],
+  currentPrice: number | null
+): EventWindow {
   const latest = candles.at(-1);
   const horizonMs = signal.horizon === "5m" ? 5 * 60_000 : 10 * 60_000;
   if (!latest) {
@@ -363,7 +456,7 @@ function buildEventWindow(signal: ResearchSignal, candles: OhlcvCandle[]): Event
       windowStart: null,
       windowEnd: null,
       referencePrice: null,
-      currentPrice: null,
+      currentPrice,
       distanceFromReferencePct: null,
       canObserve: false,
       referencePriceSource: "unavailable",
@@ -372,19 +465,26 @@ function buildEventWindow(signal: ResearchSignal, candles: OhlcvCandle[]): Event
     };
   }
   const expectedResolveAt = new Date(Date.parse(latest.timestamp) + horizonMs).toISOString();
+  const effectiveCurrentPrice = currentPrice ?? (signal.sourceMode === "fixture" ? latest.close : null);
+  const distanceFromReferencePct =
+    latest.close === 0 || effectiveCurrentPrice === null
+      ? null
+      : Number((((effectiveCurrentPrice - latest.close) / latest.close) * 100).toFixed(4));
   return {
     horizon: signal.horizon,
     expectedResolveAt,
     windowStart: latest.timestamp,
     windowEnd: expectedResolveAt,
     referencePrice: latest.close,
-    currentPrice: latest.close,
-    distanceFromReferencePct: 0,
+    currentPrice: effectiveCurrentPrice,
+    distanceFromReferencePct,
     canObserve: signal.dataQuality.status === "ok",
     referencePriceSource: "latest_closed_candle",
     isReferenceApproximation: true,
     warnings: [
-      "Reference price uses the latest closed candle close; this is an approximation, not official event-contract settlement."
+      signal.sourceMode === "live"
+        ? "Reference price uses the latest closed candle close; current price uses latest public ticker when available."
+        : "Reference price uses the latest closed candle close; this is an approximation, not official event-contract settlement."
     ]
   };
 }

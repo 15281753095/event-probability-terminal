@@ -41,6 +41,13 @@ export {
   buildCoinbaseProductId,
   coinbaseGranularity,
   emptyFailClosedOHLCVResult,
-  fetchCoinbaseExchangeCandles
+  emptyFailClosedLiveMarketData,
+  fetchCoinbaseExchangeCandles,
+  fetchCoinbaseExchangeMarketData
 } from "./ohlcv/coinbase-exchange.js";
-export type { CoinbaseExchangeOptions, FetchLike } from "./ohlcv/coinbase-exchange.js";
+export type {
+  CoinbaseExchangeOptions,
+  FetchLike,
+  LiveMarketDataFetcher,
+  LiveMarketDataFetchRequest
+} from "./ohlcv/coinbase-exchange.js";

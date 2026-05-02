@@ -72,7 +72,7 @@ describe("fixture-backed API response contracts", () => {
     const server = buildSnapshotServer();
     const response = await server.inject({
       method: "GET",
-      url: "/signals/console?symbol=BTC&horizon=5m"
+      url: "/signals/console?symbol=BTC&horizon=5m&sourceMode=fixture"
     });
 
     assert.equal(response.statusCode, 200);

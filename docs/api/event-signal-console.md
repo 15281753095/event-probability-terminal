@@ -1,7 +1,7 @@
 # Event Signal Console API
 
-Status: implemented as a fixture-default, live-optional, read-only research console with RC-12
-Reality Mode, strategy profiles, event windows, and local observation support.
+Status: RC-13 real-data-first, read-only research console. It defaults to live Coinbase Exchange
+public ticker/candles and keeps fixture data behind explicit dev mode.
 
 This API returns one BTC/ETH short-horizon research console payload. It is not a trading API, not
 investment advice, not a fair-probability pricing model, and not an order-generation system.
@@ -11,16 +11,17 @@ investment advice, not a fair-probability pricing model, and not an order-genera
 ```text
 GET /signals/console
 GET /signals/console?symbol=BTC&horizon=5m
-GET /signals/console?symbol=BTC&horizon=5m&sourceMode=live
+GET /signals/console?symbol=BTC&horizon=5m&sourceMode=fixture
 GET /signals/console?symbol=BTC&horizon=5m&profile=conservative
 GET /signals/console?symbol=BTC&horizon=5m&includeObservationPreview=true
+GET /market-data/live?symbol=BTC
 ```
 
 Supported query filters:
 
 - `symbol`: `BTC` or `ETH`; default `BTC`
 - `horizon`: `5m` or `10m`; default `5m`
-- `sourceMode`: `fixture` or `live`; default `fixture`
+- `sourceMode`: `live` or `fixture`; default `live`
 - `profile`: `balanced`, `conservative`, or `aggressive`; default `balanced`
 - `includeObservationPreview`: `true` only when the user explicitly requests the preview
 - `includeBacktest`: legacy alias for `includeObservationPreview`
@@ -39,7 +40,7 @@ Top-level fields:
 - `meta`: `event_signal_console` metadata
 - `symbol`: selected `BTC` or `ETH`
 - `horizon`: selected `5m` or `10m`
-- `sourceMode`: `fixture` or `live`
+- `sourceMode`: `live` or `fixture`
 - `profileName`: active research profile
 - `eventWindow`: 5m/10m observation window metadata, including expected resolution time
 - `observationCandidate`: local observation seed fields for the web UI
@@ -47,10 +48,30 @@ Top-level fields:
 - `confluence`: current `ConfluenceScore`
 - `riskFilters`: current `RiskFilterSummary`
 - `recentCandles`: recent OHLCV candles only
-- `recentMarkers`: recent signal markers only, capped at 20
+- `recentMarkers`: recent signal markers only, capped at 10
 - `observationPreview`: disabled unless `includeObservationPreview=true`
 - `backtestPreview`: legacy-compatible alias of the observation preview metrics
 - `warnings`: user-facing research-only and fail-closed warnings
+
+`GET /market-data/live` returns the current live market-data packet used by the console:
+
+- `symbol`
+- `source: "coinbase-exchange"`
+- `productId`: `BTC-USD` or `ETH-USD`
+- `latestPrice`
+- `bid`
+- `ask`
+- `tickerTime`
+- `tickerFreshnessSeconds`
+- `candles`
+- `candleInterval`
+- `candleCount`
+- `latestCandleTime`
+- `candleFreshnessSeconds`
+- `isLive: true`
+- `isFixtureBacked: false`
+- `warnings`
+- `failClosedReasons`
 
 `meta` always marks the response as:
 
@@ -124,22 +145,23 @@ volatile, flat by EMA/MACD checks, missing confirmation, or blocked by manual ev
 - `isReferenceApproximation`
 - `warnings`
 
-The reference price currently uses the latest closed candle close. It is explicitly marked as an
-approximation and is not official event-contract settlement.
+In live mode, `referencePrice` uses the latest closed candle close while `currentPrice` uses the
+latest Coinbase ticker price. `distanceFromReferencePct` is computed from those two values. The
+reference remains an approximation and is not official event-contract settlement.
 
 `observationCandidate` is used by the web UI to create a localStorage observation. It is not a
 trade record and is not persisted server-side.
 
 ## Runtime UI Notes
 
-The Web workbench can auto-refresh `/signals/console` from the browser, but this is display polling
-only. It is off by default, supports 15s/30s/60s intervals, floors live 15s refreshes to 30s, and
-does not place orders or connect accounts.
+The Web terminal can manually refresh `/signals/console` from the browser. It is display fetching
+only and does not place orders or connect accounts. Coinbase documents WebSocket feeds for realtime
+updates; RC-13 does not add a WebSocket client and must not high-frequency poll public REST ticker
+or candles.
 
-Signal Observation Log is browser-local. It keeps the latest 100 observations, displays the latest
-20, and resolves pending 5m/10m observations close-to-close after refresh. `NO_SIGNAL` observations
-are recorded as `no_signal` but excluded from directional match rate. Directional match rate is not
-return, win rate, settlement accuracy, or real trading performance.
+The homepage shows a compact observation summary by default. The larger browser-local observation
+feedback tools are kept out of the first screen and may be reached only from dev/advanced surfaces.
+Directional match rate is not return, win rate, settlement accuracy, or real trading performance.
 
 ## Markers
 

@@ -1,11 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { emptyFailClosedOHLCVResult, getResearchSignalFixture } from "@ept/research-signals";
+import {
+  emptyFailClosedOHLCVResult,
+  getResearchSignalFixture,
+  type LiveMarketDataFetchRequest
+} from "@ept/research-signals";
 import {
   API_CONTRACT_VERSION,
   type ApiErrorResponse,
   type Candle,
   type EventSignalConsoleResponse,
+  type LiveMarketDataResponse,
   type OHLCVFetchResult,
   type OhlcvCandle,
   type ResearchSignalsResponse
@@ -103,6 +108,95 @@ describe("research signals API", () => {
     await server.close();
   });
 
+  it("returns /market-data/live from a mocked Coinbase ticker and candle packet", async () => {
+    const server = buildServer({
+      logger: false,
+      now: () => fixedGeneratedAt,
+      liveMarketDataFetcher: async (request) => mockLiveMarketData(request)
+    });
+    const response = await server.inject({
+      method: "GET",
+      url: "/market-data/live?symbol=BTC"
+    });
+
+    assert.equal(response.statusCode, 200);
+    const payload = response.json<LiveMarketDataResponse>();
+    assert.equal(payload.symbol, "BTC");
+    assert.equal(payload.source, "coinbase-exchange");
+    assert.equal(payload.productId, "BTC-USD");
+    assert.equal(payload.latestPrice, 100.8);
+    assert.equal(payload.bid, 100.7);
+    assert.equal(payload.ask, 100.9);
+    assert.equal(payload.tickerTime, fixedGeneratedAt);
+    assert.equal(payload.tickerFreshnessSeconds, 0);
+    assert.equal(payload.candleInterval, "1m");
+    assert.equal(payload.candleCount, 80);
+    assert.equal(payload.isLive, true);
+    assert.equal(payload.isFixtureBacked, false);
+    assert.deepEqual(payload.failClosedReasons, []);
+
+    await server.close();
+  });
+
+  it("returns /market-data/live fail-closed when mocked live ticker fails", async () => {
+    const server = buildServer({
+      logger: false,
+      now: () => fixedGeneratedAt,
+      liveMarketDataFetcher: async (request) =>
+        mockLiveMarketData(request, {
+          latestPrice: null,
+          bid: null,
+          ask: null,
+          tickerTime: null,
+          tickerFreshnessSeconds: null,
+          failClosedReasons: ["Live data unavailable: mock ticker failure"],
+          warnings: ["Live data unavailable: mock ticker failure"]
+        })
+    });
+    const response = await server.inject({
+      method: "GET",
+      url: "/market-data/live?symbol=ETH"
+    });
+
+    assert.equal(response.statusCode, 200);
+    const payload = response.json<LiveMarketDataResponse>();
+    assert.equal(payload.symbol, "ETH");
+    assert.equal(payload.latestPrice, null);
+    assert.ok(payload.failClosedReasons.some((reason) => reason.includes("mock ticker failure")));
+    assert.equal(payload.isFixtureBacked, false);
+
+    await server.close();
+  });
+
+  it("returns /market-data/live fail-closed when mocked live candles fail", async () => {
+    const server = buildServer({
+      logger: false,
+      now: () => fixedGeneratedAt,
+      liveMarketDataFetcher: async (request) =>
+        mockLiveMarketData(request, {
+          candles: [],
+          candleCount: 0,
+          latestCandleTime: null,
+          candleFreshnessSeconds: null,
+          failClosedReasons: ["Coinbase Exchange candles request failed with mock HTTP 503."],
+          warnings: ["Coinbase Exchange candles request failed with mock HTTP 503."]
+        })
+    });
+    const response = await server.inject({
+      method: "GET",
+      url: "/market-data/live?symbol=BTC"
+    });
+
+    assert.equal(response.statusCode, 200);
+    const payload = response.json<LiveMarketDataResponse>();
+    assert.equal(payload.latestPrice, 100.8);
+    assert.equal(payload.candleCount, 0);
+    assert.ok(payload.failClosedReasons.some((reason) => reason.includes("mock HTTP 503")));
+    assert.equal(payload.isFixtureBacked, false);
+
+    await server.close();
+  });
+
   it("filters research signals by symbol and horizon", async () => {
     const server = buildServer({ logger: false, now: () => fixedGeneratedAt });
     const response = await server.inject({
@@ -168,11 +262,38 @@ describe("research signals API", () => {
     await server.close();
   });
 
-  it("returns a fixture-backed Event Signal Console with backtest disabled by default", async () => {
-    const server = buildServer({ logger: false, now: () => fixedGeneratedAt });
+  it("defaults /signals/console to live sourceMode with mocked live market data", async () => {
+    const server = buildServer({
+      logger: false,
+      now: () => fixedGeneratedAt,
+      liveMarketDataFetcher: async (request) => mockLiveMarketData(request)
+    });
     const response = await server.inject({
       method: "GET",
       url: "/signals/console?symbol=BTC&horizon=5m"
+    });
+
+    assert.equal(response.statusCode, 200);
+    const payload = response.json<EventSignalConsoleResponse>();
+    assert.equal(payload.meta.contractVersion, API_CONTRACT_VERSION);
+    assert.equal(payload.meta.responseKind, "event_signal_console");
+    assert.equal(payload.meta.mode, "live");
+    assert.equal(payload.meta.isFixtureBacked, false);
+    assert.equal(payload.sourceMode, "live");
+    assert.equal(payload.currentSignal.dataQuality.isLive, true);
+    assert.equal(payload.currentSignal.dataQuality.isFixtureBacked, false);
+    assert.equal(payload.eventWindow.currentPrice, 100.8);
+    assert.ok(payload.recentCandles.length > 0);
+    assert.ok(payload.recentMarkers.length <= 10);
+
+    await server.close();
+  });
+
+  it("returns an explicitly fixture-backed Event Signal Console with backtest disabled by default", async () => {
+    const server = buildServer({ logger: false, now: () => fixedGeneratedAt });
+    const response = await server.inject({
+      method: "GET",
+      url: "/signals/console?symbol=BTC&horizon=5m&sourceMode=fixture"
     });
 
     assert.equal(response.statusCode, 200);
@@ -187,7 +308,7 @@ describe("research signals API", () => {
     assert.equal(payload.confluence.direction, "LONG");
     assert.equal(payload.riskFilters.dataFreshness, "pass");
     assert.ok(payload.recentCandles.length > 0);
-    assert.ok(payload.recentMarkers.length <= 20);
+    assert.ok(payload.recentMarkers.length <= 10);
     assert.equal(payload.recentMarkers.every((marker) => marker.isRecentOnly), true);
     assert.equal(payload.eventWindow.horizon, "5m");
     assert.equal(payload.eventWindow.canObserve, true);
@@ -207,7 +328,7 @@ describe("research signals API", () => {
     const server = buildServer({ logger: false, now: () => fixedGeneratedAt });
     const response = await server.inject({
       method: "GET",
-      url: "/signals/console?symbol=BTC&horizon=10m&profile=conservative"
+      url: "/signals/console?symbol=BTC&horizon=10m&profile=conservative&sourceMode=fixture"
     });
 
     assert.equal(response.statusCode, 200);
@@ -225,7 +346,7 @@ describe("research signals API", () => {
     const server = buildServer({ logger: false, now: () => fixedGeneratedAt });
     const response = await server.inject({
       method: "GET",
-      url: "/signals/console?symbol=BTC&horizon=5m&includeObservationPreview=true"
+      url: "/signals/console?symbol=BTC&horizon=5m&includeObservationPreview=true&sourceMode=fixture"
     });
 
     assert.equal(response.statusCode, 200);
@@ -241,12 +362,24 @@ describe("research signals API", () => {
     await server.close();
   });
 
-  it("returns live Event Signal Console fail-closed with a mocked OHLCV failure", async () => {
+  it("returns live Event Signal Console fail-closed with a mocked market-data failure", async () => {
     const server = buildServer({
       logger: false,
       now: () => fixedGeneratedAt,
-      researchSignalOhlcvFetcher: async (request) =>
-        emptyFailClosedOHLCVResult(request, fixedGeneratedAt, "mock console Coinbase failure")
+      liveMarketDataFetcher: async (request) =>
+        mockLiveMarketData(request, {
+          latestPrice: null,
+          bid: null,
+          ask: null,
+          tickerTime: null,
+          tickerFreshnessSeconds: null,
+          candles: [],
+          candleCount: 0,
+          latestCandleTime: null,
+          candleFreshnessSeconds: null,
+          failClosedReasons: ["Live data unavailable: mock console Coinbase failure"],
+          warnings: ["Live data unavailable: mock console Coinbase failure"]
+        })
     });
     const response = await server.inject({
       method: "GET",
@@ -259,6 +392,7 @@ describe("research signals API", () => {
     assert.equal(payload.currentSignal.direction, "NO_SIGNAL");
     assert.equal(payload.currentSignal.confidence, 0);
     assert.ok(payload.confluence.vetoReasons.some((reason) => reason.includes("mock console Coinbase failure")));
+    assert.equal(payload.recentCandles.length, 0);
 
     await server.close();
   });
@@ -273,4 +407,61 @@ function toLiveCandle(candle: OhlcvCandle, symbol: "BTC" | "ETH"): Candle {
     startTime: candle.timestamp,
     isClosed: true
   };
+}
+
+function mockLiveMarketData(
+  request: LiveMarketDataFetchRequest,
+  overrides: Partial<LiveMarketDataResponse> = {}
+): LiveMarketDataResponse {
+  const candles = mockLiveCandles(request);
+  const latest = candles.at(-1);
+  const base: LiveMarketDataResponse = {
+    symbol: request.symbol,
+    source: "coinbase-exchange",
+    productId: request.symbol === "BTC" ? "BTC-USD" : "ETH-USD",
+    latestPrice: 100.8,
+    bid: 100.7,
+    ask: 100.9,
+    tickerTime: fixedGeneratedAt,
+    tickerFreshnessSeconds: 0,
+    tickerVolume: 1200,
+    candles,
+    candleInterval: request.interval ?? "1m",
+    candleCount: candles.length,
+    latestCandleTime: latest?.timestamp ?? null,
+    candleFreshnessSeconds: 0,
+    isLive: true,
+    isFixtureBacked: false,
+    warnings: [],
+    failClosedReasons: []
+  };
+  return {
+    ...base,
+    ...overrides
+  };
+}
+
+function mockLiveCandles(request: LiveMarketDataFetchRequest): Candle[] {
+  const lookback = request.lookback ?? 80;
+  const interval = request.interval ?? "1m";
+  const latestStartMs = Date.parse(request.requestedAt) - 60_000;
+  return Array.from({ length: lookback }, (_, index) => {
+    const startMs = latestStartMs - (lookback - 1 - index) * 60_000;
+    const open = 100 + index * 0.01;
+    const close = open + 0.02;
+    const startTime = new Date(startMs).toISOString();
+    return {
+      source: "coinbase_exchange",
+      symbol: request.symbol,
+      interval,
+      startTime,
+      timestamp: startTime,
+      open,
+      high: close + 0.03,
+      low: open - 0.03,
+      close,
+      volume: 1000 + index,
+      isClosed: true
+    };
+  });
 }

@@ -31,9 +31,10 @@ export default defineConfig({
       cwd: repoRoot,
       env: {
         ...process.env,
-        POLYMARKET_USE_FIXTURES: "true"
+        POLYMARKET_USE_FIXTURES: "true",
+        EPT_LIVE_MARKET_DATA_MOCK: "true"
       } as Record<string, string>,
-      reuseExistingServer: !isCI,
+      reuseExistingServer: false,
       timeout: 120_000,
       url: "http://127.0.0.1:4000/healthz"
     },
@@ -44,7 +45,7 @@ export default defineConfig({
         ...process.env,
         NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:4000"
       } as Record<string, string>,
-      reuseExistingServer: !isCI,
+      reuseExistingServer: false,
       timeout: 120_000,
       url: "http://127.0.0.1:3000"
     }

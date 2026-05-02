@@ -2,9 +2,14 @@ import Fastify from "fastify";
 import { createPolymarketPublicReadAdapter } from "@ept/market-ingestor";
 import {
   buildFixtureEventSignalConsole,
+  CONSOLE_CANDLE_LOOKBACK,
+  emptyFailClosedLiveMarketData,
+  fetchCoinbaseExchangeMarketData,
   buildLiveEventSignalConsole,
   listLiveResearchSignals,
   listResearchSignals,
+  type LiveMarketDataFetchRequest,
+  type LiveMarketDataFetcher,
   type OHLCVFetcher
 } from "@ept/research-signals";
 import type {
@@ -13,6 +18,7 @@ import type {
   EventMarket,
   EventSignalConsoleResponse,
   FairValueSnapshot,
+  LiveMarketDataResponse,
   OrderBookLevel,
   OrderBookSnapshot,
   ResearchSignalsResponse,
@@ -51,6 +57,7 @@ export type BuildServerOptions = {
   pricingEngineBaseUrl?: string;
   sourceMode?: SourceProvenance["sourceMode"];
   researchSignalOhlcvFetcher?: OHLCVFetcher;
+  liveMarketDataFetcher?: LiveMarketDataFetcher;
 };
 
 export function buildServer(options: BuildServerOptions = {}) {
@@ -77,6 +84,11 @@ export function buildServer(options: BuildServerOptions = {}) {
         "http://127.0.0.1:4100"
     );
   const now = options.now ?? (() => new Date().toISOString());
+  const liveMarketDataFetcher =
+    options.liveMarketDataFetcher ??
+    (process.env.EPT_LIVE_MARKET_DATA_MOCK === "true"
+      ? mockLiveMarketDataFetcher
+      : fetchCoinbaseExchangeMarketData);
 
   server.get("/healthz", async () => {
     return {
@@ -202,11 +214,49 @@ export function buildServer(options: BuildServerOptions = {}) {
     };
   });
 
+  server.get<{ Querystring: { symbol?: string } }>("/market-data/live", async (request, reply) => {
+    const generatedAt = now();
+    const symbol = parseSignalSymbol(request.query.symbol) ?? "BTC";
+    if (request.query.symbol && !parseSignalSymbol(request.query.symbol)) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Live market data currently supports symbol=BTC or symbol=ETH only.",
+          generatedAt
+        })
+      );
+    }
+
+    try {
+      return (await liveMarketDataFetcher({
+        symbol,
+        interval: "1m",
+        lookback: CONSOLE_CANDLE_LOOKBACK,
+        sourceMode: "live",
+        requestedAt: generatedAt
+      })) satisfies LiveMarketDataResponse;
+    } catch (error) {
+      return emptyFailClosedLiveMarketData(
+        {
+          symbol,
+          interval: "1m",
+          lookback: CONSOLE_CANDLE_LOOKBACK,
+          sourceMode: "live",
+          requestedAt: generatedAt
+        },
+        error instanceof Error
+          ? `Live data unavailable: live market-data adapter failed: ${error.message}`
+          : "Live data unavailable: live market-data adapter failed with an unknown error."
+      ) satisfies LiveMarketDataResponse;
+    }
+  });
+
   server.get<{ Querystring: { symbol?: string; horizon?: string; sourceMode?: string; profile?: string } }>("/signals/research", async (request, reply) => {
     const generatedAt = now();
     const symbol = parseSignalSymbol(request.query.symbol);
     const horizon = parseSignalHorizon(request.query.horizon);
-    const signalSourceMode = parseResearchSignalSourceMode(request.query.sourceMode);
+    const signalSourceMode = parseResearchSignalSourceMode(request.query.sourceMode, "fixture");
     const profileName = parseSignalProfileName(request.query.profile);
 
     if (request.query.symbol && !symbol) {
@@ -272,7 +322,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     const generatedAt = now();
     const symbol = parseSignalSymbol(request.query.symbol) ?? "BTC";
     const horizon = parseSignalHorizon(request.query.horizon) ?? "5m";
-    const signalSourceMode = parseResearchSignalSourceMode(request.query.sourceMode);
+    const signalSourceMode = parseResearchSignalSourceMode(request.query.sourceMode, "live");
     const profileName = parseSignalProfileName(request.query.profile);
     const includeObservationPreview = request.query.includeObservationPreview === "true" || request.query.includeBacktest === "true";
 
@@ -324,6 +374,7 @@ export function buildServer(options: BuildServerOptions = {}) {
         generatedAt,
         includeObservationPreview,
         ...(profileName ? { profileName } : {}),
+        liveMarketDataFetcher,
         ...(options.researchSignalOhlcvFetcher ? { fetcher: options.researchSignalOhlcvFetcher } : {})
       })) satisfies EventSignalConsoleResponse;
     }
@@ -344,13 +395,77 @@ function parseSignalSymbol(value?: string): SignalSymbol | undefined {
   return value === "BTC" || value === "ETH" ? value : undefined;
 }
 
+async function mockLiveMarketDataFetcher(
+  request: LiveMarketDataFetchRequest
+): Promise<LiveMarketDataResponse> {
+  const lookback = request.lookback ?? CONSOLE_CANDLE_LOOKBACK;
+  const interval = request.interval ?? "1m";
+  const intervalMs = interval === "5m" ? 300_000 : 60_000;
+  const requestedAtMs = Date.parse(request.requestedAt);
+  const latestStartMs = requestedAtMs - intervalMs;
+  const base = request.symbol === "BTC" ? 64_000 : 3_100;
+  const candles = Array.from({ length: lookback }, (_, index) => {
+    const startMs = latestStartMs - (lookback - 1 - index) * intervalMs;
+    const trend = index * (request.symbol === "BTC" ? 8 : 0.7);
+    const wave = Math.sin(index / 3) * (request.symbol === "BTC" ? 35 : 3.5);
+    const open = base + trend + wave;
+    const close = open + Math.cos(index / 2) * (request.symbol === "BTC" ? 22 : 2.1);
+    const high = Math.max(open, close) + (request.symbol === "BTC" ? 18 : 1.8);
+    const low = Math.min(open, close) - (request.symbol === "BTC" ? 18 : 1.8);
+    const startTime = new Date(startMs).toISOString();
+    return {
+      source: "coinbase_exchange" as const,
+      symbol: request.symbol,
+      interval,
+      startTime,
+      timestamp: startTime,
+      open: roundPrice(open),
+      high: roundPrice(high),
+      low: roundPrice(low),
+      close: roundPrice(close),
+      volume: roundPrice(900 + index * 4),
+      isClosed: true
+    };
+  });
+  const latest = candles.at(-1);
+  const latestClose = latest?.close ?? base;
+  const latestPrice = roundPrice(latestClose + (request.symbol === "BTC" ? 14 : 1.4));
+  return {
+    symbol: request.symbol,
+    source: "coinbase-exchange",
+    productId: request.symbol === "BTC" ? "BTC-USD" : "ETH-USD",
+    latestPrice,
+    bid: roundPrice(latestPrice - (request.symbol === "BTC" ? 1.5 : 0.15)),
+    ask: roundPrice(latestPrice + (request.symbol === "BTC" ? 1.5 : 0.15)),
+    tickerTime: request.requestedAt,
+    tickerFreshnessSeconds: 0,
+    tickerVolume: roundPrice(100_000 + lookback),
+    candles,
+    candleInterval: interval,
+    candleCount: candles.length,
+    latestCandleTime: latest?.timestamp ?? null,
+    candleFreshnessSeconds: 0,
+    isLive: true,
+    isFixtureBacked: false,
+    warnings: ["Mocked Coinbase Exchange live market data for deterministic local smoke only."],
+    failClosedReasons: []
+  };
+}
+
+function roundPrice(value: number): number {
+  return Number(value.toFixed(2));
+}
+
 function parseSignalHorizon(value?: string): SignalHorizon | undefined {
   return value === "5m" || value === "10m" ? value : undefined;
 }
 
-function parseResearchSignalSourceMode(value?: string): ResearchSignalSourceMode | undefined {
+function parseResearchSignalSourceMode(
+  value?: string,
+  defaultMode: ResearchSignalSourceMode = "fixture"
+): ResearchSignalSourceMode | undefined {
   if (!value) {
-    return "fixture";
+    return defaultMode;
   }
   return value === "fixture" || value === "live" ? value : undefined;
 }

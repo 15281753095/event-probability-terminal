@@ -26,7 +26,12 @@ export const API_CONTRACT_VERSION = "ept-api-v1" as const;
 
 export type ApiContractVersion = typeof API_CONTRACT_VERSION;
 
-export type ApiResponseKind = "scanner_top" | "market_detail" | "research_signal" | "event_signal_console";
+export type ApiResponseKind =
+  | "scanner_top"
+  | "market_detail"
+  | "research_signal"
+  | "event_signal_console"
+  | "live_market_data";
 
 export type ApiResponseStatus = "ok" | "not_found" | "unsupported" | "fail_closed";
 
@@ -329,6 +334,29 @@ export interface OHLCVFetchResult {
   failClosedReasons: string[];
   isLive: boolean;
   isFixtureBacked: boolean;
+}
+
+export type LiveMarketDataSource = "coinbase-exchange";
+
+export interface LiveMarketDataResponse {
+  symbol: SignalSymbol;
+  source: LiveMarketDataSource;
+  productId: string;
+  latestPrice: number | null;
+  bid: number | null;
+  ask: number | null;
+  tickerTime: string | null;
+  tickerFreshnessSeconds: number | null;
+  tickerVolume: number | null;
+  candles: Candle[];
+  candleInterval: OhlcvInterval;
+  candleCount: number;
+  latestCandleTime: string | null;
+  candleFreshnessSeconds: number | null;
+  isLive: true;
+  isFixtureBacked: false;
+  warnings: string[];
+  failClosedReasons: string[];
 }
 
 export interface SignalFeatureSnapshot {
