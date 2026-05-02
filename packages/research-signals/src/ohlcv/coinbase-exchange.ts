@@ -1,5 +1,6 @@
 import type {
   Candle,
+  DataSourceType,
   LiveMarketDataResponse,
   OHLCVFetchRequest,
   OHLCVFetchResult,
@@ -56,7 +57,9 @@ type CoinbaseTickerResult = Pick<
 
 const granularityByInterval = {
   "1m": 60,
-  "5m": 300
+  "5m": 300,
+  "15m": 900,
+  "1h": 3600
 } satisfies Record<OhlcvInterval, number>;
 
 const productBySymbol = {
@@ -142,7 +145,10 @@ export async function fetchCoinbaseExchangeMarketData(
   return {
     symbol: request.symbol,
     source: "coinbase-exchange",
+    sourceType: "live",
+    provider: "coinbase-exchange",
     productId: ticker.productId,
+    fetchedAt: request.requestedAt,
     latestPrice: ticker.latestPrice,
     bid: ticker.bid,
     ask: ticker.ask,
@@ -151,8 +157,10 @@ export async function fetchCoinbaseExchangeMarketData(
     tickerVolume: ticker.tickerVolume,
     candles: candleResult.candles,
     candleInterval: interval,
+    candleGranularity: coinbaseGranularity(interval),
     candleCount: candleResult.candles.length,
     latestCandleTime,
+    lastCandleTime: latestCandleTime,
     candleFreshnessSeconds,
     isLive: true,
     isFixtureBacked: false,
@@ -168,7 +176,10 @@ export function emptyFailClosedLiveMarketData(
   return {
     symbol: request.symbol,
     source: "coinbase-exchange",
+    sourceType: "live",
+    provider: "coinbase-exchange",
     productId: buildCoinbaseProductId(request.symbol),
+    fetchedAt: request.requestedAt,
     latestPrice: null,
     bid: null,
     ask: null,
@@ -177,8 +188,10 @@ export function emptyFailClosedLiveMarketData(
     tickerVolume: null,
     candles: [],
     candleInterval: request.interval ?? "1m",
+    candleGranularity: coinbaseGranularity(request.interval ?? "1m"),
     candleCount: 0,
     latestCandleTime: null,
+    lastCandleTime: null,
     candleFreshnessSeconds: null,
     isLive: true,
     isFixtureBacked: false,
@@ -240,9 +253,16 @@ export function emptyFailClosedOHLCVResult(
   fetchedAt: string,
   reason: string
 ): OHLCVFetchResult {
+  const sourceType: DataSourceType = request.sourceMode === "live" ? "live" : "fixture";
   return {
     candles: [],
     source: COINBASE_EXCHANGE_SOURCE,
+    sourceType,
+    provider: "coinbase-exchange",
+    productId: buildCoinbaseProductId(request.symbol),
+    candleGranularity: coinbaseGranularity(request.interval),
+    candleCount: 0,
+    lastCandleTime: null,
     fetchedAt,
     freshness: emptyFreshness(request),
     warnings: [reason],
@@ -368,9 +388,16 @@ function parseCoinbaseCandles(
     failClosedReasons.push("Coinbase Exchange returned no usable closed candles.");
   }
 
+  const candles = closed.slice(-request.lookback);
   return {
-    candles: closed.slice(-request.lookback),
+    candles,
     source: COINBASE_EXCHANGE_SOURCE,
+    sourceType: "live",
+    provider: "coinbase-exchange",
+    productId: buildCoinbaseProductId(request.symbol),
+    candleGranularity: coinbaseGranularity(request.interval),
+    candleCount: candles.length,
+    lastCandleTime: latest?.startTime ?? null,
     fetchedAt,
     freshness,
     warnings,
@@ -405,8 +432,13 @@ function parseCoinbaseRow(
   const startTime = new Date(startMs).toISOString();
   return {
     source: COINBASE_EXCHANGE_SOURCE,
+    sourceType: "live",
+    provider: "coinbase-exchange",
     symbol: request.symbol,
     interval: request.interval,
+    granularity: coinbaseGranularity(request.interval),
+    productId: buildCoinbaseProductId(request.symbol),
+    openTime: startTime,
     startTime,
     timestamp: startTime,
     open,
@@ -414,6 +446,8 @@ function parseCoinbaseRow(
     low,
     close,
     volume,
+    isLive: true,
+    isFixtureBacked: false,
     isClosed: requestedAtMs >= startMs + intervalMs
   };
 }

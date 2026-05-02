@@ -2,6 +2,7 @@ import Link from "next/link";
 import type {
   EventSignalConsoleResponse,
   LiveMarketDataResponse,
+  DataSourceType,
   ResearchSignalSourceMode,
   SignalDirection,
   SignalHorizon,
@@ -51,11 +52,21 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
   ]);
   const console = consoleState.console;
   const marketData = liveState.marketData;
+  const dataSourceType: DataSourceType =
+    marketData?.sourceType ?? console?.dataProvenance.sourceType ?? (filters.sourceMode === "fixture" ? "fixture" : "live");
   const liveUnavailable =
     filters.sourceMode === "live" &&
+    dataSourceType === "live" &&
     (!marketData || marketData.failClosedReasons.length > 0 || marketData.latestPrice === null || Boolean(liveState.error));
   const latestPrice = filters.sourceMode === "live" ? marketData?.latestPrice ?? null : console?.eventWindow.currentPrice ?? null;
-  const statusLabel = filters.sourceMode === "fixture" ? "DEV FIXTURE" : liveUnavailable ? "LIVE DATA UNAVAILABLE" : "LIVE";
+  const statusLabel =
+    dataSourceType === "mock"
+      ? "DEV MOCK"
+      : filters.sourceMode === "fixture" || dataSourceType === "fixture"
+        ? "DEV FIXTURE"
+        : liveUnavailable
+          ? "LIVE DATA UNAVAILABLE"
+          : "LIVE";
   const vetoReasons = topItems([
     ...(console?.confluence.vetoReasons ?? []),
     ...(console?.currentSignal.failClosedReasons ?? []),
@@ -71,7 +82,7 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-lg font-semibold tracking-normal text-slate-50">Event Probability Terminal</h1>
-                <StatusBadge label={statusLabel} sourceMode={filters.sourceMode} unavailable={liveUnavailable} />
+                <StatusBadge label={statusLabel} sourceMode={filters.sourceMode} sourceType={dataSourceType} unavailable={liveUnavailable} />
               </div>
               <p className="mt-1 text-xs text-slate-500">
                 BTC/ETH 5m/10m event prediction research. Live data is public read-only.
@@ -119,20 +130,21 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
             <div className="min-h-0 border border-slate-800 bg-[#0b111d] p-3">
               <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-sm font-semibold text-slate-100">Live Candles</h2>
+                  <h2 className="text-sm font-semibold text-slate-100">Candlestick Terminal</h2>
                   <p className="mt-1 text-xs text-slate-500">
-                    {filters.symbol} 1m candles, showing {console?.recentCandles.length ?? 0} of {marketData?.candleCount ?? console?.recentCandles.length ?? 0}. Latest closed candle {formatUsd(console?.recentCandles.at(-1)?.close ?? null, filters.symbol)}; ticker can differ from the last close.
+                    {marketData?.productId ?? console?.dataProvenance.productId ?? `${filters.symbol}-USD`} {console?.dataProvenance.candleInterval ?? "1m"} candles, showing {console?.recentCandles.length ?? 0} of {marketData?.candleCount ?? console?.dataProvenance.candleCount ?? console?.recentCandles.length ?? 0}. Latest closed candle {formatUsd(console?.recentCandles.at(-1)?.close ?? null, filters.symbol)}; provider {marketData?.provider ?? console?.dataProvenance.provider ?? "coinbase-exchange"}.
                   </p>
                 </div>
                 <div className="flex gap-2 text-xs text-slate-500">
                   <span>Markers {console?.recentMarkers.length ?? 0}/10</span>
-                  <span>{console?.meta.sourceName ?? "source unavailable"}</span>
+                  <span>{dataSourceType}</span>
                 </div>
               </div>
               <ConsoleCandlestickChart
                 candles={console?.recentCandles ?? []}
                 markers={console?.recentMarkers ?? []}
                 sourceMode={filters.sourceMode}
+                sourceType={dataSourceType}
               />
             </div>
 
@@ -150,6 +162,7 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
               latestPrice={latestPrice}
               liveUnavailable={liveUnavailable}
               marketDataError={liveState.error}
+              sourceType={dataSourceType}
               vetoReasons={vetoReasons}
             />
             <details className="border border-slate-800 bg-[#0b111d] p-3" data-testid="advanced-drawer">
@@ -261,6 +274,7 @@ function SignalCard({
   latestPrice,
   liveUnavailable,
   marketDataError,
+  sourceType,
   vetoReasons
 }: {
   console: EventSignalConsoleResponse | undefined;
@@ -268,6 +282,7 @@ function SignalCard({
   latestPrice: number | null;
   liveUnavailable: boolean;
   marketDataError: string | undefined;
+  sourceType: DataSourceType;
   vetoReasons: string[];
 }) {
   const direction = liveUnavailable || !console ? "NO_SIGNAL" : console.currentSignal.direction;
@@ -293,6 +308,8 @@ function SignalCard({
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2">
+        <Metric label="Data source" value={sourceType === "mock" ? "DEV mock" : sourceType} />
+        <Metric label="Model" value="Experimental" />
         <Metric label="Confidence" value={formatPercent(confidence)} />
         <Metric label="Score" value={formatSigned(score)} />
         <Metric label="Resolve time" value={formatTime(console?.eventWindow.expectedResolveAt ?? null)} />
@@ -309,6 +326,9 @@ function SignalCard({
 
       <ReasonBlock title="Primary reasons" items={reasons} empty="No directional reason." />
       <ReasonBlock title="Veto / no-trade" items={vetoReasons} empty="No active veto." />
+      <p className="mt-3 border border-slate-800 bg-slate-950 p-2 text-xs text-slate-400">
+        Research-only output. No trading action, order, wallet, private endpoint, or real-money execution is available.
+      </p>
     </section>
   );
 }
@@ -448,20 +468,22 @@ function ReasonBlock({ title, items, empty }: { title: string; items: string[]; 
 function StatusBadge({
   label,
   sourceMode,
+  sourceType,
   unavailable
 }: {
   label: string;
   sourceMode: ResearchSignalSourceMode;
+  sourceType: DataSourceType;
   unavailable: boolean;
 }) {
   const className =
-    sourceMode === "fixture"
+    sourceType === "mock" || sourceMode === "fixture"
       ? "border-amber-400/70 bg-amber-400/10 text-amber-100"
       : unavailable
         ? "border-rose-400/70 bg-rose-400/10 text-rose-100"
         : "border-emerald-400/70 bg-emerald-400/10 text-emerald-100";
   return (
-    <span className={`border px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${className}`} data-testid={sourceMode === "live" && !unavailable ? "live-badge" : undefined}>
+    <span className={`border px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${className}`} data-testid={sourceType === "live" && sourceMode === "live" && !unavailable ? "live-badge" : "data-source-badge"}>
       {label}
     </span>
   );

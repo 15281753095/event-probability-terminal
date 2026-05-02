@@ -113,6 +113,8 @@ Minimal terminal local URLs:
 ```text
 http://localhost:3000/
 http://localhost:3000/?symbol=ETH&horizon=10m
+http://localhost:3000/market-data/live?symbol=BTC&interval=15m
+http://localhost:3000/signals/console?symbol=BTC&horizon=5m
 http://localhost:3000/?symbol=BTC&horizon=5m&sourceMode=fixture
 http://localhost:3000/scanner
 ```
@@ -120,7 +122,8 @@ http://localhost:3000/scanner
 Default terminal mode is live. It reads public Coinbase Exchange ticker/candles through the
 research-signals adapter and fails closed to `NO_SIGNAL` when data is stale, incomplete, or
 unavailable. Fixture mode is explicit dev mode and must not be used to fill live chart or ticker
-failures.
+failures. CI/smoke mock packets are labeled `sourceType=mock` / `DEV MOCK`; only real Coinbase
+public responses are labeled `sourceType=live`.
 
 Optional local infrastructure:
 
@@ -190,9 +193,11 @@ safe parsing, incomplete-candle filtering, freshness checks, and fail-closed `NO
 Directions are limited to `LONG`, `SHORT`, and `NO_SIGNAL`; they are explicitly research-only and
 `isTradeAdvice: false`.
 
-`/market-data/live` returns Coinbase Exchange public ticker and candle fields for `BTC` or `ETH`,
-including latest price, bid/ask, ticker time/freshness, candle count, latest candle time/freshness,
-warnings, and fail-closed reasons. It uses no API key, wallet, private endpoint, or account data.
+`/market-data/live` returns Coinbase Exchange public ticker and candle fields for `BTC` or `ETH`.
+It supports `interval=1m|5m|15m|1h`, maps directly to Coinbase granularities `60|300|900|3600`,
+includes source provenance, latest price, bid/ask, ticker time/freshness, candle count, latest
+candle time/freshness, warnings, and fail-closed reasons. It uses no API key, wallet, private
+endpoint, or account data.
 
 `/signals/console` returns one `EventSignalConsoleResponse` for BTC/ETH 5m/10m and defaults to
 `sourceMode=live`. It includes the current research signal, active research profile, confluence
@@ -203,7 +208,7 @@ return trade instructions, leverage, position size, order fields, or a real perf
 
 ## Current Pages
 
-- `/`: RC-13 minimal live prediction terminal
+- `/`: RC-14 real-data-first prediction terminal
   - BTC/ETH and 5m/10m controls
   - LIVE status, latest public ticker price, ticker freshness, candle freshness, and manual refresh
   - main candlestick chart from live candles only in live mode
@@ -212,14 +217,18 @@ return trade instructions, leverage, position size, order fields, or a real perf
   - compact confluence, risk/no-trade, and observation summaries
   - collapsed Advanced drawer for fixture dev mode, old scanner link, diagnostics, and warnings
 - `/scanner`: legacy Markets Scanner RC-2, moved out of the homepage first screen
+- `/market-data/live`: Coinbase Exchange public ticker and real candle terminal with BTC/ETH and
+  `1m`/`5m`/`15m`/`1h` controls
+- `/signals/console`: live-default research signal console with experimental model labels and no
+  trading action
 - `/markets/:id`: Market Detail RC-3
   - binary outcomes, timing, liquidity, spread, and provenance
   - fixture-backed order-book snapshot when available
   - API-backed research readiness, token trace, source trace, related fixture markets
   - explicit placeholder pricing panel and open evidence gaps
 
-No replay workflow, paper trading UI, or trading control exists. The RC-13 candlestick chart uses
-live candles in live mode and does not load full historical signal markers.
+No replay workflow, paper trading UI, or trading control exists. The RC-14 candlestick chart uses
+real candles in live mode and does not load full historical signal markers.
 
 ## Local Workbench FAQ
 
@@ -262,10 +271,10 @@ make install-smoke-browsers
 make smoke
 ```
 
-The smoke suite starts the API gateway and web app with mocked Coinbase live market data, then
-checks the minimal live terminal, the moved `/scanner` route, and one deterministic Market Detail
-URL through `/markets/:id/detail`. It does not call live vendors, compute real pricing, or test
-trading behavior.
+The smoke suite starts the API gateway and web app with deterministic mocked Coinbase packets, then
+checks that the homepage, `/market-data/live`, and `/signals/console` mark those packets as
+`DEV MOCK`, plus the moved `/scanner` route and one deterministic Market Detail URL. It does not
+call live vendors, compute real pricing, or test trading behavior.
 
 API contract snapshots are part of `make test`. They lock stable fixture-backed projections for
 `/scanner/top`, `/markets/:id/detail`, `/signals/research`, and `/signals/console` under
@@ -302,6 +311,7 @@ should be reviewed as public local API contract changes, not incidental formatti
 - RC-11 signal runtime decision: `docs/adr/0015-rc11-signal-runtime-and-tuning.md`
 - RC-12 reality observation decision: `docs/adr/0016-rc12-reality-observation-and-strategy-tuning.md`
 - RC-13 real data first terminal decision: `docs/adr/0017-rc13-real-data-first-terminal.md`
+- RC-14 real data integrity decision: `docs/adr/0018-rc14-real-data-integrity.md`
 - Source registry: `docs/source_registry.md`
 - Collaboration rules: `AGENTS.md`
 

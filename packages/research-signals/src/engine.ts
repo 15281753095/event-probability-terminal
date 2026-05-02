@@ -31,6 +31,7 @@ export type BuildSignalInput = {
   candles: OhlcvCandle[];
   context?: SignalContextSnapshot;
   source?: OhlcvSource;
+  sourceType?: "live" | "mock" | "fixture";
   sourceMode?: ResearchSignalSourceMode;
   freshness?: OHLCVFreshness;
   sourceWarnings?: string[];
@@ -88,6 +89,7 @@ export function listResearchSignals(input: ListSignalsInput): ResearchSignalsRes
       isTradeAdvice: false,
       modelVersion: RESEARCH_SIGNAL_MODEL_VERSION,
       sourceName: "fixture",
+      sourceType: "fixture",
       message:
         "Research signals are deterministic, fixture-backed, read-only directional bias outputs. They are not trade advice or order instructions."
     }
@@ -135,6 +137,7 @@ export async function listLiveResearchSignals(input: ListLiveSignalsInput): Prom
       source: "research_signal_engine",
       mode: "live",
       sourceName: "coinbase_exchange",
+      sourceType: "live",
       isFixtureBacked: false,
       isReadOnly: true,
       isResearchOnly: true,
@@ -161,7 +164,8 @@ export function buildResearchSignalFromOHLCV(input: {
     candles: input.result.candles,
     ...(input.context ? { context: input.context } : {}),
     source: input.result.source,
-    sourceMode: input.result.isLive ? "live" : "fixture",
+    sourceType: input.result.sourceType,
+    sourceMode: input.result.isFixtureBacked ? "fixture" : "live",
     freshness: input.result.freshness,
     sourceWarnings: input.result.warnings,
     sourceFailClosedReasons: input.result.failClosedReasons,
@@ -192,10 +196,12 @@ export function buildResearchSignal(input: BuildSignalInput): ResearchSignal {
   const context = input.context ?? emptyContext();
   const source = input.source ?? "fixture";
   const sourceMode = input.sourceMode ?? "fixture";
+  const sourceType = input.sourceType ?? (sourceMode === "fixture" ? "fixture" : "live");
   const isLive = input.isLive ?? sourceMode === "live";
   const isFixtureBacked = input.isFixtureBacked ?? sourceMode === "fixture";
   const dataQuality = assessDataQuality(input.candles, input.generatedAt, {
     source,
+    sourceType,
     ...(input.freshness ? { freshness: input.freshness } : {}),
     sourceWarnings: input.sourceWarnings ?? [],
     isLive,
@@ -230,13 +236,14 @@ export function buildResearchSignal(input: BuildSignalInput): ResearchSignal {
     context,
     dataQuality,
     source,
+    sourceType,
     sourceMode,
     isResearchOnly: true,
     isTradeAdvice: false,
     modelVersion: RESEARCH_SIGNAL_MODEL_VERSION,
     profileName: profile.name,
     invalidation: [
-      "Signal invalidates when fixture candles are stale relative to generatedAt.",
+      "Signal invalidates when OHLCV candles are stale relative to generatedAt.",
       "Signal invalidates when fast/slow EMA, MACD histogram, and momentum contributions materially diverge.",
       "Signal invalidates if future live adapters cannot prove source freshness and context provenance."
     ],
@@ -251,6 +258,7 @@ function assessDataQuality(
   generatedAt: string,
   input: {
     source: OhlcvSource;
+    sourceType: "live" | "mock" | "fixture";
     freshness?: OHLCVFreshness;
     sourceWarnings: string[];
     isLive: boolean;
@@ -294,6 +302,7 @@ function assessDataQuality(
           ? "stale"
           : "ok",
     source: input.source,
+    sourceType: input.sourceType,
     candleCount: candles.length,
     requiredCandleCount: REQUIRED_CANDLE_COUNT,
     freshnessAgeMs,

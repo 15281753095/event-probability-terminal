@@ -10,17 +10,18 @@ import {
   type SeriesMarker,
   type UTCTimestamp
 } from "lightweight-charts";
-import type { EventSignalConsoleResponse, SignalMarker } from "@ept/shared-types";
+import type { DataSourceType, EventSignalConsoleResponse, SignalMarker } from "@ept/shared-types";
 
 type Props = {
   candles: EventSignalConsoleResponse["recentCandles"];
   markers: EventSignalConsoleResponse["recentMarkers"];
   sourceMode?: EventSignalConsoleResponse["sourceMode"];
+  sourceType?: DataSourceType;
 };
 
-export function ConsoleCandlestickChart({ candles, markers, sourceMode = "fixture" }: Props) {
+export function ConsoleCandlestickChart({ candles, markers, sourceMode = "fixture", sourceType = sourceMode }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const unavailable = sourceMode === "live" && candles.length < 40;
+  const unavailable = sourceType === "live" && candles.length < 40;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -80,7 +81,7 @@ export function ConsoleCandlestickChart({ candles, markers, sourceMode = "fixtur
   if (candles.length === 0 || unavailable) {
     return (
       <div className="flex min-h-[360px] items-center justify-center border border-slate-800 bg-[#070b12] text-sm text-slate-400" data-testid="event-signal-chart-empty">
-        {sourceMode === "live" ? "Live candles unavailable" : "No recent candles available. The console is fail-closed."}
+        {sourceType === "live" ? "Live candles unavailable" : "No recent candles available. The console is fail-closed."}
       </div>
     );
   }

@@ -75,6 +75,7 @@
       "dataQuality": {
         "status": "ok",
         "source": "fixture",
+        "sourceType": "fixture",
         "candleCount": 40,
         "requiredCandleCount": 35,
         "freshnessAgeMs": 60000,
@@ -98,7 +99,7 @@
       "modelVersion": "research-signal-engine-v0",
       "profileName": "balanced",
       "invalidation": [
-        "Signal invalidates when fixture candles are stale relative to generatedAt.",
+        "Signal invalidates when OHLCV candles are stale relative to generatedAt.",
         "Signal invalidates when fast/slow EMA, MACD histogram, and momentum contributions materially diverge.",
         "Signal invalidates if future live adapters cannot prove source freshness and context provenance."
       ],
@@ -217,6 +218,7 @@
       "dataQuality": {
         "status": "ok",
         "source": "fixture",
+        "sourceType": "fixture",
         "candleCount": 40,
         "requiredCandleCount": 35,
         "freshnessAgeMs": 60000,
@@ -240,7 +242,7 @@
       "modelVersion": "research-signal-engine-v0",
       "profileName": "balanced",
       "invalidation": [
-        "Signal invalidates when fixture candles are stale relative to generatedAt.",
+        "Signal invalidates when OHLCV candles are stale relative to generatedAt.",
         "Signal invalidates when fast/slow EMA, MACD histogram, and momentum contributions materially diverge.",
         "Signal invalidates if future live adapters cannot prove source freshness and context provenance."
       ],
@@ -365,6 +367,7 @@
       "dataQuality": {
         "status": "ok",
         "source": "fixture",
+        "sourceType": "fixture",
         "candleCount": 40,
         "requiredCandleCount": 35,
         "freshnessAgeMs": 60000,
@@ -388,7 +391,7 @@
       "modelVersion": "research-signal-engine-v0",
       "profileName": "balanced",
       "invalidation": [
-        "Signal invalidates when fixture candles are stale relative to generatedAt.",
+        "Signal invalidates when OHLCV candles are stale relative to generatedAt.",
         "Signal invalidates when fast/slow EMA, MACD histogram, and momentum contributions materially diverge.",
         "Signal invalidates if future live adapters cannot prove source freshness and context provenance."
       ],
@@ -497,6 +500,7 @@
       "dataQuality": {
         "status": "ok",
         "source": "fixture",
+        "sourceType": "fixture",
         "candleCount": 40,
         "requiredCandleCount": 35,
         "freshnessAgeMs": 60000,
@@ -520,7 +524,7 @@
       "modelVersion": "research-signal-engine-v0",
       "profileName": "balanced",
       "invalidation": [
-        "Signal invalidates when fixture candles are stale relative to generatedAt.",
+        "Signal invalidates when OHLCV candles are stale relative to generatedAt.",
         "Signal invalidates when fast/slow EMA, MACD histogram, and momentum contributions materially diverge.",
         "Signal invalidates if future live adapters cannot prove source freshness and context provenance."
       ],
@@ -586,6 +590,7 @@
     "isTradeAdvice": false,
     "modelVersion": "research-signal-engine-v0",
     "sourceName": "fixture",
+    "sourceType": "fixture",
     "message": "Research signals are deterministic, fixture-backed, read-only directional bias outputs. They are not trade advice or order instructions."
   }
 }

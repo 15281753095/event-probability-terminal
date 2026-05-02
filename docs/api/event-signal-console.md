@@ -1,6 +1,6 @@
 # Event Signal Console API
 
-Status: RC-13 real-data-first, read-only research console. It defaults to live Coinbase Exchange
+Status: RC-14 real-data-integrity, read-only research console. It defaults to live Coinbase Exchange
 public ticker/candles and keeps fixture data behind explicit dev mode.
 
 This API returns one BTC/ETH short-horizon research console payload. It is not a trading API, not
@@ -15,6 +15,7 @@ GET /signals/console?symbol=BTC&horizon=5m&sourceMode=fixture
 GET /signals/console?symbol=BTC&horizon=5m&profile=conservative
 GET /signals/console?symbol=BTC&horizon=5m&includeObservationPreview=true
 GET /market-data/live?symbol=BTC
+GET /market-data/live?symbol=BTC&interval=15m
 ```
 
 Supported query filters:
@@ -25,6 +26,7 @@ Supported query filters:
 - `profile`: `balanced`, `conservative`, or `aggressive`; default `balanced`
 - `includeObservationPreview`: `true` only when the user explicitly requests the preview
 - `includeBacktest`: legacy alias for `includeObservationPreview`
+- `/market-data/live interval`: `1m`, `5m`, `15m`, or `1h`; default `1m`
 
 Unsupported filters return a typed `ept-api-v1` error with:
 
@@ -41,6 +43,7 @@ Top-level fields:
 - `symbol`: selected `BTC` or `ETH`
 - `horizon`: selected `5m` or `10m`
 - `sourceMode`: `live` or `fixture`
+- `dataProvenance`: source, `sourceType`, provider, product id, candle interval, candle count, and live/fixture flags
 - `profileName`: active research profile
 - `eventWindow`: 5m/10m observation window metadata, including expected resolution time
 - `observationCandidate`: local observation seed fields for the web UI
@@ -57,7 +60,10 @@ Top-level fields:
 
 - `symbol`
 - `source: "coinbase-exchange"`
+- `sourceType: "live"` for real Coinbase public data, or `"mock"` for deterministic CI/smoke packets
+- `provider: "coinbase-exchange"`
 - `productId`: `BTC-USD` or `ETH-USD`
+- `fetchedAt`
 - `latestPrice`
 - `bid`
 - `ask`
@@ -65,13 +71,26 @@ Top-level fields:
 - `tickerFreshnessSeconds`
 - `candles`
 - `candleInterval`
+- `candleGranularity`
 - `candleCount`
 - `latestCandleTime`
+- `lastCandleTime`
 - `candleFreshnessSeconds`
-- `isLive: true`
-- `isFixtureBacked: false`
+- `isLive`
+- `isFixtureBacked`
 - `warnings`
 - `failClosedReasons`
+
+Coinbase Exchange interval mapping follows the official historical-rates granularities:
+
+- `1m` -> `granularity=60`
+- `5m` -> `granularity=300`
+- `15m` -> `granularity=900`
+- `1h` -> `granularity=3600`
+
+The adapter does not synthesize missing candles. If the real candle request fails or returns too few
+usable closed candles, the API returns a fail-closed payload with warning reasons; it does not
+silently substitute fixture or generated bars.
 
 `meta` always marks the response as:
 
@@ -79,6 +98,7 @@ Top-level fields:
 - `responseKind: "event_signal_console"`
 - `source: "research_signal_engine"`
 - `mode: "fixture"` or `"live"`
+- `sourceType: "live"`, `"mock"`, or `"fixture"`
 - `isReadOnly: true`
 - `isResearchOnly: true`
 - `isTradeAdvice: false`
@@ -156,8 +176,12 @@ trade record and is not persisted server-side.
 
 The Web terminal can manually refresh `/signals/console` from the browser. It is display fetching
 only and does not place orders or connect accounts. Coinbase documents WebSocket feeds for realtime
-updates; RC-13 does not add a WebSocket client and must not high-frequency poll public REST ticker
+updates; RC-14 does not add a WebSocket client and must not high-frequency poll public REST ticker
 or candles.
+
+CI and smoke tests may run the API gateway with deterministic mocked Coinbase packets. Those packets
+must be marked `sourceType: "mock"`, `isLive: false`, and displayed with a DEV marker. Product
+default mode uses real Coinbase public data and fails closed when it is unavailable.
 
 The homepage shows a compact observation summary by default. The larger browser-local observation
 feedback tools are kept out of the first screen and may be reached only from dev/advanced surfaces.

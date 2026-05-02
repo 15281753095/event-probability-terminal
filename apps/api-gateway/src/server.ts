@@ -19,6 +19,7 @@ import type {
   EventSignalConsoleResponse,
   FairValueSnapshot,
   LiveMarketDataResponse,
+  OhlcvInterval,
   OrderBookLevel,
   OrderBookSnapshot,
   ResearchSignalsResponse,
@@ -214,9 +215,10 @@ export function buildServer(options: BuildServerOptions = {}) {
     };
   });
 
-  server.get<{ Querystring: { symbol?: string } }>("/market-data/live", async (request, reply) => {
+  server.get<{ Querystring: { symbol?: string; interval?: string } }>("/market-data/live", async (request, reply) => {
     const generatedAt = now();
     const symbol = parseSignalSymbol(request.query.symbol) ?? "BTC";
+    const interval = parseOhlcvInterval(request.query.interval) ?? "1m";
     if (request.query.symbol && !parseSignalSymbol(request.query.symbol)) {
       return reply.code(400).send(
         apiError({
@@ -227,11 +229,21 @@ export function buildServer(options: BuildServerOptions = {}) {
         })
       );
     }
+    if (request.query.interval && !parseOhlcvInterval(request.query.interval)) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Live market data currently supports interval=1m, 5m, 15m, or 1h only.",
+          generatedAt
+        })
+      );
+    }
 
     try {
       return (await liveMarketDataFetcher({
         symbol,
-        interval: "1m",
+        interval,
         lookback: CONSOLE_CANDLE_LOOKBACK,
         sourceMode: "live",
         requestedAt: generatedAt
@@ -240,7 +252,7 @@ export function buildServer(options: BuildServerOptions = {}) {
       return emptyFailClosedLiveMarketData(
         {
           symbol,
-          interval: "1m",
+          interval,
           lookback: CONSOLE_CANDLE_LOOKBACK,
           sourceMode: "live",
           requestedAt: generatedAt
@@ -395,12 +407,17 @@ function parseSignalSymbol(value?: string): SignalSymbol | undefined {
   return value === "BTC" || value === "ETH" ? value : undefined;
 }
 
+function parseOhlcvInterval(value?: string): OhlcvInterval | undefined {
+  return value === "1m" || value === "5m" || value === "15m" || value === "1h" ? value : undefined;
+}
+
 async function mockLiveMarketDataFetcher(
   request: LiveMarketDataFetchRequest
 ): Promise<LiveMarketDataResponse> {
   const lookback = request.lookback ?? CONSOLE_CANDLE_LOOKBACK;
   const interval = request.interval ?? "1m";
-  const intervalMs = interval === "5m" ? 300_000 : 60_000;
+  const intervalMs = intervalMsFor(interval);
+  const granularity = Math.round(intervalMs / 1000);
   const requestedAtMs = Date.parse(request.requestedAt);
   const latestStartMs = requestedAtMs - intervalMs;
   const base = request.symbol === "BTC" ? 64_000 : 3_100;
@@ -415,8 +432,13 @@ async function mockLiveMarketDataFetcher(
     const startTime = new Date(startMs).toISOString();
     return {
       source: "coinbase_exchange" as const,
+      sourceType: "mock" as const,
+      provider: "coinbase-exchange" as const,
       symbol: request.symbol,
       interval,
+      granularity,
+      productId: request.symbol === "BTC" ? "BTC-USD" : "ETH-USD",
+      openTime: startTime,
       startTime,
       timestamp: startTime,
       open: roundPrice(open),
@@ -424,6 +446,8 @@ async function mockLiveMarketDataFetcher(
       low: roundPrice(low),
       close: roundPrice(close),
       volume: roundPrice(900 + index * 4),
+      isLive: false,
+      isFixtureBacked: false,
       isClosed: true
     };
   });
@@ -433,7 +457,10 @@ async function mockLiveMarketDataFetcher(
   return {
     symbol: request.symbol,
     source: "coinbase-exchange",
+    sourceType: "mock",
+    provider: "coinbase-exchange",
     productId: request.symbol === "BTC" ? "BTC-USD" : "ETH-USD",
+    fetchedAt: request.requestedAt,
     latestPrice,
     bid: roundPrice(latestPrice - (request.symbol === "BTC" ? 1.5 : 0.15)),
     ask: roundPrice(latestPrice + (request.symbol === "BTC" ? 1.5 : 0.15)),
@@ -442,14 +469,20 @@ async function mockLiveMarketDataFetcher(
     tickerVolume: roundPrice(100_000 + lookback),
     candles,
     candleInterval: interval,
+    candleGranularity: granularity,
     candleCount: candles.length,
     latestCandleTime: latest?.timestamp ?? null,
+    lastCandleTime: latest?.timestamp ?? null,
     candleFreshnessSeconds: 0,
-    isLive: true,
+    isLive: false,
     isFixtureBacked: false,
-    warnings: ["Mocked Coinbase Exchange live market data for deterministic local smoke only."],
+    warnings: ["DEV ONLY mock Coinbase Exchange market data for deterministic local smoke only."],
     failClosedReasons: []
   };
+}
+
+function intervalMsFor(interval: OhlcvInterval): number {
+  return interval === "1m" ? 60_000 : interval === "5m" ? 300_000 : interval === "15m" ? 900_000 : 3_600_000;
 }
 
 function roundPrice(value: number): number {

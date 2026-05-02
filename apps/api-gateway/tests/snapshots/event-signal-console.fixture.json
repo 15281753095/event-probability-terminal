@@ -7,6 +7,7 @@
     "source": "research_signal_engine",
     "mode": "fixture",
     "sourceName": "fixture",
+    "sourceType": "fixture",
     "isFixtureBacked": true,
     "isReadOnly": true,
     "isResearchOnly": true,
@@ -63,6 +64,7 @@
     "dataQuality": {
       "status": "ok",
       "source": "fixture",
+      "sourceType": "fixture",
       "candleCount": 40,
       "requiredCandleCount": 35,
       "freshnessAgeMs": 60000,

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 const fixtureMarketId = "polymarket:mkt-btc-1h-demo";
 
-test("home renders the RC-13 minimal live prediction terminal", async ({ page }) => {
+test("home renders the real-data terminal and labels smoke mock data as DEV", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByTestId("minimal-prediction-terminal")).toBeVisible();
@@ -11,7 +11,8 @@ test("home renders the RC-13 minimal live prediction terminal", async ({ page })
   await expect(page.getByRole("link", { name: "ETH" })).toBeVisible();
   await expect(page.getByRole("link", { name: "5m" })).toBeVisible();
   await expect(page.getByRole("link", { name: "10m" })).toBeVisible();
-  await expect(page.getByTestId("live-badge")).toHaveText("LIVE");
+  await expect(page.getByTestId("data-source-badge")).toHaveText("DEV MOCK");
+  await expect(page.getByTestId("live-badge")).toHaveCount(0);
   await expect(page.getByTestId("terminal-header").getByText(/\$[0-9,]+\.[0-9]{2}/)).toBeVisible();
   await expect(page.getByText("Price updated")).toBeVisible();
   await expect(page.getByText("Candle freshness")).toBeVisible();
@@ -35,6 +36,41 @@ test("home renders the RC-13 minimal live prediction terminal", async ({ page })
   await page.getByRole("link", { name: "ETH" }).click();
   await expect(page).toHaveURL(/symbol=ETH/);
   await expect(page.getByTestId("minimal-prediction-terminal")).toBeVisible();
+});
+
+test("live market data page supports BTC ETH and candle intervals", async ({ page }) => {
+  await page.goto("/market-data/live");
+
+  await expect(page.getByTestId("live-market-data-page")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Live Market Data" })).toBeVisible();
+  await expect(page.getByTestId("data-source-badge")).toHaveText("DEV MOCK");
+  await expect(page.getByRole("link", { name: "BTC" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "ETH" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "1m", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "5m", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "15m", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "1h", exact: true })).toBeVisible();
+  await expect(page.getByTestId("event-signal-chart")).toBeVisible();
+  await expect(page.getByText("sourceType")).toBeVisible();
+
+  await page.getByRole("link", { name: "ETH" }).click();
+  await expect(page).toHaveURL(/symbol=ETH/);
+  await page.getByRole("link", { name: "15m", exact: true }).click();
+  await expect(page).toHaveURL(/interval=15m/);
+});
+
+test("signals console defaults to live mode and marks experimental output", async ({ page }) => {
+  await page.goto("/signals/console");
+
+  await expect(page.getByTestId("signals-console-page")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Signals Console" })).toBeVisible();
+  await expect(page.getByTestId("data-source-badge")).toHaveText("DEV MOCK");
+  await expect(page.getByText("Experimental model")).toBeVisible();
+  await expect(page.getByTestId("signals-console-card")).toContainText(/LONG bias|SHORT bias|NO_SIGNAL/);
+  await expect(page.getByTestId("signals-console-card")).toContainText("No trading action");
+  await expect(page.getByTestId("event-signal-chart")).toBeVisible();
+  await expect(page.getByTestId("advanced-drawer")).not.toHaveAttribute("open", "");
+  await expect(page.getByText(/BUY|SELL|ENTRY|LEVERAGE|POSITION SIZE/i)).toHaveCount(0);
 });
 
 test("old scanner is available only on the scanner route", async ({ page }) => {

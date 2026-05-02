@@ -89,6 +89,7 @@ curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo/detail
 curl http://localhost:4000/scanner/top
 curl "http://localhost:4000/market-data/live?symbol=BTC"
 curl "http://localhost:4000/market-data/live?symbol=ETH"
+curl "http://localhost:4000/market-data/live?symbol=BTC&interval=15m"
 curl http://localhost:4000/signals/research
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=live"
@@ -109,6 +110,10 @@ candles and recent-only markers capped at 10, not full-history marker overlays. 
 explicit dev path via `sourceMode=fixture`; it must not fill live ticker or chart failures.
 Observation Preview is disabled unless `includeObservationPreview=true` is explicitly requested.
 
+`/market-data/live` supports `interval=1m`, `5m`, `15m`, and `1h`, mapped to Coinbase Exchange
+granularities `60`, `300`, `900`, and `3600`. It fails closed on real live failures and does not
+synthesize candles.
+
 ## Start Web
 
 Start the API gateway first so the terminal can load live market data.
@@ -125,9 +130,13 @@ http://localhost:3000
 
 Current pages:
 
-- `/`: RC-13 minimal live prediction terminal with BTC/ETH and 5m/10m controls, LIVE status,
+- `/`: RC-14 real-data-first prediction terminal with BTC/ETH and 5m/10m controls, LIVE status,
   latest public ticker price, freshness, live candlestick chart, compact prediction card,
   confluence/risk/observation summaries, manual refresh, and collapsed Advanced drawer.
+- `/market-data/live`: live Coinbase Exchange BTC/ETH ticker and real candle terminal with
+  `1m`, `5m`, `15m`, and `1h` interval controls plus data provenance.
+- `/signals/console`: live-default research signal console with underlying candle provenance,
+  experimental model labeling, and no trading action.
 - `/scanner`: legacy Markets Scanner RC-2, moved out of the homepage first screen.
 - `/markets/:id`: Market Detail RC-3 for a normalized fixture-backed market, backed by `GET /markets/:id/detail`.
 
@@ -142,6 +151,8 @@ Terminal trial URLs:
 ```text
 http://localhost:3000/
 http://localhost:3000/?symbol=ETH&horizon=10m
+http://localhost:3000/market-data/live?symbol=ETH&interval=15m
+http://localhost:3000/signals/console?symbol=BTC&horizon=5m
 http://localhost:3000/?symbol=BTC&horizon=5m&sourceMode=fixture
 http://localhost:3000/scanner
 ```
@@ -239,17 +250,20 @@ make smoke
 
 Current smoke coverage is intentionally small:
 
-- `/` must render the minimal live prediction terminal with LIVE badge, latest price, 5m/10m and
-  BTC/ETH controls, chart, prediction card, compact confluence/risk/observation summaries, and a
-  collapsed Advanced drawer. The old scanner must not appear on the homepage.
+- `/` must render the real-data terminal with latest price, 5m/10m and BTC/ETH controls, chart,
+  prediction card, compact confluence/risk/observation summaries, and a collapsed Advanced drawer.
+  The old scanner must not appear on the homepage.
+- `/market-data/live` must render BTC/ETH and `1m`/`5m`/`15m`/`1h` controls, chart, and provenance.
+- `/signals/console` must render the live-default signal console with experimental model and no
+  trading action labels.
 - `/scanner` must render the legacy fixture-backed scanner route.
 - `/markets/polymarket%3Amkt-btc-1h-demo` must render Market Detail RC-3 with outcomes, research
   readiness, token trace, source trace, related fixture markets, provenance, placeholder pricing,
   and open evidence gaps.
 
-The smoke suite starts the API gateway and web app with mocked Coinbase live market data. It does
-not use live vendor data, real pricing, CLOB expansion, paper trading, replay, or any authenticated
-endpoint.
+The smoke suite starts the API gateway and web app with deterministic mocked Coinbase packets. It
+must show those packets as `DEV MOCK` / `sourceType=mock`; it does not use live vendor data, real
+pricing, CLOB expansion, paper trading, replay, or any authenticated endpoint.
 
 Root package equivalent:
 

@@ -16,6 +16,8 @@ describe("Coinbase Exchange OHLCV adapter", () => {
     assert.equal(buildCoinbaseProductId("ETH"), "ETH-USD");
     assert.equal(coinbaseGranularity("1m"), 60);
     assert.equal(coinbaseGranularity("5m"), 300);
+    assert.equal(coinbaseGranularity("15m"), 900);
+    assert.equal(coinbaseGranularity("1h"), 3600);
   });
 
   it("fetches, parses, sorts, and trims BTC candles with mocked fetch", async () => {
@@ -33,13 +35,51 @@ describe("Coinbase Exchange OHLCV adapter", () => {
     assert.match(requestedUrl, /\/products\/BTC-USD\/candles/);
     assert.match(requestedUrl, /granularity=60/);
     assert.equal(result.source, "coinbase_exchange");
+    assert.equal(result.sourceType, "live");
+    assert.equal(result.provider, "coinbase-exchange");
+    assert.equal(result.productId, "BTC-USD");
+    assert.equal(result.candleGranularity, 60);
+    assert.equal(result.candleCount, 35);
     assert.equal(result.isLive, true);
     assert.equal(result.isFixtureBacked, false);
     assert.equal(result.candles.length, 35);
     assert.equal(result.candles[0]?.startTime, "2026-04-26T00:05:00.000Z");
     assert.equal(result.candles.at(-1)?.startTime, "2026-04-26T00:39:00.000Z");
+    assert.equal(result.lastCandleTime, "2026-04-26T00:39:00.000Z");
+    assert.equal(result.candles[0]?.openTime, "2026-04-26T00:05:00.000Z");
+    assert.equal(result.candles[0]?.sourceType, "live");
+    assert.equal(result.candles[0]?.granularity, 60);
+    assert.equal(result.candles[0]?.productId, "BTC-USD");
+    assert.equal(result.candles[0]?.isLive, true);
     assert.equal(result.freshness.status, "fresh");
     assert.deepEqual(result.failClosedReasons, []);
+  });
+
+  it("fetches 15m candles using Coinbase's 900 second granularity", async () => {
+    let requestedUrl = "";
+    const fetcher: FetchLike = async (url) => {
+      requestedUrl = url;
+      return jsonResponse(coinbaseRows("2026-04-25T15:00:00.000Z", 40, 15 * 60_000));
+    };
+
+    const result = await fetchCoinbaseExchangeCandles(
+      {
+        ...baseRequest("BTC"),
+        interval: "15m",
+        requestedAt: "2026-04-26T01:00:00.000Z"
+      },
+      {
+        baseUrl: "https://api.exchange.coinbase.com",
+        fetcher
+      }
+    );
+
+    assert.match(requestedUrl, /granularity=900/);
+    assert.equal(result.candleGranularity, 900);
+    assert.equal(result.candles.length, 35);
+    assert.equal(result.candles.at(-1)?.interval, "15m");
+    assert.equal(result.candles.at(-1)?.granularity, 900);
+    assert.equal(result.isFixtureBacked, false);
   });
 
   it("fetches ETH candles from the ETH-USD product id", async () => {
@@ -112,9 +152,9 @@ function baseRequest(symbol: "BTC" | "ETH"): OHLCVFetchRequest {
   };
 }
 
-function coinbaseRows(start: string, count: number) {
+function coinbaseRows(start: string, count: number, intervalMs = 60_000) {
   const startMs = Date.parse(start);
-  return Array.from({ length: count }, (_, index) => coinbaseRow(new Date(startMs + index * 60_000).toISOString(), 100 + index));
+  return Array.from({ length: count }, (_, index) => coinbaseRow(new Date(startMs + index * intervalMs).toISOString(), 100 + index));
 }
 
 function coinbaseRow(start: string, open: number) {

@@ -1,7 +1,7 @@
 # Source Registry
 
 Initial verification date: 2026-04-21 Asia/Shanghai.
-Latest update: 2026-05-01 Asia/Shanghai.
+Latest update: 2026-05-02 Asia/Shanghai.
 
 This registry is the gate for external-source usage. A new adapter or external data module must not be added until this file and the relevant `docs/api/*.md` file are updated from official documentation, official SDKs, or official help-center material.
 
@@ -53,7 +53,8 @@ This registry is the gate for external-source usage. A new adapter or external d
 - Scanner fair probability, confidence, and edge fields are placeholders. Pricing-engine v0 defines the local placeholder contract but does not compute real probabilities.
 - RC-7 research signals are read-only, deterministic, fixture-backed research outputs. They may compute technical indicators and a rule-based directional bias, but they are not fair-probability pricing, investment advice, trade advice, order instructions, wallet actions, or paper broker state.
 - News, X, and macro inputs are context contracts only in RC-7. Default execution must use manual fixtures or no context; it must not require live X, news, macro, vendor credentials, private keys, or user API keys.
-- RC-13 default terminal data source is Coinbase Exchange public ticker plus public candles because both are read-only, no documented auth header is needed for these product endpoints, `BTC-USD`/`ETH-USD` product-id semantics are clear, `60` and `300` second granularities support the 5m/10m research-signal slice, and CI can mock the adapter. The terminal must default to `sourceMode=live`; fixture mode is an explicit dev path and must never be used to fill live chart or ticker failures.
+- RC-14 default terminal data source is Coinbase Exchange public ticker plus public candles because both are read-only, no documented auth header is needed for these product endpoints, `BTC-USD`/`ETH-USD` product-id semantics are clear, and `60`, `300`, `900`, and `3600` second granularities support `1m`, `5m`, `15m`, and `1h` candle display. The terminal must default to `sourceMode=live`; fixture mode is an explicit dev path and must never be used to fill live chart or ticker failures.
+- RC-14 separates request mode from actual data provenance: `sourceMode=live` can be exercised in CI with deterministic mocked HTTP/data, but product payloads and UI must expose `sourceType: "mock"` and a DEV marker for those test packets. Only real Coinbase Exchange public responses may be marked `sourceType: "live"` and `isLive: true`.
 - Binance Spot klines remain a documented future candidate because the schema is clear and public, but RC-8 avoids adding a second live source in the same vertical slice and must not be confused with any Binance Wallet Prediction Markets adapter.
 - Coinbase Advanced Trade candles are not the RC-8 default because the public endpoint overview and specific candles page currently disagree about whether Bearer-token authorization is required.
 - Polymarket remains the prediction-market source boundary only. It is not used as the default OHLCV candle source.
