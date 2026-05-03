@@ -87,30 +87,32 @@ curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo
 curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo/book
 curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo/detail
 curl http://localhost:4000/scanner/top
-curl "http://localhost:4000/market-data/live?symbol=BTC"
-curl "http://localhost:4000/market-data/live?symbol=ETH"
-curl "http://localhost:4000/market-data/live?symbol=BTC&interval=15m"
+curl "http://localhost:4000/market-data/live?symbol=BTC&provider=binance"
+curl "http://localhost:4000/market-data/live?symbol=ETH&provider=binance"
+curl "http://localhost:4000/market-data/live?symbol=BTC&provider=coinbase"
+curl "http://localhost:4000/market-data/live?symbol=BTC&provider=binance&interval=15m"
 curl http://localhost:4000/signals/research
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=live"
-curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m"
+curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m&provider=binance"
 curl "http://localhost:4000/signals/console?symbol=ETH&horizon=10m&sourceMode=fixture"
 curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m&sourceMode=fixture&profile=balanced"
 curl "http://localhost:4000/signals/console?symbol=BTC&horizon=10m&profile=conservative"
 curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m&includeObservationPreview=true"
 ```
 
-Research signals are fixture-backed by default. `sourceMode=live` explicitly uses Coinbase Exchange
+Research signals are fixture-backed by default. `sourceMode=live` explicitly uses Binance Spot
 public candles through the research-signals adapter boundary. It does not use API keys,
-Authorization headers, wallet state, X, news, macro, or trading APIs. Coinbase historical rates may
-be incomplete and should not be polled frequently, so this live path is for local manual smoke only.
+Authorization headers, signed parameters, wallet state, X, news, macro, account data, or trading
+APIs. Coinbase Exchange remains an optional fallback provider.
 
-Event Signal Console defaults to live Coinbase Exchange public ticker/candles. It returns recent
+Event Signal Console defaults to live Binance Spot public ticker/candles. It returns recent
 candles and recent-only markers capped at 10, not full-history marker overlays. Fixture mode is an
 explicit dev path via `sourceMode=fixture`; it must not fill live ticker or chart failures.
 Observation Preview is disabled unless `includeObservationPreview=true` is explicitly requested.
 
-`/market-data/live` supports `interval=1m`, `5m`, `15m`, and `1h`, mapped to Coinbase Exchange
+`/market-data/live` supports `provider=binance|coinbase` and `interval=1m`, `5m`, `15m`, and `1h`.
+Binance maps those intervals directly to Spot `klines` intervals; Coinbase maps them to
 granularities `60`, `300`, `900`, and `3600`. It fails closed on real live failures and does not
 synthesize candles.
 
@@ -130,11 +132,11 @@ http://localhost:3000
 
 Current pages:
 
-- `/`: RC-14 real-data-first prediction terminal with BTC/ETH and 5m/10m controls, LIVE status,
+- `/`: RC-15 Binance public kline prediction terminal with BTC/ETH and 5m/10m controls, LIVE status,
   latest public ticker price, freshness, live candlestick chart, compact prediction card,
   confluence/risk/observation summaries, manual refresh, and collapsed Advanced drawer.
-- `/market-data/live`: live Coinbase Exchange BTC/ETH ticker and real candle terminal with
-  `1m`, `5m`, `15m`, and `1h` interval controls plus data provenance.
+- `/market-data/live`: live Binance/Coinbase BTC/ETH ticker and real candle terminal with
+  provider, `1m`, `5m`, `15m`, and `1h` interval controls plus data provenance.
 - `/signals/console`: live-default research signal console with underlying candle provenance,
   experimental model labeling, and no trading action.
 - `/scanner`: legacy Markets Scanner RC-2, moved out of the homepage first screen.
@@ -151,13 +153,13 @@ Terminal trial URLs:
 ```text
 http://localhost:3000/
 http://localhost:3000/?symbol=ETH&horizon=10m
-http://localhost:3000/market-data/live?symbol=ETH&interval=15m
-http://localhost:3000/signals/console?symbol=BTC&horizon=5m
+http://localhost:3000/market-data/live?symbol=ETH&provider=binance&interval=15m
+http://localhost:3000/signals/console?symbol=BTC&horizon=5m&provider=binance
 http://localhost:3000/?symbol=BTC&horizon=5m&sourceMode=fixture
 http://localhost:3000/scanner
 ```
 
-Default terminal URLs use live Coinbase Exchange public ticker/candles. Use fixture URLs only for
+Default terminal URLs use live Binance Spot public ticker/candles. Use fixture URLs only for
 explicit dev checks. Live failures fail closed to `NO_SIGNAL` and do not imply a trading signal.
 Manual refresh is display fetching only and should not be used as high-frequency polling.
 
@@ -217,8 +219,8 @@ make lint
 - `GET /signals/research`
 - `GET /signals/console`
 
-It also includes mocked Coinbase Exchange adapter coverage for live `sourceMode=live`. CI must not
-call live Coinbase endpoints.
+It also includes mocked Binance/Coinbase adapter coverage for live `sourceMode=live`. CI must not
+call live Binance or Coinbase endpoints.
 
 Treat snapshot diffs as API contract diffs. Update them only when the shared/API response contract
 intentionally changes.
@@ -261,7 +263,7 @@ Current smoke coverage is intentionally small:
   readiness, token trace, source trace, related fixture markets, provenance, placeholder pricing,
   and open evidence gaps.
 
-The smoke suite starts the API gateway and web app with deterministic mocked Coinbase packets. It
+The smoke suite starts the API gateway and web app with deterministic mocked provider packets. It
 must show those packets as `DEV MOCK` / `sourceType=mock`; it does not use live vendor data, real
 pricing, CLOB expansion, paper trading, replay, or any authenticated endpoint.
 
@@ -280,7 +282,7 @@ npx --yes pnpm@10.0.0 check
 - TODO: Scanner fair probability, confidence, and edge are placeholders.
 - TODO: `/signals/research` remains fixture-default; `/signals/console` and the homepage are
   live-first research outputs, not trade advice.
-- TODO: Coinbase Exchange live ticker/candles have no cache layer; use explicit local manual
+- TODO: Binance/Coinbase live ticker/candles have no cache layer; use explicit local manual
   requests only and avoid high-frequency REST polling.
 - TODO: Event Signal Console Observation Preview is small-sample and on-demand only; it is not a
   predictive guarantee, backtest, or real trading performance.
@@ -292,7 +294,7 @@ npx --yes pnpm@10.0.0 check
 - API data is missing on the web page: start `make dev-api` before `make dev-web`, then reload
   `http://localhost:3000`.
 - Live source mode returns `NO_SIGNAL`: check warnings and fail-closed reasons. Live mode is allowed
-  to fail closed when Coinbase candles are stale, incomplete, unreachable, or outside supported
+  to fail closed when provider candles are stale, incomplete, unreachable, or outside supported
   BTC/ETH 5m/10m scope.
 - Advanced data is hidden: this is the default. Open the Advanced drawer for fixture mode, legacy
   scanner access, and diagnostics.

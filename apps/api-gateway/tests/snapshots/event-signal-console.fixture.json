@@ -21,6 +21,8 @@
   "sourceMode": "fixture",
   "eventWindow": {
     "horizon": "5m",
+    "provider": "fixture",
+    "displaySymbol": "BTC-fixture",
     "expectedResolveAt": "2026-04-23T00:04:00.000Z",
     "windowStart": "2026-04-22T23:59:00.000Z",
     "windowEnd": "2026-04-23T00:04:00.000Z",

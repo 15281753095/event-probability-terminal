@@ -10,9 +10,11 @@ import {
   type ApiErrorResponse,
   type Candle,
   type EventSignalConsoleResponse,
+  type LiveMarketDataSource,
   type LiveMarketDataResponse,
   type OHLCVFetchResult,
   type OhlcvCandle,
+  type OhlcvSource,
   type ResearchSignalsResponse
 } from "@ept/shared-types";
 import { buildServer } from "../src/server.js";
@@ -57,6 +59,7 @@ describe("research signals API", () => {
         sourceType: "live",
         provider: "coinbase-exchange",
         productId: request.symbol === "BTC" ? "BTC-USD" : "ETH-USD",
+        displaySymbol: request.symbol === "BTC" ? "BTC-USD" : "ETH-USD",
         candleGranularity: 60,
         candleCount: fixture.candles.length,
         lastCandleTime: fixture.candles.at(-1)?.timestamp ?? null,
@@ -71,6 +74,7 @@ describe("research signals API", () => {
         warnings: [],
         failClosedReasons: [],
         isLive: true,
+        isMock: false,
         isFixtureBacked: false
       } satisfies OHLCVFetchResult)
     });
@@ -114,7 +118,7 @@ describe("research signals API", () => {
     await server.close();
   });
 
-  it("returns /market-data/live from a mocked Coinbase ticker and candle packet", async () => {
+  it("defaults /market-data/live to a mocked Binance public ticker and candle packet", async () => {
     const server = buildServer({
       logger: false,
       now: () => fixedGeneratedAt,
@@ -128,10 +132,11 @@ describe("research signals API", () => {
     assert.equal(response.statusCode, 200);
     const payload = response.json<LiveMarketDataResponse>();
     assert.equal(payload.symbol, "BTC");
-    assert.equal(payload.source, "coinbase-exchange");
+    assert.equal(payload.source, "binance-spot-public");
     assert.equal(payload.sourceType, "live");
-    assert.equal(payload.provider, "coinbase-exchange");
-    assert.equal(payload.productId, "BTC-USD");
+    assert.equal(payload.provider, "binance-spot-public");
+    assert.equal(payload.productId, "BTCUSDT");
+    assert.equal(payload.displaySymbol, "BTCUSDT");
     assert.equal(payload.fetchedAt, fixedGeneratedAt);
     assert.equal(payload.latestPrice, 100.8);
     assert.equal(payload.bid, 100.7);
@@ -143,13 +148,16 @@ describe("research signals API", () => {
     assert.equal(payload.candleCount, 80);
     assert.equal(payload.lastCandleTime, payload.latestCandleTime);
     assert.equal(payload.isLive, true);
+    assert.equal(payload.isMock, false);
     assert.equal(payload.isFixtureBacked, false);
+    assert.equal(payload.provenance.provider, "binance-spot-public");
+    assert.equal(payload.provenance.displaySymbol, "BTCUSDT");
     assert.deepEqual(payload.failClosedReasons, []);
 
     await server.close();
   });
 
-  it("supports /market-data/live interval selection without fixture fallback", async () => {
+  it("supports /market-data/live provider=coinbase interval selection without fixture fallback", async () => {
     let requestedInterval: string | undefined;
     const server = buildServer({
       logger: false,
@@ -161,22 +169,57 @@ describe("research signals API", () => {
     });
     const response = await server.inject({
       method: "GET",
-      url: "/market-data/live?symbol=ETH&interval=15m"
+      url: "/market-data/live?symbol=ETH&interval=15m&provider=coinbase"
     });
 
     assert.equal(response.statusCode, 200);
     const payload = response.json<LiveMarketDataResponse>();
     assert.equal(requestedInterval, "15m");
     assert.equal(payload.symbol, "ETH");
+    assert.equal(payload.provider, "coinbase-exchange");
+    assert.equal(payload.productId, "ETH-USD");
+    assert.equal(payload.displaySymbol, "ETH-USD");
     assert.equal(payload.candleInterval, "15m");
     assert.equal(payload.candleGranularity, 900);
     assert.equal(payload.sourceType, "live");
     assert.equal(payload.isLive, true);
+    assert.equal(payload.isMock, false);
     assert.equal(payload.isFixtureBacked, false);
     assert.ok(payload.candles.every((candle) => candle.interval === "15m"));
     assert.ok(payload.candles.every((candle) => candle.sourceType === "live"));
 
     await server.close();
+  });
+
+  it("marks EPT_LIVE_MARKET_DATA_MOCK packets as sourceType mock", async () => {
+    const previous = process.env.EPT_LIVE_MARKET_DATA_MOCK;
+    process.env.EPT_LIVE_MARKET_DATA_MOCK = "true";
+    const server = buildServer({
+      logger: false,
+      now: () => fixedGeneratedAt
+    });
+    try {
+      const response = await server.inject({
+        method: "GET",
+        url: "/market-data/live?symbol=BTC&provider=binance"
+      });
+
+      assert.equal(response.statusCode, 200);
+      const payload = response.json<LiveMarketDataResponse>();
+      assert.equal(payload.provider, "binance-spot-public");
+      assert.equal(payload.displaySymbol, "BTCUSDT");
+      assert.equal(payload.sourceType, "mock");
+      assert.equal(payload.isLive, false);
+      assert.equal(payload.isMock, true);
+      assert.equal(payload.isFixtureBacked, false);
+    } finally {
+      await server.close();
+      if (previous === undefined) {
+        delete process.env.EPT_LIVE_MARKET_DATA_MOCK;
+      } else {
+        process.env.EPT_LIVE_MARKET_DATA_MOCK = previous;
+      }
+    }
   });
 
   it("returns /market-data/live fail-closed when mocked live ticker fails", async () => {
@@ -323,6 +366,10 @@ describe("research signals API", () => {
     assert.equal(payload.meta.isFixtureBacked, false);
     assert.equal(payload.sourceMode, "live");
     assert.equal(payload.dataProvenance.sourceType, "live");
+    assert.equal(payload.dataProvenance.provider, "binance-spot-public");
+    assert.equal(payload.dataProvenance.displaySymbol, "BTCUSDT");
+    assert.equal(payload.eventWindow.provider, "binance-spot-public");
+    assert.equal(payload.eventWindow.displaySymbol, "BTCUSDT");
     assert.equal(payload.currentSignal.dataQuality.isLive, true);
     assert.equal(payload.currentSignal.dataQuality.isFixtureBacked, false);
     assert.equal(payload.eventWindow.currentPrice, 100.8);
@@ -422,8 +469,8 @@ describe("research signals API", () => {
           candleCount: 0,
           latestCandleTime: null,
           candleFreshnessSeconds: null,
-          failClosedReasons: ["Live data unavailable: mock console Coinbase failure"],
-          warnings: ["Live data unavailable: mock console Coinbase failure"]
+          failClosedReasons: ["Live data unavailable: mock console Binance failure"],
+          warnings: ["Live data unavailable: mock console Binance failure"]
         })
     });
     const response = await server.inject({
@@ -436,7 +483,7 @@ describe("research signals API", () => {
     assert.equal(payload.meta.mode, "live");
     assert.equal(payload.currentSignal.direction, "NO_SIGNAL");
     assert.equal(payload.currentSignal.confidence, 0);
-    assert.ok(payload.confluence.vetoReasons.some((reason) => reason.includes("mock console Coinbase failure")));
+    assert.ok(payload.confluence.vetoReasons.some((reason) => reason.includes("mock console Binance failure")));
     assert.equal(payload.recentCandles.length, 0);
 
     await server.close();
@@ -453,9 +500,11 @@ function toLiveCandle(candle: OhlcvCandle, symbol: "BTC" | "ETH"): Candle {
     interval: "1m",
     granularity: 60,
     productId: symbol === "BTC" ? "BTC-USD" : "ETH-USD",
+    displaySymbol: symbol === "BTC" ? "BTC-USD" : "ETH-USD",
     openTime: candle.timestamp,
     startTime: candle.timestamp,
     isLive: true,
+    isMock: false,
     isFixtureBacked: false,
     isClosed: true
   };
@@ -467,12 +516,18 @@ function mockLiveMarketData(
 ): LiveMarketDataResponse {
   const candles = mockLiveCandles(request);
   const latest = candles.at(-1);
-  const base: LiveMarketDataResponse = {
+  const provider: LiveMarketDataSource = request.provider === "coinbase-exchange" ? "coinbase-exchange" : "binance-spot-public";
+  const displaySymbol =
+    provider === "coinbase-exchange"
+      ? request.symbol === "BTC" ? "BTC-USD" : "ETH-USD"
+      : request.symbol === "BTC" ? "BTCUSDT" : "ETHUSDT";
+  const base = {
     symbol: request.symbol,
-    source: "coinbase-exchange",
+    source: provider,
     sourceType: "live",
-    provider: "coinbase-exchange",
-    productId: request.symbol === "BTC" ? "BTC-USD" : "ETH-USD",
+    provider,
+    productId: displaySymbol,
+    displaySymbol,
     fetchedAt: fixedGeneratedAt,
     latestPrice: 100.8,
     bid: 100.7,
@@ -488,19 +543,26 @@ function mockLiveMarketData(
     lastCandleTime: latest?.timestamp ?? null,
     candleFreshnessSeconds: 0,
     isLive: true,
+    isMock: false,
     isFixtureBacked: false,
     warnings: [],
     failClosedReasons: []
   };
-  return {
+  return withProvenance({
     ...base,
     ...overrides
-  };
+  });
 }
 
 function mockLiveCandles(request: LiveMarketDataFetchRequest): Candle[] {
   const lookback = request.lookback ?? 80;
   const interval = request.interval ?? "1m";
+  const provider: LiveMarketDataSource = request.provider === "coinbase-exchange" ? "coinbase-exchange" : "binance-spot-public";
+  const source: OhlcvSource = provider === "coinbase-exchange" ? "coinbase_exchange" : "binance_spot_public";
+  const displaySymbol =
+    provider === "coinbase-exchange"
+      ? request.symbol === "BTC" ? "BTC-USD" : "ETH-USD"
+      : request.symbol === "BTC" ? "BTCUSDT" : "ETHUSDT";
   const intervalMs = intervalSeconds(interval) * 1000;
   const latestStartMs = Date.parse(request.requestedAt) - intervalMs;
   return Array.from({ length: lookback }, (_, index) => {
@@ -509,13 +571,14 @@ function mockLiveCandles(request: LiveMarketDataFetchRequest): Candle[] {
     const close = open + 0.02;
     const startTime = new Date(startMs).toISOString();
     return {
-      source: "coinbase_exchange",
+      source,
       sourceType: "live",
-      provider: "coinbase-exchange",
+      provider,
       symbol: request.symbol,
       interval,
       granularity: intervalSeconds(interval),
-      productId: request.symbol === "BTC" ? "BTC-USD" : "ETH-USD",
+      productId: displaySymbol,
+      displaySymbol,
       openTime: startTime,
       startTime,
       timestamp: startTime,
@@ -525,10 +588,33 @@ function mockLiveCandles(request: LiveMarketDataFetchRequest): Candle[] {
       close,
       volume: 1000 + index,
       isLive: true,
+      isMock: false,
       isFixtureBacked: false,
       isClosed: true
     };
   });
+}
+
+function withProvenance(response: Omit<LiveMarketDataResponse, "provenance">): LiveMarketDataResponse {
+  return {
+    ...response,
+    provenance: {
+      source: response.source,
+      sourceType: response.sourceType,
+      provider: response.provider,
+      productId: response.productId,
+      displaySymbol: response.displaySymbol,
+      sourceMode: response.sourceType === "fixture" ? "fixture" : "live",
+      isLive: response.isLive,
+      isMock: response.isMock,
+      isFixtureBacked: response.isFixtureBacked,
+      fetchedAt: response.fetchedAt,
+      candleInterval: response.candleInterval,
+      candleGranularity: response.candleGranularity,
+      candleCount: response.candleCount,
+      lastCandleTime: response.lastCandleTime
+    }
+  };
 }
 
 function intervalSeconds(interval: LiveMarketDataFetchRequest["interval"]): number {

@@ -38,16 +38,26 @@ export {
 } from "./profiles.js";
 export type { HorizonThresholdConfig, SignalProfile, SignalProfileName } from "./profiles.js";
 export {
+  BINANCE_SPOT_PUBLIC_PROVIDER,
+  BINANCE_SPOT_PUBLIC_SOURCE,
+  binanceSpotInterval,
+  binanceSpotIntervalSeconds,
+  buildBinanceSpotSymbol,
+  emptyFailClosedBinanceMarketData,
+  emptyFailClosedBinanceOHLCVResult,
+  fetchBinanceSpotCandles,
+  fetchBinanceSpotMarketData
+} from "./ohlcv/binance-spot.js";
+export type { BinanceSpotOptions } from "./ohlcv/binance-spot.js";
+export {
   buildCoinbaseProductId,
   coinbaseGranularity,
+  COINBASE_EXCHANGE_PROVIDER,
+  COINBASE_EXCHANGE_SOURCE,
   emptyFailClosedOHLCVResult,
   emptyFailClosedLiveMarketData,
   fetchCoinbaseExchangeCandles,
   fetchCoinbaseExchangeMarketData
 } from "./ohlcv/coinbase-exchange.js";
-export type {
-  CoinbaseExchangeOptions,
-  FetchLike,
-  LiveMarketDataFetcher,
-  LiveMarketDataFetchRequest
-} from "./ohlcv/coinbase-exchange.js";
+export type { CoinbaseExchangeOptions } from "./ohlcv/coinbase-exchange.js";
+export type { FetchLike, LiveMarketDataFetcher, LiveMarketDataFetchRequest } from "./ohlcv/types.js";

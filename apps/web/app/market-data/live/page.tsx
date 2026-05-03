@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { DataSourceType, LiveMarketDataResponse, OhlcvInterval, SignalSymbol } from "@ept/shared-types";
+import type { DataSourceType, LiveMarketDataResponse, LiveMarketDataSource, OhlcvInterval, SignalSymbol } from "@ept/shared-types";
 import { apiErrorMessage } from "../../api-client";
 import { ConsoleCandlestickChart } from "../../ConsoleCandlestickChart";
 
@@ -8,12 +8,14 @@ export const dynamic = "force-dynamic";
 type SearchParams = Promise<{
   symbol?: string;
   interval?: string;
+  provider?: string;
   refresh?: string;
 }>;
 
 type LiveMarketPageFilters = {
   symbol: SignalSymbol;
   interval: OhlcvInterval;
+  provider: LiveMarketDataSource;
   refresh: string;
 };
 
@@ -31,7 +33,14 @@ export default async function LiveMarketDataPage({ searchParams }: { searchParam
   const { marketData, error } = await loadLiveMarketData(filters);
   const sourceType: DataSourceType = marketData?.sourceType ?? "live";
   const unavailable = !marketData || marketData.failClosedReasons.length > 0 || marketData.candleCount === 0 || marketData.latestPrice === null;
-  const badge = sourceType === "mock" ? "DEV MOCK" : unavailable ? "LIVE DATA UNAVAILABLE" : "LIVE";
+  const badge =
+    sourceType === "mock"
+      ? "DEV MOCK"
+      : sourceType === "fixture"
+        ? "DEV FIXTURE"
+        : unavailable ? "LIVE DATA UNAVAILABLE" : "LIVE";
+  const displaySymbol = marketData?.displaySymbol ?? productFor(filters.symbol, filters.provider);
+  const providerLabel = providerDisplayName(marketData?.provider ?? filters.provider);
 
   return (
     <main className="min-h-screen bg-[#070b12] px-4 py-4 text-slate-100">
@@ -44,12 +53,14 @@ export default async function LiveMarketDataPage({ searchParams }: { searchParam
                 <DataBadge label={badge} sourceType={sourceType} unavailable={unavailable} />
               </div>
               <p className="mt-1 text-xs text-slate-500">
-                Coinbase Exchange public ticker and candles. Read-only, no API key, no private endpoints.
+                {providerLabel} public ticker and candles. Read-only, no API key, no private endpoints.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <SegmentedLinks current={filters} label="Product" options={symbols} paramName="symbol" />
               <SegmentedLinks current={filters} label="Interval" options={intervals} paramName="interval" />
+              <ProviderLinks current={filters} />
+              <HeaderMetric label="Product" value={displaySymbol} />
               <HeaderMetric label="Latest price" value={formatUsd(marketData?.latestPrice ?? null, filters.symbol)} strong />
               <HeaderMetric label="Last updated" value={formatTime(marketData?.tickerTime ?? null)} />
               <Link
@@ -67,10 +78,10 @@ export default async function LiveMarketDataPage({ searchParams }: { searchParam
             <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
               <div>
                 <h2 className="text-sm font-semibold text-slate-100">
-                  {marketData?.productId ?? `${filters.symbol}-USD`} {filters.interval} Candles
+                  {displaySymbol} {filters.interval} Candles
                 </h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  Granularity {marketData?.candleGranularity ?? intervalSeconds(filters.interval)}s, candle count {marketData?.candleCount ?? 0}, source {marketData?.provider ?? "coinbase-exchange"}.
+                  Granularity {marketData?.candleGranularity ?? intervalSeconds(filters.interval)}s, candle count {marketData?.candleCount ?? 0}, provider {providerLabel}.
                 </p>
               </div>
               <div className="text-xs text-slate-500">
@@ -95,7 +106,7 @@ export default async function LiveMarketDataPage({ searchParams }: { searchParam
                 <Metric label="Ask" value={formatUsd(marketData?.ask ?? null, filters.symbol)} />
                 <Metric label="Ticker age" value={formatAge(marketData?.tickerFreshnessSeconds ?? null)} />
                 <Metric label="Candle age" value={formatAge(marketData?.candleFreshnessSeconds ?? null)} />
-                <Metric label="Source type" value={sourceType === "mock" ? "DEV mock" : sourceType} />
+                <Metric label="Source type" value={sourceType === "mock" ? "DEV MOCK" : sourceType} />
                 <Metric label="Fixture backed" value={String(marketData?.isFixtureBacked ?? false)} />
               </div>
             </section>
@@ -103,10 +114,11 @@ export default async function LiveMarketDataPage({ searchParams }: { searchParam
             <section className="border border-slate-800 bg-[#0b111d] p-4">
               <h2 className="text-sm font-semibold text-slate-100">Data Provenance</h2>
               <div className="mt-3 grid gap-2 text-xs text-slate-300">
-                <ProvenanceRow label="provider" value={marketData?.provider ?? "coinbase-exchange"} />
-                <ProvenanceRow label="source" value={marketData?.source ?? "coinbase-exchange"} />
+                <ProvenanceRow label="provider" value={marketData?.provider ?? filters.provider} />
+                <ProvenanceRow label="source" value={marketData?.source ?? filters.provider} />
                 <ProvenanceRow label="sourceType" value={sourceType} />
-                <ProvenanceRow label="productId" value={marketData?.productId ?? `${filters.symbol}-USD`} />
+                <ProvenanceRow label="productId" value={marketData?.productId ?? displaySymbol} />
+                <ProvenanceRow label="displaySymbol" value={displaySymbol} />
                 <ProvenanceRow label="fetchedAt" value={marketData?.fetchedAt ?? "Unavailable"} />
                 <ProvenanceRow label="isLive" value={String(marketData?.isLive ?? false)} />
               </div>
@@ -116,7 +128,7 @@ export default async function LiveMarketDataPage({ searchParams }: { searchParam
               <Link className="border border-slate-700 bg-slate-950 px-3 py-2 text-slate-300" href="/">
                 Back to terminal
               </Link>
-              <Link className="border border-slate-700 bg-slate-950 px-3 py-2 text-slate-300" href={`/signals/console?symbol=${filters.symbol}`}>
+              <Link className="border border-slate-700 bg-slate-950 px-3 py-2 text-slate-300" href={`/signals/console?symbol=${filters.symbol}&provider=${providerQueryValue(filters.provider)}`}>
                 Open signals console
               </Link>
             </nav>
@@ -130,7 +142,8 @@ export default async function LiveMarketDataPage({ searchParams }: { searchParam
 async function loadLiveMarketData(filters: LiveMarketPageFilters): Promise<LiveMarketLoadState> {
   const params = new URLSearchParams({
     symbol: filters.symbol,
-    interval: filters.interval
+    interval: filters.interval,
+    provider: providerQueryValue(filters.provider)
   });
   try {
     const response = await fetch(`${apiBaseUrl}/market-data/live?${params.toString()}`, {
@@ -149,6 +162,7 @@ function parseFilters(params: Awaited<SearchParams>): LiveMarketPageFilters {
   return {
     symbol: params.symbol === "ETH" ? "ETH" : "BTC",
     interval: parseInterval(params.interval),
+    provider: parseProvider(params.provider),
     refresh: typeof params.refresh === "string" ? params.refresh.slice(0, 32) : ""
   };
 }
@@ -189,6 +203,32 @@ function SegmentedLinks({
   );
 }
 
+function ProviderLinks({ current }: { current: LiveMarketPageFilters }) {
+  const options: Array<{ label: string; provider: LiveMarketDataSource }> = [
+    { label: "Binance", provider: "binance-spot-public" },
+    { label: "Coinbase", provider: "coinbase-exchange" }
+  ];
+  return (
+    <div className="flex min-h-10 items-center border border-slate-800 bg-slate-950 p-1">
+      <span className="px-2 text-[11px] uppercase tracking-[0.12em] text-slate-500">Provider</span>
+      {options.map((option) => {
+        const active = current.provider === option.provider;
+        return (
+          <Link
+            className={`px-3 py-1.5 text-xs font-semibold ${
+              active ? "bg-slate-100 text-slate-950" : "text-slate-400 hover:bg-slate-900 hover:text-slate-100"
+            }`}
+            href={marketDataHref(current, { provider: option.provider })}
+            key={option.provider}
+          >
+            {option.label}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
 function marketDataHref(current: LiveMarketPageFilters, updates: Partial<LiveMarketPageFilters>) {
   const next = { ...current, ...updates, refresh: updates.refresh ?? "" };
   const params = new URLSearchParams();
@@ -197,6 +237,9 @@ function marketDataHref(current: LiveMarketPageFilters, updates: Partial<LiveMar
   }
   if (next.interval !== "1m") {
     params.set("interval", next.interval);
+  }
+  if (next.provider !== "binance-spot-public") {
+    params.set("provider", providerQueryValue(next.provider));
   }
   if (next.refresh) {
     params.set("refresh", next.refresh);
@@ -209,6 +252,8 @@ function DataBadge({ label, sourceType, unavailable }: { label: string; sourceTy
   const className =
     sourceType === "mock"
       ? "border-amber-400/70 bg-amber-400/10 text-amber-100"
+      : sourceType === "fixture"
+        ? "border-amber-400/70 bg-amber-400/10 text-amber-100"
       : unavailable
         ? "border-rose-400/70 bg-rose-400/10 text-rose-100"
         : "border-emerald-400/70 bg-emerald-400/10 text-emerald-100";
@@ -217,6 +262,25 @@ function DataBadge({ label, sourceType, unavailable }: { label: string; sourceTy
       {label}
     </span>
   );
+}
+
+function parseProvider(value?: string): LiveMarketDataSource {
+  return value === "coinbase" || value === "coinbase-exchange" ? "coinbase-exchange" : "binance-spot-public";
+}
+
+function providerQueryValue(provider: LiveMarketDataSource): string {
+  return provider === "coinbase-exchange" ? "coinbase" : "binance";
+}
+
+function providerDisplayName(provider: LiveMarketDataSource | string): string {
+  return provider === "coinbase-exchange" ? "Coinbase Exchange" : "Binance public";
+}
+
+function productFor(symbol: SignalSymbol, provider: LiveMarketDataSource): string {
+  if (provider === "coinbase-exchange") {
+    return symbol === "BTC" ? "BTC-USD" : "ETH-USD";
+  }
+  return symbol === "BTC" ? "BTCUSDT" : "ETHUSDT";
 }
 
 function HeaderMetric({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {

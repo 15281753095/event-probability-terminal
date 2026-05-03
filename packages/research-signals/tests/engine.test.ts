@@ -117,6 +117,7 @@ describe("research signal engine v0", () => {
       sourceType: "live",
       provider: "coinbase-exchange",
       productId: "BTC-USD",
+      displaySymbol: "BTC-USD",
       candleGranularity: 60,
       candleCount: fixture.candles.length,
       lastCandleTime: fixture.candles.at(-1)?.timestamp ?? null,
@@ -131,6 +132,7 @@ describe("research signal engine v0", () => {
       warnings: [],
       failClosedReasons: [],
       isLive: true,
+      isMock: false,
       isFixtureBacked: false
     };
 
@@ -332,9 +334,11 @@ function toLiveCandle(candle: OhlcvCandle): Candle {
     interval: "1m",
     granularity: 60,
     productId: "BTC-USD",
+    displaySymbol: "BTC-USD",
     openTime: candle.timestamp,
     startTime: candle.timestamp,
     isLive: true,
+    isMock: false,
     isFixtureBacked: false,
     isClosed: true
   };

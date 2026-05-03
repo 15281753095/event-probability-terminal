@@ -6,11 +6,15 @@ test("home renders the real-data terminal and labels smoke mock data as DEV", as
   await page.goto("/");
 
   await expect(page.getByTestId("minimal-prediction-terminal")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Event Probability Terminal" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "PREDICT TERMINAL" })).toBeVisible();
+  await expect(page.getByText("BTCUSDT").first()).toBeVisible();
+  await expect(page.getByText("Binance public").first()).toBeVisible();
   await expect(page.getByRole("link", { name: "BTC" })).toBeVisible();
   await expect(page.getByRole("link", { name: "ETH" })).toBeVisible();
   await expect(page.getByRole("link", { name: "5m" })).toBeVisible();
   await expect(page.getByRole("link", { name: "10m" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Binance" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Coinbase" })).toBeVisible();
   await expect(page.getByTestId("data-source-badge")).toHaveText("DEV MOCK");
   await expect(page.getByTestId("live-badge")).toHaveCount(0);
   await expect(page.getByTestId("terminal-header").getByText(/\$[0-9,]+\.[0-9]{2}/)).toBeVisible();
@@ -44,6 +48,8 @@ test("live market data page supports BTC ETH and candle intervals", async ({ pag
   await expect(page.getByTestId("live-market-data-page")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Live Market Data" })).toBeVisible();
   await expect(page.getByTestId("data-source-badge")).toHaveText("DEV MOCK");
+  await expect(page.getByText("BTCUSDT").first()).toBeVisible();
+  await expect(page.getByText("Binance public").first()).toBeVisible();
   await expect(page.getByRole("link", { name: "BTC" })).toBeVisible();
   await expect(page.getByRole("link", { name: "ETH" })).toBeVisible();
   await expect(page.getByRole("link", { name: "1m", exact: true })).toBeVisible();
@@ -66,6 +72,8 @@ test("signals console defaults to live mode and marks experimental output", asyn
   await expect(page.getByRole("heading", { name: "Signals Console" })).toBeVisible();
   await expect(page.getByTestId("data-source-badge")).toHaveText("DEV MOCK");
   await expect(page.getByText("Experimental model")).toBeVisible();
+  await expect(page.getByText("BTCUSDT").first()).toBeVisible();
+  await expect(page.getByText("Binance public").first()).toBeVisible();
   await expect(page.getByTestId("signals-console-card")).toContainText(/LONG bias|SHORT bias|NO_SIGNAL/);
   await expect(page.getByTestId("signals-console-card")).toContainText("No trading action");
   await expect(page.getByTestId("event-signal-chart")).toBeVisible();

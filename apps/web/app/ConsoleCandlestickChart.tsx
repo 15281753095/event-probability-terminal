@@ -5,7 +5,9 @@ import {
   CandlestickSeries,
   createChart,
   createSeriesMarkers,
+  HistogramSeries,
   type CandlestickData,
+  type HistogramData,
   type IChartApi,
   type SeriesMarker,
   type UTCTimestamp
@@ -21,7 +23,7 @@ type Props = {
 
 export function ConsoleCandlestickChart({ candles, markers, sourceMode = "fixture", sourceType = sourceMode }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const unavailable = sourceType === "live" && candles.length < 40;
+  const unavailable = sourceType === "live" && candles.length === 0;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -41,10 +43,10 @@ export function ConsoleCandlestickChart({ candles, markers, sourceMode = "fixtur
         horzLines: { color: "#101827" }
       },
       rightPriceScale: {
-        borderColor: "#1e293b"
+        borderColor: "#273244"
       },
       timeScale: {
-        borderColor: "#1e293b",
+        borderColor: "#273244",
         timeVisible: true,
         secondsVisible: false
       },
@@ -59,9 +61,26 @@ export function ConsoleCandlestickChart({ candles, markers, sourceMode = "fixtur
       borderDownColor: "#fb7185",
       wickUpColor: "#5eead4",
       wickDownColor: "#fda4af",
-      priceLineVisible: false
+      priceLineVisible: true,
+      lastValueVisible: true
     });
     candleSeries.setData(candles.map(toCandleData));
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      color: "#64748b",
+      priceFormat: {
+        type: "volume"
+      },
+      priceScaleId: "",
+      lastValueVisible: false,
+      priceLineVisible: false
+    });
+    volumeSeries.setData(candles.map(toVolumeData));
+    chart.priceScale("").applyOptions({
+      scaleMargins: {
+        top: 0.8,
+        bottom: 0
+      }
+    });
     const markerApi = createSeriesMarkers(candleSeries, markers.map(toSeriesMarker), {
       autoScale: true
     });
@@ -87,13 +106,15 @@ export function ConsoleCandlestickChart({ candles, markers, sourceMode = "fixtur
   }
 
   return (
-    <div
-      aria-label="Recent event signal candlestick chart"
-      className="min-h-[360px] w-full border border-slate-800 bg-[#070b12]"
-      data-testid="event-signal-chart"
-      ref={containerRef}
-      style={{ minHeight: 360 }}
-    />
+    <div data-testid="console-candlestick-chart">
+      <div
+        aria-label="Recent event signal candlestick chart"
+        className="min-h-[360px] w-full border border-slate-800 bg-[#070b12]"
+        data-testid="event-signal-chart"
+        ref={containerRef}
+        style={{ minHeight: 360 }}
+      />
+    </div>
   );
 }
 
@@ -107,6 +128,15 @@ function toCandleData(candle: Props["candles"][number]): CandlestickData<UTCTime
   };
 }
 
+function toVolumeData(candle: Props["candles"][number]): HistogramData<UTCTimestamp> {
+  const up = candle.close >= candle.open;
+  return {
+    time: toUtcTimestamp(candle.timestamp),
+    value: candle.volume,
+    color: up ? "rgba(16, 185, 129, 0.32)" : "rgba(244, 63, 94, 0.32)"
+  };
+}
+
 function toSeriesMarker(marker: SignalMarker): SeriesMarker<UTCTimestamp> {
   const isLong = marker.direction === "LONG";
   const isShort = marker.direction === "SHORT";
@@ -115,7 +145,7 @@ function toSeriesMarker(marker: SignalMarker): SeriesMarker<UTCTimestamp> {
     position: isLong ? "belowBar" : isShort ? "aboveBar" : "inBar",
     shape: isLong ? "arrowUp" : isShort ? "arrowDown" : "circle",
     color: isLong ? "#22c55e" : isShort ? "#f43f5e" : "#94a3b8",
-    text: marker.direction === "LONG" ? "LONG bias" : marker.direction === "SHORT" ? "SHORT bias" : "NO_SIGNAL",
+    text: marker.direction === "LONG" ? "LONG BIAS" : marker.direction === "SHORT" ? "SHORT BIAS" : "NO_SIGNAL",
     size: 1
   };
 }

@@ -3,7 +3,9 @@ import { createPolymarketPublicReadAdapter } from "@ept/market-ingestor";
 import {
   buildFixtureEventSignalConsole,
   CONSOLE_CANDLE_LOOKBACK,
+  emptyFailClosedBinanceMarketData,
   emptyFailClosedLiveMarketData,
+  fetchBinanceSpotMarketData,
   fetchCoinbaseExchangeMarketData,
   buildLiveEventSignalConsole,
   listLiveResearchSignals,
@@ -15,10 +17,14 @@ import {
 import type {
   ApiErrorResponse,
   BinaryOutcome,
+  Candle,
   EventMarket,
   EventSignalConsoleResponse,
   FairValueSnapshot,
   LiveMarketDataResponse,
+  LiveMarketDataSource,
+  MarketDataProvenance,
+  OhlcvSource,
   OhlcvInterval,
   OrderBookLevel,
   OrderBookSnapshot,
@@ -85,11 +91,7 @@ export function buildServer(options: BuildServerOptions = {}) {
         "http://127.0.0.1:4100"
     );
   const now = options.now ?? (() => new Date().toISOString());
-  const liveMarketDataFetcher =
-    options.liveMarketDataFetcher ??
-    (process.env.EPT_LIVE_MARKET_DATA_MOCK === "true"
-      ? mockLiveMarketDataFetcher
-      : fetchCoinbaseExchangeMarketData);
+  const liveMarketDataFetcher = buildProviderAwareMarketDataFetcher(options.liveMarketDataFetcher);
 
   server.get("/healthz", async () => {
     return {
@@ -215,10 +217,11 @@ export function buildServer(options: BuildServerOptions = {}) {
     };
   });
 
-  server.get<{ Querystring: { symbol?: string; interval?: string } }>("/market-data/live", async (request, reply) => {
+  server.get<{ Querystring: { symbol?: string; interval?: string; provider?: string } }>("/market-data/live", async (request, reply) => {
     const generatedAt = now();
     const symbol = parseSignalSymbol(request.query.symbol) ?? "BTC";
     const interval = parseOhlcvInterval(request.query.interval) ?? "1m";
+    const provider = parseLiveMarketDataProvider(request.query.provider) ?? "binance-spot-public";
     if (request.query.symbol && !parseSignalSymbol(request.query.symbol)) {
       return reply.code(400).send(
         apiError({
@@ -239,6 +242,16 @@ export function buildServer(options: BuildServerOptions = {}) {
         })
       );
     }
+    if (request.query.provider && !parseLiveMarketDataProvider(request.query.provider)) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Live market data currently supports provider=binance or provider=coinbase only.",
+          generatedAt
+        })
+      );
+    }
 
     try {
       return (await liveMarketDataFetcher({
@@ -246,10 +259,12 @@ export function buildServer(options: BuildServerOptions = {}) {
         interval,
         lookback: CONSOLE_CANDLE_LOOKBACK,
         sourceMode: "live",
+        provider,
         requestedAt: generatedAt
       })) satisfies LiveMarketDataResponse;
     } catch (error) {
-      return emptyFailClosedLiveMarketData(
+      return emptyFailClosedMarketDataForProvider(
+        provider,
         {
           symbol,
           interval,
@@ -330,12 +345,13 @@ export function buildServer(options: BuildServerOptions = {}) {
     }) satisfies ResearchSignalsResponse;
   });
 
-  server.get<{ Querystring: { symbol?: string; horizon?: string; sourceMode?: string; includeBacktest?: string; includeObservationPreview?: string; profile?: string } }>("/signals/console", async (request, reply) => {
+  server.get<{ Querystring: { symbol?: string; horizon?: string; sourceMode?: string; includeBacktest?: string; includeObservationPreview?: string; profile?: string; provider?: string } }>("/signals/console", async (request, reply) => {
     const generatedAt = now();
     const symbol = parseSignalSymbol(request.query.symbol) ?? "BTC";
     const horizon = parseSignalHorizon(request.query.horizon) ?? "5m";
     const signalSourceMode = parseResearchSignalSourceMode(request.query.sourceMode, "live");
     const profileName = parseSignalProfileName(request.query.profile);
+    const provider = parseLiveMarketDataProvider(request.query.provider) ?? "binance-spot-public";
     const includeObservationPreview = request.query.includeObservationPreview === "true" || request.query.includeBacktest === "true";
 
     if (request.query.symbol && !parseSignalSymbol(request.query.symbol)) {
@@ -378,6 +394,16 @@ export function buildServer(options: BuildServerOptions = {}) {
         })
       );
     }
+    if (request.query.provider && !parseLiveMarketDataProvider(request.query.provider)) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Event Signal Console currently supports provider=binance or provider=coinbase only.",
+          generatedAt
+        })
+      );
+    }
 
     if (signalSourceMode === "live") {
       return (await buildLiveEventSignalConsole({
@@ -386,6 +412,7 @@ export function buildServer(options: BuildServerOptions = {}) {
         generatedAt,
         includeObservationPreview,
         ...(profileName ? { profileName } : {}),
+        provider,
         liveMarketDataFetcher,
         ...(options.researchSignalOhlcvFetcher ? { fetcher: options.researchSignalOhlcvFetcher } : {})
       })) satisfies EventSignalConsoleResponse;
@@ -411,17 +438,59 @@ function parseOhlcvInterval(value?: string): OhlcvInterval | undefined {
   return value === "1m" || value === "5m" || value === "15m" || value === "1h" ? value : undefined;
 }
 
+function parseLiveMarketDataProvider(value?: string): LiveMarketDataSource | undefined {
+  if (!value || value === "binance" || value === "binance-spot-public") {
+    return "binance-spot-public";
+  }
+  if (value === "coinbase" || value === "coinbase-exchange") {
+    return "coinbase-exchange";
+  }
+  return undefined;
+}
+
+function buildProviderAwareMarketDataFetcher(
+  injectedFetcher?: LiveMarketDataFetcher
+): LiveMarketDataFetcher {
+  return async (request) => {
+    if (injectedFetcher) {
+      return injectedFetcher(request);
+    }
+    if (process.env.EPT_LIVE_MARKET_DATA_MOCK === "true") {
+      return mockLiveMarketDataFetcher(request);
+    }
+    return request.provider === "coinbase-exchange"
+      ? fetchCoinbaseExchangeMarketData(request)
+      : fetchBinanceSpotMarketData(request);
+  };
+}
+
+function emptyFailClosedMarketDataForProvider(
+  provider: LiveMarketDataSource,
+  request: Pick<LiveMarketDataFetchRequest, "symbol" | "requestedAt"> & Partial<LiveMarketDataFetchRequest>,
+  reason: string
+): LiveMarketDataResponse {
+  return provider === "coinbase-exchange"
+    ? emptyFailClosedLiveMarketData(request, reason)
+    : emptyFailClosedBinanceMarketData(request, reason);
+}
+
 async function mockLiveMarketDataFetcher(
   request: LiveMarketDataFetchRequest
 ): Promise<LiveMarketDataResponse> {
   const lookback = request.lookback ?? CONSOLE_CANDLE_LOOKBACK;
   const interval = request.interval ?? "1m";
+  const provider: LiveMarketDataSource = request.provider === "coinbase-exchange" ? "coinbase-exchange" : "binance-spot-public";
+  const candleSource: OhlcvSource = provider === "coinbase-exchange" ? "coinbase_exchange" : "binance_spot_public";
+  const displaySymbol =
+    provider === "coinbase-exchange"
+      ? request.symbol === "BTC" ? "BTC-USD" : "ETH-USD"
+      : request.symbol === "BTC" ? "BTCUSDT" : "ETHUSDT";
   const intervalMs = intervalMsFor(interval);
   const granularity = Math.round(intervalMs / 1000);
   const requestedAtMs = Date.parse(request.requestedAt);
   const latestStartMs = requestedAtMs - intervalMs;
   const base = request.symbol === "BTC" ? 64_000 : 3_100;
-  const candles = Array.from({ length: lookback }, (_, index) => {
+  const candles: Candle[] = Array.from({ length: lookback }, (_, index) => {
     const startMs = latestStartMs - (lookback - 1 - index) * intervalMs;
     const trend = index * (request.symbol === "BTC" ? 8 : 0.7);
     const wave = Math.sin(index / 3) * (request.symbol === "BTC" ? 35 : 3.5);
@@ -431,13 +500,14 @@ async function mockLiveMarketDataFetcher(
     const low = Math.min(open, close) - (request.symbol === "BTC" ? 18 : 1.8);
     const startTime = new Date(startMs).toISOString();
     return {
-      source: "coinbase_exchange" as const,
+      source: candleSource,
       sourceType: "mock" as const,
-      provider: "coinbase-exchange" as const,
+      provider,
       symbol: request.symbol,
       interval,
       granularity,
-      productId: request.symbol === "BTC" ? "BTC-USD" : "ETH-USD",
+      productId: displaySymbol,
+      displaySymbol,
       openTime: startTime,
       startTime,
       timestamp: startTime,
@@ -447,6 +517,7 @@ async function mockLiveMarketDataFetcher(
       close: roundPrice(close),
       volume: roundPrice(900 + index * 4),
       isLive: false,
+      isMock: true,
       isFixtureBacked: false,
       isClosed: true
     };
@@ -454,12 +525,13 @@ async function mockLiveMarketDataFetcher(
   const latest = candles.at(-1);
   const latestClose = latest?.close ?? base;
   const latestPrice = roundPrice(latestClose + (request.symbol === "BTC" ? 14 : 1.4));
-  return {
+  return withMarketDataProvenance({
     symbol: request.symbol,
-    source: "coinbase-exchange",
+    source: provider,
     sourceType: "mock",
-    provider: "coinbase-exchange",
-    productId: request.symbol === "BTC" ? "BTC-USD" : "ETH-USD",
+    provider,
+    productId: displaySymbol,
+    displaySymbol,
     fetchedAt: request.requestedAt,
     latestPrice,
     bid: roundPrice(latestPrice - (request.symbol === "BTC" ? 1.5 : 0.15)),
@@ -475,9 +547,35 @@ async function mockLiveMarketDataFetcher(
     lastCandleTime: latest?.timestamp ?? null,
     candleFreshnessSeconds: 0,
     isLive: false,
+    isMock: true,
     isFixtureBacked: false,
-    warnings: ["DEV ONLY mock Coinbase Exchange market data for deterministic local smoke only."],
+    warnings: [`DEV ONLY mock ${provider} market data for deterministic local smoke only.`],
     failClosedReasons: []
+  });
+}
+
+function withMarketDataProvenance(
+  response: Omit<LiveMarketDataResponse, "provenance">
+): LiveMarketDataResponse {
+  const provenance: MarketDataProvenance = {
+    source: response.source,
+    sourceType: response.sourceType,
+    provider: response.provider,
+    productId: response.productId,
+    displaySymbol: response.displaySymbol,
+    sourceMode: response.sourceType === "fixture" ? "fixture" : "live",
+    isLive: response.isLive,
+    isMock: response.isMock,
+    isFixtureBacked: response.isFixtureBacked,
+    fetchedAt: response.fetchedAt,
+    candleInterval: response.candleInterval,
+    candleGranularity: response.candleGranularity,
+    candleCount: response.candleCount,
+    lastCandleTime: response.lastCandleTime
+  };
+  return {
+    ...response,
+    provenance
   };
 }
 
