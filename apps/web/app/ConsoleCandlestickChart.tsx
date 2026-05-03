@@ -10,19 +10,22 @@ import {
   type SeriesMarker,
   type UTCTimestamp
 } from "lightweight-charts";
-import type { EventSignalConsoleResponse, SignalMarker } from "@ept/shared-types";
+import type { DataSourceType, EventSignalConsoleResponse, SignalMarker } from "@ept/shared-types";
 
 type Props = {
   candles: EventSignalConsoleResponse["recentCandles"];
   markers: EventSignalConsoleResponse["recentMarkers"];
+  sourceMode?: EventSignalConsoleResponse["sourceMode"];
+  sourceType?: DataSourceType;
 };
 
-export function ConsoleCandlestickChart({ candles, markers }: Props) {
+export function ConsoleCandlestickChart({ candles, markers, sourceMode = "fixture", sourceType = sourceMode }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const unavailable = sourceType === "live" && candles.length < 40;
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || candles.length === 0) {
+    if (!container || candles.length === 0 || unavailable) {
       return;
     }
 
@@ -73,12 +76,12 @@ export function ConsoleCandlestickChart({ candles, markers }: Props) {
       resizeObserver.disconnect();
       chart.remove();
     };
-  }, [candles, markers]);
+  }, [candles, markers, unavailable]);
 
-  if (candles.length === 0) {
+  if (candles.length === 0 || unavailable) {
     return (
-      <div className="flex min-h-[360px] items-center justify-center border border-slate-800 bg-[#070b12] text-sm text-slate-400">
-        No recent candles available. The console is fail-closed.
+      <div className="flex min-h-[360px] items-center justify-center border border-slate-800 bg-[#070b12] text-sm text-slate-400" data-testid="event-signal-chart-empty">
+        {sourceType === "live" ? "Live candles unavailable" : "No recent candles available. The console is fail-closed."}
       </div>
     );
   }

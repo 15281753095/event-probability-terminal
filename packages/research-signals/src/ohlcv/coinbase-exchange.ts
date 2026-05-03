@@ -1,9 +1,12 @@
 import type {
   Candle,
+  DataSourceType,
+  LiveMarketDataResponse,
   OHLCVFetchRequest,
   OHLCVFetchResult,
   OHLCVFreshness,
   OhlcvInterval,
+  ResearchSignalSourceMode,
   SignalSymbol
 } from "@ept/shared-types";
 
@@ -27,9 +30,36 @@ export type CoinbaseExchangeOptions = {
   extraLookbackCandles?: number;
 };
 
+export type LiveMarketDataFetchRequest = {
+  symbol: SignalSymbol;
+  interval?: OhlcvInterval;
+  lookback?: number;
+  sourceMode?: ResearchSignalSourceMode;
+  requestedAt: string;
+};
+
+export type LiveMarketDataFetcher = (
+  request: LiveMarketDataFetchRequest
+) => Promise<LiveMarketDataResponse>;
+
+type CoinbaseTickerResult = Pick<
+  LiveMarketDataResponse,
+  | "productId"
+  | "latestPrice"
+  | "bid"
+  | "ask"
+  | "tickerTime"
+  | "tickerFreshnessSeconds"
+  | "tickerVolume"
+  | "warnings"
+  | "failClosedReasons"
+>;
+
 const granularityByInterval = {
   "1m": 60,
-  "5m": 300
+  "5m": 300,
+  "15m": 900,
+  "1h": 3600
 } satisfies Record<OhlcvInterval, number>;
 
 const productBySymbol = {
@@ -82,6 +112,134 @@ export async function fetchCoinbaseExchangeCandles(
   }
 }
 
+export async function fetchCoinbaseExchangeMarketData(
+  request: LiveMarketDataFetchRequest,
+  options: CoinbaseExchangeOptions = {}
+): Promise<LiveMarketDataResponse> {
+  const interval = request.interval ?? "1m";
+  const lookback = request.lookback ?? 80;
+  const sourceMode = request.sourceMode ?? "live";
+  if (sourceMode !== "live") {
+    return emptyFailClosedLiveMarketData(
+      request,
+      `Coinbase Exchange live market-data adapter only supports sourceMode=live.`
+    );
+  }
+
+  const candleRequest: OHLCVFetchRequest = {
+    symbol: request.symbol,
+    interval,
+    lookback,
+    sourceMode,
+    requestedAt: request.requestedAt
+  };
+  const [ticker, candleResult] = await Promise.all([
+    fetchCoinbaseExchangeTicker(request, options),
+    fetchCoinbaseExchangeCandles(candleRequest, options)
+  ]);
+
+  const latestCandleTime = candleResult.freshness.latestClosedAt ?? candleResult.candles.at(-1)?.timestamp ?? null;
+  const candleFreshnessSeconds =
+    candleResult.freshness.ageMs === null ? null : Math.max(0, Math.round(candleResult.freshness.ageMs / 1000));
+
+  return {
+    symbol: request.symbol,
+    source: "coinbase-exchange",
+    sourceType: "live",
+    provider: "coinbase-exchange",
+    productId: ticker.productId,
+    fetchedAt: request.requestedAt,
+    latestPrice: ticker.latestPrice,
+    bid: ticker.bid,
+    ask: ticker.ask,
+    tickerTime: ticker.tickerTime,
+    tickerFreshnessSeconds: ticker.tickerFreshnessSeconds,
+    tickerVolume: ticker.tickerVolume,
+    candles: candleResult.candles,
+    candleInterval: interval,
+    candleGranularity: coinbaseGranularity(interval),
+    candleCount: candleResult.candles.length,
+    latestCandleTime,
+    lastCandleTime: latestCandleTime,
+    candleFreshnessSeconds,
+    isLive: true,
+    isFixtureBacked: false,
+    warnings: unique([...ticker.warnings, ...candleResult.warnings]),
+    failClosedReasons: unique([...ticker.failClosedReasons, ...candleResult.failClosedReasons])
+  };
+}
+
+export function emptyFailClosedLiveMarketData(
+  request: Pick<LiveMarketDataFetchRequest, "symbol" | "requestedAt"> & Partial<LiveMarketDataFetchRequest>,
+  reason: string
+): LiveMarketDataResponse {
+  return {
+    symbol: request.symbol,
+    source: "coinbase-exchange",
+    sourceType: "live",
+    provider: "coinbase-exchange",
+    productId: buildCoinbaseProductId(request.symbol),
+    fetchedAt: request.requestedAt,
+    latestPrice: null,
+    bid: null,
+    ask: null,
+    tickerTime: null,
+    tickerFreshnessSeconds: null,
+    tickerVolume: null,
+    candles: [],
+    candleInterval: request.interval ?? "1m",
+    candleGranularity: coinbaseGranularity(request.interval ?? "1m"),
+    candleCount: 0,
+    latestCandleTime: null,
+    lastCandleTime: null,
+    candleFreshnessSeconds: null,
+    isLive: true,
+    isFixtureBacked: false,
+    warnings: [reason],
+    failClosedReasons: [reason]
+  };
+}
+
+async function fetchCoinbaseExchangeTicker(
+  request: LiveMarketDataFetchRequest,
+  options: CoinbaseExchangeOptions
+): Promise<CoinbaseTickerResult> {
+  const productId = buildCoinbaseProductId(request.symbol);
+  const fetcher = options.fetcher ?? (globalThis.fetch as FetchLike | undefined);
+  if (!fetcher) {
+    return emptyTickerResult(productId, "Live data unavailable: global fetch is unavailable for Coinbase Exchange ticker adapter.");
+  }
+
+  const timeoutMs = options.timeoutMs ?? 5_000;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetcher(buildTickerUrl(request, options), {
+      headers: { Accept: "application/json" },
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      return emptyTickerResult(
+        productId,
+        `Live data unavailable: Coinbase Exchange ticker request failed with HTTP ${response.status} ${response.statusText}.`
+      );
+    }
+
+    const body = await response.json();
+    return parseCoinbaseTicker(body, request, productId);
+  } catch (error) {
+    const message =
+      error instanceof Error && error.name === "AbortError"
+        ? `Live data unavailable: Coinbase Exchange ticker request timed out after ${timeoutMs}ms.`
+        : error instanceof Error
+          ? `Live data unavailable: Coinbase Exchange ticker request failed: ${error.message}`
+          : "Live data unavailable: Coinbase Exchange ticker request failed with an unknown error.";
+    return emptyTickerResult(productId, message);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export function buildCoinbaseProductId(symbol: SignalSymbol): string {
   return productBySymbol[symbol];
 }
@@ -95,9 +253,16 @@ export function emptyFailClosedOHLCVResult(
   fetchedAt: string,
   reason: string
 ): OHLCVFetchResult {
+  const sourceType: DataSourceType = request.sourceMode === "live" ? "live" : "fixture";
   return {
     candles: [],
     source: COINBASE_EXCHANGE_SOURCE,
+    sourceType,
+    provider: "coinbase-exchange",
+    productId: buildCoinbaseProductId(request.symbol),
+    candleGranularity: coinbaseGranularity(request.interval),
+    candleCount: 0,
+    lastCandleTime: null,
     fetchedAt,
     freshness: emptyFreshness(request),
     warnings: [reason],
@@ -118,6 +283,62 @@ function buildCandlesUrl(request: OHLCVFetchRequest, options: CoinbaseExchangeOp
   url.searchParams.set("start", new Date(startMs).toISOString());
   url.searchParams.set("end", new Date(requestedAtMs).toISOString());
   return url.toString();
+}
+
+function buildTickerUrl(request: LiveMarketDataFetchRequest, options: CoinbaseExchangeOptions): string {
+  const baseUrl = options.baseUrl ?? COINBASE_EXCHANGE_BASE_URL;
+  return new URL(`/products/${buildCoinbaseProductId(request.symbol)}/ticker`, baseUrl).toString();
+}
+
+function parseCoinbaseTicker(
+  body: unknown,
+  request: LiveMarketDataFetchRequest,
+  productId: string
+): CoinbaseTickerResult {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return emptyTickerResult(productId, "Live data unavailable: Coinbase Exchange ticker response was not an object.");
+  }
+  const record = body as Record<string, unknown>;
+  const latestPrice = toFiniteNumber(record.price);
+  if (latestPrice === undefined) {
+    return emptyTickerResult(productId, "Live data unavailable: Coinbase Exchange ticker price was missing or non-numeric.");
+  }
+  const tickerTime = typeof record.time === "string" ? record.time : null;
+  const tickerTimeMs = tickerTime ? Date.parse(tickerTime) : Number.NaN;
+  if (!tickerTime || Number.isNaN(tickerTimeMs)) {
+    return emptyTickerResult(productId, "Live data unavailable: Coinbase Exchange ticker time was missing or invalid.");
+  }
+
+  const warnings: string[] = [];
+  const bid = optionalNumeric(record.bid, "bid", warnings);
+  const ask = optionalNumeric(record.ask, "ask", warnings);
+  const tickerVolume = optionalNumeric(record.volume, "volume", warnings);
+  const ageSeconds = Math.max(0, Math.round((Date.parse(request.requestedAt) - tickerTimeMs) / 1000));
+  return {
+    productId,
+    latestPrice,
+    bid,
+    ask,
+    tickerTime: new Date(tickerTimeMs).toISOString(),
+    tickerFreshnessSeconds: ageSeconds,
+    tickerVolume,
+    warnings,
+    failClosedReasons: []
+  };
+}
+
+function emptyTickerResult(productId: string, reason: string): CoinbaseTickerResult {
+  return {
+    productId,
+    latestPrice: null,
+    bid: null,
+    ask: null,
+    tickerTime: null,
+    tickerFreshnessSeconds: null,
+    tickerVolume: null,
+    warnings: [reason],
+    failClosedReasons: [reason]
+  };
 }
 
 function parseCoinbaseCandles(
@@ -167,9 +388,16 @@ function parseCoinbaseCandles(
     failClosedReasons.push("Coinbase Exchange returned no usable closed candles.");
   }
 
+  const candles = closed.slice(-request.lookback);
   return {
-    candles: closed.slice(-request.lookback),
+    candles,
     source: COINBASE_EXCHANGE_SOURCE,
+    sourceType: "live",
+    provider: "coinbase-exchange",
+    productId: buildCoinbaseProductId(request.symbol),
+    candleGranularity: coinbaseGranularity(request.interval),
+    candleCount: candles.length,
+    lastCandleTime: latest?.startTime ?? null,
     fetchedAt,
     freshness,
     warnings,
@@ -204,8 +432,13 @@ function parseCoinbaseRow(
   const startTime = new Date(startMs).toISOString();
   return {
     source: COINBASE_EXCHANGE_SOURCE,
+    sourceType: "live",
+    provider: "coinbase-exchange",
     symbol: request.symbol,
     interval: request.interval,
+    granularity: coinbaseGranularity(request.interval),
+    productId: buildCoinbaseProductId(request.symbol),
+    openTime: startTime,
     startTime,
     timestamp: startTime,
     open,
@@ -213,6 +446,8 @@ function parseCoinbaseRow(
     low,
     close,
     volume,
+    isLive: true,
+    isFixtureBacked: false,
     isClosed: requestedAtMs >= startMs + intervalMs
   };
 }
@@ -253,4 +488,21 @@ function intervalMsFor(interval: OhlcvInterval): number {
 function toFiniteNumber(value: unknown): number | undefined {
   const parsed = typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function optionalNumeric(value: unknown, field: string, warnings: string[]): number | null {
+  if (value === undefined || value === null || value === "") {
+    warnings.push(`Coinbase Exchange ticker ${field} was unavailable.`);
+    return null;
+  }
+  const parsed = toFiniteNumber(value);
+  if (parsed === undefined) {
+    warnings.push(`Coinbase Exchange ticker ${field} was non-numeric.`);
+    return null;
+  }
+  return parsed;
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values.filter(Boolean))];
 }

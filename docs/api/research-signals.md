@@ -92,7 +92,8 @@ The v0 engine computes local deterministic formulas for:
 
 These indicators are computed from fixture OHLCV samples by default. With `sourceMode=live`, they
 are computed from Coinbase Exchange public candles after safe parsing, closed-candle filtering, and
-freshness checks. CI uses mocked live adapter responses and does not call Coinbase.
+freshness checks. CI uses mocked live adapter responses and does not call Coinbase; mocked packets
+must be marked as test/mock provenance and not displayed as real live data.
 
 ## Live OHLCV Source
 
@@ -100,13 +101,18 @@ RC-8 selects Coinbase Exchange public candles as the default live OHLCV source:
 
 - endpoint: `GET https://api.exchange.coinbase.com/products/{product_id}/candles`
 - product ids: `BTC-USD`, `ETH-USD`
-- adapter intervals: `1m` maps to `granularity=60`, `5m` maps to `granularity=300`
+- adapter intervals: `1m` maps to `granularity=60`, `5m` maps to `granularity=300`,
+  `15m` maps to `granularity=900`, and `1h` maps to `granularity=3600`
 - no Authorization header, API key, wallet, or private endpoint is used
 
 The signal endpoint currently fetches 1m candles for both `5m` and `10m` horizons so the existing
 1m/3m/5m feature set remains comparable with fixture mode. Coinbase Exchange historical rates may
 be incomplete and should not be polled frequently, so live mode is for explicit local/manual use.
 It is not a CI dependency.
+
+The standalone `/market-data/live` endpoint and web page can request `1m`, `5m`, `15m`, and `1h`
+candles for display. The signal model remains experimental and continues to use 1m underlying
+candles until the feature model is explicitly revalidated for wider bars.
 
 ## Fail-Closed Behavior
 

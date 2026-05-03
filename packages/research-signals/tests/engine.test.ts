@@ -114,6 +114,12 @@ describe("research signal engine v0", () => {
     const result: OHLCVFetchResult = {
       candles: fixture.candles.map(toLiveCandle),
       source: "coinbase_exchange",
+      sourceType: "live",
+      provider: "coinbase-exchange",
+      productId: "BTC-USD",
+      candleGranularity: 60,
+      candleCount: fixture.candles.length,
+      lastCandleTime: fixture.candles.at(-1)?.timestamp ?? null,
       fetchedAt: generatedAt,
       freshness: {
         status: "fresh",
@@ -137,8 +143,10 @@ describe("research signal engine v0", () => {
 
     assert.equal(signal.sourceMode, "live");
     assert.equal(signal.source, "coinbase_exchange");
+    assert.equal(signal.sourceType, "live");
     assert.equal(signal.dataQuality.isLive, true);
     assert.equal(signal.dataQuality.source, "coinbase_exchange");
+    assert.equal(signal.dataQuality.sourceType, "live");
     assert.notEqual(signal.direction, "NO_SIGNAL");
   });
 
@@ -318,9 +326,16 @@ function toLiveCandle(candle: OhlcvCandle): Candle {
   return {
     ...candle,
     source: "coinbase_exchange",
+    sourceType: "live",
+    provider: "coinbase-exchange",
     symbol: "BTC",
     interval: "1m",
+    granularity: 60,
+    productId: "BTC-USD",
+    openTime: candle.timestamp,
     startTime: candle.timestamp,
+    isLive: true,
+    isFixtureBacked: false,
     isClosed: true
   };
 }
@@ -350,6 +365,7 @@ function buildConfluenceInput(): Parameters<typeof evaluateConfluence>[0] {
     dataQuality: {
       status: "ok",
       source: "fixture",
+      sourceType: "fixture",
       candleCount: 35,
       requiredCandleCount: 35,
       freshnessAgeMs: 60_000,

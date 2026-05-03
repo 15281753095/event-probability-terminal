@@ -87,14 +87,16 @@ curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo
 curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo/book
 curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo/detail
 curl http://localhost:4000/scanner/top
+curl "http://localhost:4000/market-data/live?symbol=BTC"
+curl "http://localhost:4000/market-data/live?symbol=ETH"
+curl "http://localhost:4000/market-data/live?symbol=BTC&interval=15m"
 curl http://localhost:4000/signals/research
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=live"
 curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/console?symbol=ETH&horizon=10m&sourceMode=fixture"
-curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m&sourceMode=live"
 curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m&sourceMode=fixture&profile=balanced"
-curl "http://localhost:4000/signals/console?symbol=BTC&horizon=10m&sourceMode=live&profile=conservative"
+curl "http://localhost:4000/signals/console?symbol=BTC&horizon=10m&profile=conservative"
 curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m&includeObservationPreview=true"
 ```
 
@@ -103,16 +105,18 @@ public candles through the research-signals adapter boundary. It does not use AP
 Authorization headers, wallet state, X, news, macro, or trading APIs. Coinbase historical rates may
 be incomplete and should not be polled frequently, so this live path is for local manual smoke only.
 
-Event Signal Console is also fixture-backed by default. It returns recent candles and recent-only
-markers, not full-history marker overlays. Observation Preview is disabled unless
-`includeObservationPreview=true` is explicitly requested. RC-12 adds `balanced`, `conservative`, and
-`aggressive` research profiles; event-window metadata; local observation candidates; and stronger
-no-trade vetoes for flat EMA, flat MACD, Bollinger squeeze, extreme volatility, conflicting
-modules, event-risk context, and stale/insufficient data.
+Event Signal Console defaults to live Coinbase Exchange public ticker/candles. It returns recent
+candles and recent-only markers capped at 10, not full-history marker overlays. Fixture mode is an
+explicit dev path via `sourceMode=fixture`; it must not fill live ticker or chart failures.
+Observation Preview is disabled unless `includeObservationPreview=true` is explicitly requested.
+
+`/market-data/live` supports `interval=1m`, `5m`, `15m`, and `1h`, mapped to Coinbase Exchange
+granularities `60`, `300`, `900`, and `3600`. It fails closed on real live failures and does not
+synthesize candles.
 
 ## Start Web
 
-Start the API gateway first if you want the scanner table to load fixture-backed data.
+Start the API gateway first so the terminal can load live market data.
 
 ```bash
 make dev-web
@@ -126,12 +130,14 @@ http://localhost:3000
 
 Current pages:
 
-- `/`: Markets Scanner RC-2 with read-only filters, query state, sorting, summary cards, evidence
-  status, the Research Signal Panel with Fixture/Live source-mode display, and Event Signal
-  Reality Mode RC-12 with a top signal hero, BTC/ETH and 5m/10m controls, LIVE/DEV FIXTURE source
-  selector, profile selector, manual refresh, low-frequency auto refresh controls, local Signal
-  Observation Log, Observation Feedback, confluence cards, risk filters, event-window fields, recent
-  chart markers, and on-demand Observation Preview.
+- `/`: RC-14 real-data-first prediction terminal with BTC/ETH and 5m/10m controls, LIVE status,
+  latest public ticker price, freshness, live candlestick chart, compact prediction card,
+  confluence/risk/observation summaries, manual refresh, and collapsed Advanced drawer.
+- `/market-data/live`: live Coinbase Exchange BTC/ETH ticker and real candle terminal with
+  `1m`, `5m`, `15m`, and `1h` interval controls plus data provenance.
+- `/signals/console`: live-default research signal console with underlying candle provenance,
+  experimental model labeling, and no trading action.
+- `/scanner`: legacy Markets Scanner RC-2, moved out of the homepage first screen.
 - `/markets/:id`: Market Detail RC-3 for a normalized fixture-backed market, backed by `GET /markets/:id/detail`.
 
 Example detail URL:
@@ -140,22 +146,20 @@ Example detail URL:
 http://localhost:3000/markets/polymarket%3Amkt-btc-1h-demo
 ```
 
-Workbench trial URLs:
+Terminal trial URLs:
 
 ```text
-http://localhost:3000/?consoleSymbol=BTC&consoleHorizon=5m&consoleSourceMode=fixture
-http://localhost:3000/?consoleSymbol=ETH&consoleHorizon=10m&consoleSourceMode=fixture
-http://localhost:3000/?consoleSymbol=BTC&consoleHorizon=5m&consoleSourceMode=live
-http://localhost:3000/?consoleSymbol=BTC&consoleHorizon=10m&consoleSourceMode=live&consoleProfile=conservative
-http://localhost:3000/?consoleSymbol=BTC&consoleHorizon=5m&consoleSourceMode=fixture&consoleObservationPreview=1
+http://localhost:3000/
+http://localhost:3000/?symbol=ETH&horizon=10m
+http://localhost:3000/market-data/live?symbol=ETH&interval=15m
+http://localhost:3000/signals/console?symbol=BTC&horizon=5m
+http://localhost:3000/?symbol=BTC&horizon=5m&sourceMode=fixture
+http://localhost:3000/scanner
 ```
 
-Use fixture URLs for repeatable local checks. Use live URLs only for explicit manual inspection of
-public Coinbase Exchange candles; live failures fail closed and do not imply a trading signal.
-Auto refresh is off by default; when enabled it is browser-local display polling only and not
-automatic trading. Signal Observation Log stores only browser-local localStorage observations, keeps
-the latest 100, displays the latest 20, and is not a trade log, backtest, replay engine, or
-performance record.
+Default terminal URLs use live Coinbase Exchange public ticker/candles. Use fixture URLs only for
+explicit dev checks. Live failures fail closed to `NO_SIGNAL` and do not imply a trading signal.
+Manual refresh is display fetching only and should not be used as high-frequency polling.
 
 ## Start Pricing Engine Placeholder Service
 
@@ -246,17 +250,20 @@ make smoke
 
 Current smoke coverage is intentionally small:
 
-- `/` must render the Markets Scanner RC-2, read-only filters, query URL state, placeholder pricing
-  text, evidence/fail-closed matrix, Research Signal Panel, Event Signal Workbench, controls, signal
-  hero, confluence cards, recent chart, Signal Observation Log, Observation Feedback,
-  default-collapsed Observation Preview, and Observation Preview after user action.
+- `/` must render the real-data terminal with latest price, 5m/10m and BTC/ETH controls, chart,
+  prediction card, compact confluence/risk/observation summaries, and a collapsed Advanced drawer.
+  The old scanner must not appear on the homepage.
+- `/market-data/live` must render BTC/ETH and `1m`/`5m`/`15m`/`1h` controls, chart, and provenance.
+- `/signals/console` must render the live-default signal console with experimental model and no
+  trading action labels.
+- `/scanner` must render the legacy fixture-backed scanner route.
 - `/markets/polymarket%3Amkt-btc-1h-demo` must render Market Detail RC-3 with outcomes, research
   readiness, token trace, source trace, related fixture markets, provenance, placeholder pricing,
   and open evidence gaps.
 
-The smoke suite starts the API gateway and web app with fixture-backed data. It does not use live
-vendor data, real pricing, CLOB expansion, paper trading, replay, or any authenticated endpoint.
-The visible Live selector on the web page is not exercised against the real network in smoke.
+The smoke suite starts the API gateway and web app with deterministic mocked Coinbase packets. It
+must show those packets as `DEV MOCK` / `sourceType=mock`; it does not use live vendor data, real
+pricing, CLOB expansion, paper trading, replay, or any authenticated endpoint.
 
 Root package equivalent:
 
@@ -271,8 +278,10 @@ npx --yes pnpm@10.0.0 check
 - TODO: PostgreSQL has no schema and is not used by the current app flow.
 - TODO: Redis is not used by the current app flow.
 - TODO: Scanner fair probability, confidence, and edge are placeholders.
-- TODO: Research signals are fixture-default and live-optional research outputs, not trade advice.
-- TODO: Coinbase Exchange live OHLCV has no cache layer; use explicit local manual requests only.
+- TODO: `/signals/research` remains fixture-default; `/signals/console` and the homepage are
+  live-first research outputs, not trade advice.
+- TODO: Coinbase Exchange live ticker/candles have no cache layer; use explicit local manual
+  requests only and avoid high-frequency REST polling.
 - TODO: Event Signal Console Observation Preview is small-sample and on-demand only; it is not a
   predictive guarantee, backtest, or real trading performance.
 - TODO: Pricing-engine v1 data freshness and calibration requirements are not implemented.
@@ -285,13 +294,10 @@ npx --yes pnpm@10.0.0 check
 - Live source mode returns `NO_SIGNAL`: check warnings and fail-closed reasons. Live mode is allowed
   to fail closed when Coinbase candles are stale, incomplete, unreachable, or outside supported
   BTC/ETH 5m/10m scope.
-- Observation Preview is hidden: this is the default. Click `Open observation preview` or add
-  `consoleObservationPreview=1` to the local URL.
-- Auto refresh is hidden or not updating: confirm the Event Signal Workbench is open and the API
-  gateway is running. Live mode may return `NO_SIGNAL` with warnings and should not be polled
-  faster than the built-in interval controls.
-- Chart has no candles: verify `GET /signals/console` returns `recentCandles`; otherwise use
-  fixture mode while investigating local API availability.
+- Advanced data is hidden: this is the default. Open the Advanced drawer for fixture mode, legacy
+  scanner access, and diagnostics.
+- Chart has no candles: verify `GET /market-data/live` and `GET /signals/console` return live
+  candles. Do not use fixture candles to fill a live chart failure.
 - Trading controls are absent by design. The project does not implement order placement, wallets,
   private/auth endpoints, position sizing, leverage, paper broker, or full replay workflows.
 

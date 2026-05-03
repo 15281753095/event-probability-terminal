@@ -26,7 +26,12 @@ export const API_CONTRACT_VERSION = "ept-api-v1" as const;
 
 export type ApiContractVersion = typeof API_CONTRACT_VERSION;
 
-export type ApiResponseKind = "scanner_top" | "market_detail" | "research_signal" | "event_signal_console";
+export type ApiResponseKind =
+  | "scanner_top"
+  | "market_detail"
+  | "research_signal"
+  | "event_signal_console"
+  | "live_market_data";
 
 export type ApiResponseStatus = "ok" | "not_found" | "unsupported" | "fail_closed";
 
@@ -285,7 +290,11 @@ export type ResearchSignalSourceMode = "fixture" | "live";
 
 export type OhlcvSource = "fixture" | "coinbase_exchange";
 
-export type OhlcvInterval = "1m" | "5m";
+export type DataSourceType = "live" | "mock" | "fixture";
+
+export type OhlcvInterval = "1m" | "5m" | "15m" | "1h";
+
+export type LiveMarketDataSource = "coinbase-exchange";
 
 export interface OhlcvCandle {
   timestamp: string;
@@ -298,9 +307,16 @@ export interface OhlcvCandle {
 
 export interface Candle extends OhlcvCandle {
   source: OhlcvSource;
+  sourceType: DataSourceType;
+  provider: LiveMarketDataSource | "fixture";
   symbol: SignalSymbol;
   interval: OhlcvInterval;
+  granularity: number;
+  productId: string;
+  openTime: string;
   startTime: string;
+  isLive: boolean;
+  isFixtureBacked: boolean;
   isClosed: boolean;
 }
 
@@ -323,12 +339,59 @@ export interface OHLCVFreshness {
 export interface OHLCVFetchResult {
   candles: Candle[];
   source: OhlcvSource;
+  sourceType: DataSourceType;
+  provider: LiveMarketDataSource;
+  productId: string;
+  candleGranularity: number;
+  candleCount: number;
+  lastCandleTime: string | null;
   fetchedAt: string;
   freshness: OHLCVFreshness;
   warnings: string[];
   failClosedReasons: string[];
   isLive: boolean;
   isFixtureBacked: boolean;
+}
+
+export interface MarketDataProvenance {
+  source: string;
+  sourceType: DataSourceType;
+  provider: LiveMarketDataSource | "fixture";
+  productId: string | null;
+  sourceMode: ResearchSignalSourceMode;
+  isLive: boolean;
+  isFixtureBacked: boolean;
+  fetchedAt: string;
+  candleInterval: OhlcvInterval;
+  candleGranularity: number;
+  candleCount: number;
+  lastCandleTime: string | null;
+}
+
+export interface LiveMarketDataResponse {
+  symbol: SignalSymbol;
+  source: LiveMarketDataSource;
+  sourceType: DataSourceType;
+  provider: LiveMarketDataSource;
+  productId: string;
+  fetchedAt: string;
+  latestPrice: number | null;
+  bid: number | null;
+  ask: number | null;
+  tickerTime: string | null;
+  tickerFreshnessSeconds: number | null;
+  tickerVolume: number | null;
+  candles: Candle[];
+  candleInterval: OhlcvInterval;
+  candleGranularity: number;
+  candleCount: number;
+  latestCandleTime: string | null;
+  lastCandleTime: string | null;
+  candleFreshnessSeconds: number | null;
+  isLive: boolean;
+  isFixtureBacked: boolean;
+  warnings: string[];
+  failClosedReasons: string[];
 }
 
 export interface SignalFeatureSnapshot {
@@ -387,6 +450,7 @@ export interface SignalContextSnapshot {
 export interface SignalDataQuality {
   status: SignalDataQualityStatus;
   source: OhlcvSource;
+  sourceType: DataSourceType;
   candleCount: number;
   requiredCandleCount: number;
   freshnessAgeMs: number;
@@ -440,6 +504,7 @@ export interface ResearchSignal {
   context: SignalContextSnapshot;
   dataQuality: SignalDataQuality;
   source: OhlcvSource;
+  sourceType: DataSourceType;
   sourceMode: ResearchSignalSourceMode;
   isResearchOnly: true;
   isTradeAdvice: false;
@@ -459,6 +524,7 @@ export interface ResearchSignalsMeta {
   source: "research_signal_engine";
   mode: ResearchSignalSourceMode;
   sourceName: OhlcvSource;
+  sourceType: DataSourceType;
   isFixtureBacked: boolean;
   isReadOnly: true;
   isResearchOnly: true;
@@ -542,6 +608,7 @@ export interface EventSignalConsoleMeta {
   source: "research_signal_engine";
   mode: ResearchSignalSourceMode;
   sourceName: OhlcvSource;
+  sourceType: DataSourceType;
   isFixtureBacked: boolean;
   isReadOnly: true;
   isResearchOnly: true;
@@ -556,6 +623,7 @@ export interface EventSignalConsoleResponse {
   symbol: SignalSymbol;
   horizon: SignalHorizon;
   sourceMode: ResearchSignalSourceMode;
+  dataProvenance: MarketDataProvenance;
   eventWindow: EventWindow;
   observationCandidate: SignalObservationCandidate;
   currentSignal: ResearchSignal;
