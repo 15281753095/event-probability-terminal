@@ -288,13 +288,17 @@ export type ResearchSignalModelVersion = "research-signal-engine-v0";
 
 export type ResearchSignalSourceMode = "fixture" | "live";
 
-export type OhlcvSource = "fixture" | "coinbase_exchange";
+export type OhlcvSource = "fixture" | "coinbase_exchange" | "binance_spot_public";
 
 export type DataSourceType = "live" | "mock" | "fixture";
 
 export type OhlcvInterval = "1m" | "5m" | "15m" | "1h";
 
-export type LiveMarketDataSource = "coinbase-exchange";
+export type LiveMarketDataSource = "binance-spot-public" | "coinbase-exchange";
+
+export type MarketDataProvider = LiveMarketDataSource | "mock" | "fixture";
+
+export type ProviderProduct = "BTCUSDT" | "ETHUSDT" | "BTC-USD" | "ETH-USD";
 
 export interface OhlcvCandle {
   timestamp: string;
@@ -313,9 +317,11 @@ export interface Candle extends OhlcvCandle {
   interval: OhlcvInterval;
   granularity: number;
   productId: string;
+  displaySymbol: string;
   openTime: string;
   startTime: string;
   isLive: boolean;
+  isMock: boolean;
   isFixtureBacked: boolean;
   isClosed: boolean;
 }
@@ -342,6 +348,7 @@ export interface OHLCVFetchResult {
   sourceType: DataSourceType;
   provider: LiveMarketDataSource;
   productId: string;
+  displaySymbol: string;
   candleGranularity: number;
   candleCount: number;
   lastCandleTime: string | null;
@@ -350,6 +357,7 @@ export interface OHLCVFetchResult {
   warnings: string[];
   failClosedReasons: string[];
   isLive: boolean;
+  isMock: boolean;
   isFixtureBacked: boolean;
 }
 
@@ -358,8 +366,10 @@ export interface MarketDataProvenance {
   sourceType: DataSourceType;
   provider: LiveMarketDataSource | "fixture";
   productId: string | null;
+  displaySymbol: string | null;
   sourceMode: ResearchSignalSourceMode;
   isLive: boolean;
+  isMock: boolean;
   isFixtureBacked: boolean;
   fetchedAt: string;
   candleInterval: OhlcvInterval;
@@ -374,6 +384,7 @@ export interface LiveMarketDataResponse {
   sourceType: DataSourceType;
   provider: LiveMarketDataSource;
   productId: string;
+  displaySymbol: string;
   fetchedAt: string;
   latestPrice: number | null;
   bid: number | null;
@@ -389,9 +400,11 @@ export interface LiveMarketDataResponse {
   lastCandleTime: string | null;
   candleFreshnessSeconds: number | null;
   isLive: boolean;
+  isMock: boolean;
   isFixtureBacked: boolean;
   warnings: string[];
   failClosedReasons: string[];
+  provenance: MarketDataProvenance;
 }
 
 export interface SignalFeatureSnapshot {
@@ -571,6 +584,8 @@ export interface ObservationPreview {
 
 export interface EventWindow {
   horizon: SignalHorizon;
+  provider: LiveMarketDataSource | "fixture";
+  displaySymbol: string | null;
   expectedResolveAt: string | null;
   windowStart: string | null;
   windowEnd: string | null;

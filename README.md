@@ -8,12 +8,17 @@ This repository is in Phase 1 foundation work. It has a minimal local end-to-end
 
 - `services/market-ingestor`: Polymarket public-read adapter boundary, fixture-first by default.
 - `packages/shared-types`: shared contracts for `EventMarket`, `OrderBookSnapshot`, `MarketDetailResponse`, and placeholder scanner/pricing objects.
-- `packages/research-signals`: deterministic technical-indicator, confluence, and research-signal engine with Coinbase Exchange public live ticker/candles for the terminal and explicit fixture dev mode.
+- `packages/research-signals`: deterministic technical-indicator, confluence, and research-signal engine with Binance Spot public live ticker/candles by default, Coinbase Exchange fallback, and explicit fixture dev mode.
 - `apps/api-gateway`: Fastify read-only API for live market data, fixture-backed markets/scanner metadata, contract-backed market detail, research signals, Event Signal Console, and pricing placeholders.
 - `apps/web`: Next.js RC-13 minimal live BTC/ETH 5m/10m prediction terminal, hidden legacy scanner route, and Market Detail RC-3 evidence views that read from the API gateway.
 - `services/pricing-engine`: Python placeholder contract for fair-value output shape.
 
-The current homepage is live-first. It uses Coinbase Exchange public `BTC-USD`/`ETH-USD` ticker and candles by default for local manual use. Fixture data remains available only through explicit dev mode or the legacy scanner route. A limited Polymarket Gamma/public-search live fixture capture was completed on 2026-04-21 to tighten contract tests, but it did not confirm active BTC/ETH 5m/10m market discovery for homepage display.
+The current homepage is live-first. It uses Binance Spot public `BTCUSDT`/`ETHUSDT` ticker and
+candles by default for local manual use, with Coinbase Exchange `BTC-USD`/`ETH-USD` available as a
+fallback provider. Fixture data remains available only through explicit dev mode or the legacy
+scanner route. A limited Polymarket Gamma/public-search live fixture capture was completed on
+2026-04-21 to tighten contract tests, but it did not confirm active BTC/ETH 5m/10m market discovery
+for homepage display.
 Pricing-engine v1 research docs now define the additional Up/Down payoff and reference-level
 evidence required before any real fair-probability model can be implemented. A 2026-04-23 public
 fixture capture strengthened 5M Up/Down payoff evidence, but it still does not open 10m/1h runtime
@@ -113,17 +118,17 @@ Minimal terminal local URLs:
 ```text
 http://localhost:3000/
 http://localhost:3000/?symbol=ETH&horizon=10m
-http://localhost:3000/market-data/live?symbol=BTC&interval=15m
-http://localhost:3000/signals/console?symbol=BTC&horizon=5m
+http://localhost:3000/market-data/live?symbol=BTC&provider=binance&interval=15m
+http://localhost:3000/signals/console?symbol=BTC&horizon=5m&provider=binance
 http://localhost:3000/?symbol=BTC&horizon=5m&sourceMode=fixture
 http://localhost:3000/scanner
 ```
 
-Default terminal mode is live. It reads public Coinbase Exchange ticker/candles through the
+Default terminal mode is live. It reads Binance Spot public ticker/candles through the
 research-signals adapter and fails closed to `NO_SIGNAL` when data is stale, incomplete, or
-unavailable. Fixture mode is explicit dev mode and must not be used to fill live chart or ticker
-failures. CI/smoke mock packets are labeled `sourceType=mock` / `DEV MOCK`; only real Coinbase
-public responses are labeled `sourceType=live`.
+unavailable. Coinbase Exchange is an explicit fallback provider. Fixture mode is explicit dev mode
+and must not be used to fill live chart or ticker failures. CI/smoke mock packets are labeled
+`sourceType=mock` / `DEV MOCK`; only real provider responses are labeled `sourceType=live`.
 
 Optional local infrastructure:
 
@@ -158,12 +163,13 @@ curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo
 curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo/book
 curl http://localhost:4000/markets/polymarket%3Amkt-btc-1h-demo/detail
 curl http://localhost:4000/scanner/top
-curl "http://localhost:4000/market-data/live?symbol=BTC"
-curl "http://localhost:4000/market-data/live?symbol=ETH"
+curl "http://localhost:4000/market-data/live?symbol=BTC&provider=binance"
+curl "http://localhost:4000/market-data/live?symbol=ETH&provider=binance"
+curl "http://localhost:4000/market-data/live?symbol=BTC&provider=coinbase"
 curl http://localhost:4000/signals/research
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=live"
-curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m"
+curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m&provider=binance"
 curl "http://localhost:4000/signals/console?symbol=ETH&horizon=10m&sourceMode=fixture"
 curl "http://localhost:4000/signals/console?symbol=BTC&horizon=5m&sourceMode=fixture&profile=balanced"
 curl "http://localhost:4000/signals/console?symbol=BTC&horizon=10m&profile=conservative"
@@ -188,16 +194,16 @@ read-only/fixture/placeholder flags, and status. Typed error responses use the s
 version and currently cover `market_not_found`.
 
 `/signals/research` returns `ResearchSignal` objects for BTC/ETH 5m/10m research bias. Fixture mode
-is the default. `sourceMode=live` explicitly uses Coinbase Exchange public candles with timeout,
-safe parsing, incomplete-candle filtering, freshness checks, and fail-closed `NO_SIGNAL` behavior.
+is the default. `sourceMode=live` uses Binance Spot public candles with timeout, safe parsing,
+incomplete-candle filtering, freshness checks, and fail-closed `NO_SIGNAL` behavior.
 Directions are limited to `LONG`, `SHORT`, and `NO_SIGNAL`; they are explicitly research-only and
 `isTradeAdvice: false`.
 
-`/market-data/live` returns Coinbase Exchange public ticker and candle fields for `BTC` or `ETH`.
-It supports `interval=1m|5m|15m|1h`, maps directly to Coinbase granularities `60|300|900|3600`,
-includes source provenance, latest price, bid/ask, ticker time/freshness, candle count, latest
-candle time/freshness, warnings, and fail-closed reasons. It uses no API key, wallet, private
-endpoint, or account data.
+`/market-data/live` returns Binance Spot public ticker and candle fields for `BTC` or `ETH` by
+default, with `provider=coinbase` available as fallback. It supports `interval=1m|5m|15m|1h`,
+includes source provenance, product/display symbol, latest price, bid/ask, ticker time/freshness,
+candle count, latest candle time/freshness, warnings, and fail-closed reasons. It uses no API key,
+wallet, private endpoint, signed endpoint, order endpoint, or account data.
 
 `/signals/console` returns one `EventSignalConsoleResponse` for BTC/ETH 5m/10m and defaults to
 `sourceMode=live`. It includes the current research signal, active research profile, confluence
@@ -208,7 +214,7 @@ return trade instructions, leverage, position size, order fields, or a real perf
 
 ## Current Pages
 
-- `/`: RC-14 real-data-first prediction terminal
+- `/`: RC-15 Binance public kline prediction terminal
   - BTC/ETH and 5m/10m controls
   - LIVE status, latest public ticker price, ticker freshness, candle freshness, and manual refresh
   - main candlestick chart from live candles only in live mode
@@ -217,8 +223,8 @@ return trade instructions, leverage, position size, order fields, or a real perf
   - compact confluence, risk/no-trade, and observation summaries
   - collapsed Advanced drawer for fixture dev mode, old scanner link, diagnostics, and warnings
 - `/scanner`: legacy Markets Scanner RC-2, moved out of the homepage first screen
-- `/market-data/live`: Coinbase Exchange public ticker and real candle terminal with BTC/ETH and
-  `1m`/`5m`/`15m`/`1h` controls
+- `/market-data/live`: Binance Spot public ticker and real candle terminal with BTC/ETH, provider,
+  and `1m`/`5m`/`15m`/`1h` controls
 - `/signals/console`: live-default research signal console with experimental model labels and no
   trading action
 - `/markets/:id`: Market Detail RC-3
@@ -227,7 +233,7 @@ return trade instructions, leverage, position size, order fields, or a real perf
   - API-backed research readiness, token trace, source trace, related fixture markets
   - explicit placeholder pricing panel and open evidence gaps
 
-No replay workflow, paper trading UI, or trading control exists. The RC-14 candlestick chart uses
+No replay workflow, paper trading UI, or trading control exists. The RC-15 candlestick chart uses
 real candles in live mode and does not load full historical signal markers.
 
 ## Local Workbench FAQ
@@ -238,8 +244,8 @@ real candles in live mode and does not load full historical signal markers.
   historical signals.
 - Observation Preview is collapsed by default. Open it only when needed; it is a small-sample
   directional check, not a backtest, predictive guarantee, or real trading performance.
-- Manual refresh is display fetching only. Coinbase documents WebSocket feeds for realtime updates;
-  this app does not high-frequency poll REST ticker/candles.
+- Manual refresh is display fetching only. This app does not high-frequency poll REST
+  ticker/candles.
 - The homepage observation area is a compact current-window summary. Larger local feedback tools
   are kept out of the default first screen.
 - If live mode shows `NO_SIGNAL`, inspect warnings and fail-closed reasons first. Fixture mode is an
@@ -271,7 +277,7 @@ make install-smoke-browsers
 make smoke
 ```
 
-The smoke suite starts the API gateway and web app with deterministic mocked Coinbase packets, then
+The smoke suite starts the API gateway and web app with deterministic mocked provider packets, then
 checks that the homepage, `/market-data/live`, and `/signals/console` mark those packets as
 `DEV MOCK`, plus the moved `/scanner` route and one deterministic Market Detail URL. It does not
 call live vendors, compute real pricing, or test trading behavior.
@@ -312,6 +318,7 @@ should be reviewed as public local API contract changes, not incidental formatti
 - RC-12 reality observation decision: `docs/adr/0016-rc12-reality-observation-and-strategy-tuning.md`
 - RC-13 real data first terminal decision: `docs/adr/0017-rc13-real-data-first-terminal.md`
 - RC-14 real data integrity decision: `docs/adr/0018-rc14-real-data-integrity.md`
+- RC-15 Binance public kline terminal decision: `docs/adr/0019-rc15-binance-public-kline-terminal.md`
 - Source registry: `docs/source_registry.md`
 - Collaboration rules: `AGENTS.md`
 

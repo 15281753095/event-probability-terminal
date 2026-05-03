@@ -4,6 +4,7 @@ import {
   type EventSignalConsoleResponse,
   type EventWindow,
   type LiveMarketDataResponse,
+  type LiveMarketDataSource,
   type MarketDataProvenance,
   type OHLCVFetchRequest,
   type OHLCVFetchResult,
@@ -29,11 +30,15 @@ import {
 } from "./engine.js";
 import { findResearchSignalFixture } from "./fixtures.js";
 import {
+  emptyFailClosedBinanceOHLCVResult,
+  fetchBinanceSpotCandles,
+  fetchBinanceSpotMarketData
+} from "./ohlcv/binance-spot.js";
+import {
   emptyFailClosedOHLCVResult,
-  fetchCoinbaseExchangeCandles,
-  fetchCoinbaseExchangeMarketData,
-  type LiveMarketDataFetcher
+  fetchCoinbaseExchangeMarketData
 } from "./ohlcv/coinbase-exchange.js";
+import type { LiveMarketDataFetcher } from "./ohlcv/types.js";
 import { evaluateConfluence } from "./confluence.js";
 
 export const CONSOLE_CANDLE_LOOKBACK = 80;
@@ -52,6 +57,7 @@ export type BuildEventSignalConsoleInput = {
 export type BuildLiveEventSignalConsoleInput = BuildEventSignalConsoleInput & {
   fetcher?: OHLCVFetcher;
   liveMarketDataFetcher?: LiveMarketDataFetcher;
+  provider?: LiveMarketDataSource;
 };
 
 export function buildFixtureEventSignalConsole(input: BuildEventSignalConsoleInput): EventSignalConsoleResponse {
@@ -72,7 +78,7 @@ export function buildFixtureEventSignalConsole(input: BuildEventSignalConsoleInp
       candles: [],
       generatedAt: input.generatedAt,
       currentPrice: null,
-      dataProvenance: fixtureDataProvenance(input.generatedAt, 0, null),
+      dataProvenance: fixtureDataProvenance(input.symbol, input.generatedAt, 0, null),
       includeObservationPreview: input.includeObservationPreview ?? input.includeBacktest ?? false
     });
   }
@@ -94,7 +100,7 @@ export function buildFixtureEventSignalConsole(input: BuildEventSignalConsoleInp
     candles,
     generatedAt: input.generatedAt,
     currentPrice: candles.at(-1)?.close ?? null,
-    dataProvenance: fixtureDataProvenance(input.generatedAt, candles.length, candles.at(-1)?.timestamp ?? null),
+    dataProvenance: fixtureDataProvenance(input.symbol, input.generatedAt, candles.length, candles.at(-1)?.timestamp ?? null),
     includeObservationPreview: input.includeObservationPreview ?? input.includeBacktest ?? false
   });
 }
@@ -106,7 +112,7 @@ export async function buildLiveEventSignalConsole(
     return buildLiveEventSignalConsoleFromMarketData(input);
   }
 
-  const fetcher = input.fetcher ?? fetchCoinbaseExchangeCandles;
+  const fetcher = input.fetcher ?? fetchBinanceSpotCandles;
   const request: OHLCVFetchRequest = {
     symbol: input.symbol,
     interval: "1m",
@@ -118,9 +124,9 @@ export async function buildLiveEventSignalConsole(
   try {
     result = await fetcher(request);
   } catch (error) {
-    result = emptyFailClosedOHLCVResult(
-      request,
-      input.generatedAt,
+      result = emptyFailClosedBinanceOHLCVResult(
+        request,
+        input.generatedAt,
       error instanceof Error ? error.message : "OHLCV adapter threw an unknown error."
     );
   }
@@ -152,13 +158,17 @@ export async function buildLiveEventSignalConsole(
 async function buildLiveEventSignalConsoleFromMarketData(
   input: BuildLiveEventSignalConsoleInput
 ): Promise<EventSignalConsoleResponse> {
-  const liveMarketDataFetcher = input.liveMarketDataFetcher ?? fetchCoinbaseExchangeMarketData;
+  const provider = input.provider ?? "binance-spot-public";
+  const liveMarketDataFetcher =
+    input.liveMarketDataFetcher ??
+    (provider === "coinbase-exchange" ? fetchCoinbaseExchangeMarketData : fetchBinanceSpotMarketData);
   try {
     const marketData = await liveMarketDataFetcher({
       symbol: input.symbol,
       interval: "1m",
       lookback: CONSOLE_CANDLE_LOOKBACK,
       sourceMode: "live",
+      provider,
       requestedAt: input.generatedAt
     });
     const signal = buildResearchSignal({
@@ -166,7 +176,7 @@ async function buildLiveEventSignalConsoleFromMarketData(
       horizon: input.horizon,
       generatedAt: input.generatedAt,
       candles: marketData.candles,
-      source: "coinbase_exchange",
+      source: ohlcvSourceForProvider(marketData.provider),
       sourceType: marketData.sourceType,
       sourceMode: "live",
       sourceWarnings: marketData.warnings,
@@ -186,8 +196,8 @@ async function buildLiveEventSignalConsoleFromMarketData(
   } catch (error) {
     const reason =
       error instanceof Error
-        ? `Live data unavailable: Coinbase Exchange market-data adapter failed: ${error.message}`
-        : "Live data unavailable: Coinbase Exchange market-data adapter failed with an unknown error.";
+        ? `Live data unavailable: ${provider} market-data adapter failed: ${error.message}`
+        : `Live data unavailable: ${provider} market-data adapter failed with an unknown error.`;
     const request: OHLCVFetchRequest = {
       symbol: input.symbol,
       interval: "1m",
@@ -195,7 +205,7 @@ async function buildLiveEventSignalConsoleFromMarketData(
       sourceMode: "live",
       requestedAt: input.generatedAt
     };
-    const result = emptyFailClosedOHLCVResult(request, input.generatedAt, reason);
+    const result = emptyFailClosedOHLCVForProvider(provider, request, input.generatedAt, reason);
     const signal = buildResearchSignal({
       symbol: input.symbol,
       horizon: input.horizon,
@@ -222,14 +232,21 @@ async function buildLiveEventSignalConsoleFromMarketData(
   }
 }
 
-function fixtureDataProvenance(fetchedAt: string, candleCount: number, lastCandleTime: string | null): MarketDataProvenance {
+function fixtureDataProvenance(
+  symbol: SignalSymbol,
+  fetchedAt: string,
+  candleCount: number,
+  lastCandleTime: string | null
+): MarketDataProvenance {
   return {
     source: "fixture",
     sourceType: "fixture",
     provider: "fixture",
     productId: null,
+    displaySymbol: `${symbol}-fixture`,
     sourceMode: "fixture",
     isLive: false,
+    isMock: false,
     isFixtureBacked: true,
     fetchedAt,
     candleInterval: "1m",
@@ -245,8 +262,10 @@ function liveMarketDataProvenance(marketData: LiveMarketDataResponse): MarketDat
     sourceType: marketData.sourceType,
     provider: marketData.provider,
     productId: marketData.productId,
+    displaySymbol: marketData.displaySymbol,
     sourceMode: "live",
     isLive: marketData.isLive,
+    isMock: marketData.isMock,
     isFixtureBacked: marketData.isFixtureBacked,
     fetchedAt: marketData.fetchedAt,
     candleInterval: marketData.candleInterval,
@@ -262,8 +281,10 @@ function ohlcvDataProvenance(result: OHLCVFetchResult, fetchedAt: string): Marke
     sourceType: result.sourceType,
     provider: result.provider,
     productId: result.productId,
+    displaySymbol: result.displaySymbol,
     sourceMode: result.isFixtureBacked ? "fixture" : "live",
     isLive: result.isLive,
+    isMock: result.isMock,
     isFixtureBacked: result.isFixtureBacked,
     fetchedAt,
     candleInterval: result.candles.at(-1)?.interval ?? "1m",
@@ -282,7 +303,7 @@ function buildConsoleResponse(input: {
   includeObservationPreview: boolean;
 }): EventSignalConsoleResponse {
   const recentCandles = input.candles.slice(-RECENT_CANDLE_LIMIT);
-  const eventWindow = buildEventWindow(input.signal, input.candles, input.currentPrice);
+  const eventWindow = buildEventWindow(input.signal, input.candles, input.currentPrice, input.dataProvenance);
   const recentMarkers = buildRecentSignalMarkers({
     signal: input.signal,
     candles: input.candles,
@@ -512,13 +533,16 @@ function toLegacyBacktestPreview(preview: ObservationPreview): BacktestPreview {
 function buildEventWindow(
   signal: ResearchSignal,
   candles: OhlcvCandle[],
-  currentPrice: number | null
+  currentPrice: number | null,
+  dataProvenance: MarketDataProvenance
 ): EventWindow {
   const latest = candles.at(-1);
   const horizonMs = signal.horizon === "5m" ? 5 * 60_000 : 10 * 60_000;
   if (!latest) {
     return {
       horizon: signal.horizon,
+      provider: dataProvenance.provider,
+      displaySymbol: dataProvenance.displaySymbol,
       expectedResolveAt: null,
       windowStart: null,
       windowEnd: null,
@@ -539,6 +563,8 @@ function buildEventWindow(
       : Number((((effectiveCurrentPrice - latest.close) / latest.close) * 100).toFixed(4));
   return {
     horizon: signal.horizon,
+    provider: dataProvenance.provider,
+    displaySymbol: dataProvenance.displaySymbol,
     expectedResolveAt,
     windowStart: latest.timestamp,
     windowEnd: expectedResolveAt,
@@ -581,6 +607,21 @@ function buildObservationCandidate(
     ],
     canObserve: eventWindow.canObserve
   };
+}
+
+function emptyFailClosedOHLCVForProvider(
+  provider: LiveMarketDataSource,
+  request: OHLCVFetchRequest,
+  fetchedAt: string,
+  reason: string
+): OHLCVFetchResult {
+  return provider === "coinbase-exchange"
+    ? emptyFailClosedOHLCVResult(request, fetchedAt, reason)
+    : emptyFailClosedBinanceOHLCVResult(request, fetchedAt, reason);
+}
+
+function ohlcvSourceForProvider(provider: LiveMarketDataSource): OhlcvSource {
+  return provider === "coinbase-exchange" ? "coinbase_exchange" : "binance_spot_public";
 }
 
 function unique(values: string[]): string[] {

@@ -15,7 +15,7 @@ import {
   type OHLCVFetchResult,
   type OhlcvCandle
 } from "@ept/shared-types";
-import { emptyFailClosedOHLCVResult, fetchCoinbaseExchangeCandles } from "./ohlcv/coinbase-exchange.js";
+import { emptyFailClosedBinanceOHLCVResult, fetchBinanceSpotCandles } from "./ohlcv/binance-spot.js";
 import { buildFeatureSnapshot } from "./indicators.js";
 import { findResearchSignalFixture, researchSignalFixtures, type ResearchSignalFixture } from "./fixtures.js";
 import { evaluateConfluence } from "./confluence.js";
@@ -97,7 +97,7 @@ export function listResearchSignals(input: ListSignalsInput): ResearchSignalsRes
 }
 
 export async function listLiveResearchSignals(input: ListLiveSignalsInput): Promise<ResearchSignalsResponse> {
-  const fetcher = input.fetcher ?? fetchCoinbaseExchangeCandles;
+  const fetcher = input.fetcher ?? fetchBinanceSpotCandles;
   const signals = await Promise.all(
     signalTargets(input.symbol, input.horizon).map(async (target) => {
       const request: OHLCVFetchRequest = {
@@ -111,7 +111,7 @@ export async function listLiveResearchSignals(input: ListLiveSignalsInput): Prom
       try {
         result = await fetcher(request);
       } catch (error) {
-        result = emptyFailClosedOHLCVResult(
+        result = emptyFailClosedBinanceOHLCVResult(
           request,
           input.generatedAt,
           error instanceof Error ? error.message : "OHLCV adapter threw an unknown error."
@@ -127,6 +127,8 @@ export async function listLiveResearchSignals(input: ListLiveSignalsInput): Prom
     })
   );
 
+  const sourceName = signals[0]?.source ?? "binance_spot_public";
+  const sourceType = signals[0]?.sourceType ?? "live";
   return {
     signals,
     meta: {
@@ -136,15 +138,15 @@ export async function listLiveResearchSignals(input: ListLiveSignalsInput): Prom
       status: "ok",
       source: "research_signal_engine",
       mode: "live",
-      sourceName: "coinbase_exchange",
-      sourceType: "live",
+      sourceName,
+      sourceType,
       isFixtureBacked: false,
       isReadOnly: true,
       isResearchOnly: true,
       isTradeAdvice: false,
       modelVersion: RESEARCH_SIGNAL_MODEL_VERSION,
       message:
-        "Live research signals use Coinbase Exchange public OHLCV candles when explicitly requested. They are not trade advice or order instructions."
+        "Live research signals use Binance Spot public OHLCV candles when explicitly requested. They are not trade advice or order instructions."
     }
   };
 }

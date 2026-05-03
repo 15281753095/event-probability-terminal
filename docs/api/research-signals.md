@@ -1,10 +1,11 @@
 # Research Signals API
 
-Status: implemented through RC-9 as a fixture-default, live-optional, read-only research signal and
+Status: implemented through RC-15 as a fixture-default, live-optional, read-only research signal and
 confluence slice.
 
-This API publishes BTC/ETH 5m and 10m research signals. Fixture mode remains the default. Live mode
-must be explicitly requested and uses Coinbase Exchange public candles. RC-9 adds confluence and
+This API publishes BTC/ETH 5m and 10m research signals. Fixture mode remains the default for this
+list endpoint. Live mode must be explicitly requested and now defaults to Binance Spot public
+candles. RC-9 adds confluence and
 risk-filter fields to each `ResearchSignal`; the richer console payload is documented separately in
 `docs/api/event-signal-console.md`. This is not a trading API, not investment advice, not a
 fair-probability pricing model, and not an order-generation system.
@@ -45,7 +46,7 @@ interface ResearchSignalsResponse {
 - `responseKind: "research_signal"`
 - `source: "research_signal_engine"`
 - `mode: "fixture"` or `"live"`
-- `sourceName: "fixture"` or `"coinbase_exchange"`
+- `sourceName: "fixture"`, `"binance_spot_public"`, or `"coinbase_exchange"`
 - `isFixtureBacked: boolean`
 - `isReadOnly: true`
 - `isResearchOnly: true`
@@ -66,7 +67,7 @@ Each signal includes:
 - `features`: technical indicator snapshot
 - `context`: manual fixture context snapshot
 - `dataQuality`: freshness and completeness report
-- `source`: `fixture` or `coinbase_exchange`
+- `source`: `fixture`, `binance_spot_public`, or `coinbase_exchange`
 - `sourceMode`: `fixture` or `live`
 - `isResearchOnly: true`
 - `isTradeAdvice: false`
@@ -91,13 +92,22 @@ The v0 engine computes local deterministic formulas for:
 - volume z-score and abnormal-volume flag.
 
 These indicators are computed from fixture OHLCV samples by default. With `sourceMode=live`, they
-are computed from Coinbase Exchange public candles after safe parsing, closed-candle filtering, and
-freshness checks. CI uses mocked live adapter responses and does not call Coinbase; mocked packets
+are computed from Binance Spot public candles after safe parsing, closed-candle filtering, and
+freshness checks. CI uses mocked live adapter responses and does not call Binance or Coinbase; mocked packets
 must be marked as test/mock provenance and not displayed as real live data.
 
 ## Live OHLCV Source
 
-RC-8 selects Coinbase Exchange public candles as the default live OHLCV source:
+RC-15 selects Binance Spot public candles as the default live OHLCV source:
+
+- provider: `binance-spot-public`
+- endpoint: `GET https://data-api.binance.vision/api/v3/klines`
+- ticker endpoint used by the market-data packet: `GET /api/v3/ticker/24hr`
+- products: `BTCUSDT`, `ETHUSDT`
+- adapter intervals: `1m`, `5m`, `15m`, and `1h`
+- no Authorization header, API key, wallet, account endpoint, signed parameter, or order endpoint is used
+
+Coinbase Exchange remains available as a fallback display/source provider:
 
 - endpoint: `GET https://api.exchange.coinbase.com/products/{product_id}/candles`
 - product ids: `BTC-USD`, `ETH-USD`
@@ -105,10 +115,9 @@ RC-8 selects Coinbase Exchange public candles as the default live OHLCV source:
   `15m` maps to `granularity=900`, and `1h` maps to `granularity=3600`
 - no Authorization header, API key, wallet, or private endpoint is used
 
-The signal endpoint currently fetches 1m candles for both `5m` and `10m` horizons so the existing
-1m/3m/5m feature set remains comparable with fixture mode. Coinbase Exchange historical rates may
-be incomplete and should not be polled frequently, so live mode is for explicit local/manual use.
-It is not a CI dependency.
+The signal endpoint currently fetches 1m candles for both `5m` and `10m` horizons. This keeps the
+event window more precise while the confluence model continues to compute 1m/3m/5m features. Live
+mode is not a CI dependency.
 
 The standalone `/market-data/live` endpoint and web page can request `1m`, `5m`, `15m`, and `1h`
 candles for display. The signal model remains experimental and continues to use 1m underlying
@@ -172,7 +181,7 @@ by default.
 - No real-money trading.
 - No private/authenticated endpoints.
 - No wallet integration.
-- No Predict.fun or Binance adapter.
+- No Predict.fun adapter, Binance Wallet adapter, Binance account connection, or signed Binance endpoint.
 - No paper broker.
 - No replay engine.
 - No production pricing model.

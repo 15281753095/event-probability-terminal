@@ -3,6 +3,7 @@ import type {
   EventSignalConsoleResponse,
   LiveMarketDataResponse,
   DataSourceType,
+  LiveMarketDataSource,
   ResearchSignalSourceMode,
   SignalDirection,
   SignalHorizon,
@@ -17,6 +18,7 @@ type SearchParams = Promise<{
   symbol?: string;
   horizon?: string;
   sourceMode?: string;
+  provider?: string;
   profile?: string;
   refresh?: string;
 }>;
@@ -25,6 +27,7 @@ type TerminalFilters = {
   symbol: SignalSymbol;
   horizon: SignalHorizon;
   sourceMode: ResearchSignalSourceMode;
+  provider: LiveMarketDataSource;
   profile: "balanced" | "conservative" | "aggressive";
   refresh: string;
 };
@@ -45,7 +48,7 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
   const params = (await searchParams) ?? {};
   const filters = parseFilters(params);
   const liveMarketDataPromise: Promise<LiveLoadState> =
-    filters.sourceMode === "live" ? loadLiveMarketData(filters.symbol) : Promise.resolve({});
+    filters.sourceMode === "live" ? loadLiveMarketData(filters.symbol, filters.provider) : Promise.resolve({});
   const [consoleState, liveState] = await Promise.all([
     loadEventSignalConsole(filters),
     liveMarketDataPromise
@@ -59,6 +62,9 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
     dataSourceType === "live" &&
     (!marketData || marketData.failClosedReasons.length > 0 || marketData.latestPrice === null || Boolean(liveState.error));
   const latestPrice = filters.sourceMode === "live" ? marketData?.latestPrice ?? null : console?.eventWindow.currentPrice ?? null;
+  const displaySymbol =
+    marketData?.displaySymbol ?? console?.dataProvenance.displaySymbol ?? productFor(filters.symbol, filters.provider);
+  const providerLabel = providerDisplayName(marketData?.provider ?? filters.provider);
   const statusLabel =
     dataSourceType === "mock"
       ? "DEV MOCK"
@@ -81,11 +87,11 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-lg font-semibold tracking-normal text-slate-50">Event Probability Terminal</h1>
+                <h1 className="text-lg font-semibold tracking-normal text-slate-50">PREDICT TERMINAL</h1>
                 <StatusBadge label={statusLabel} sourceMode={filters.sourceMode} sourceType={dataSourceType} unavailable={liveUnavailable} />
               </div>
               <p className="mt-1 text-xs text-slate-500">
-                BTC/ETH 5m/10m event prediction research. Live data is public read-only.
+                {displaySymbol} {filters.horizon} event prediction research. Provider: {providerLabel}. Public read-only.
               </p>
             </div>
 
@@ -102,6 +108,9 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
                 options={["5m", "10m"]}
                 paramName="horizon"
               />
+              <ProviderLinks current={filters} />
+              <HeaderMetric label="Product" value={displaySymbol} />
+              <HeaderMetric label="Provider" value={providerLabel} />
               <HeaderMetric label="Latest price" value={formatUsd(latestPrice, filters.symbol)} strong />
               <HeaderMetric
                 label="Price updated"
@@ -132,7 +141,7 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
                 <div>
                   <h2 className="text-sm font-semibold text-slate-100">Candlestick Terminal</h2>
                   <p className="mt-1 text-xs text-slate-500">
-                    {marketData?.productId ?? console?.dataProvenance.productId ?? `${filters.symbol}-USD`} {console?.dataProvenance.candleInterval ?? "1m"} candles, showing {console?.recentCandles.length ?? 0} of {marketData?.candleCount ?? console?.dataProvenance.candleCount ?? console?.recentCandles.length ?? 0}. Latest closed candle {formatUsd(console?.recentCandles.at(-1)?.close ?? null, filters.symbol)}; provider {marketData?.provider ?? console?.dataProvenance.provider ?? "coinbase-exchange"}.
+                    {displaySymbol} {console?.dataProvenance.candleInterval ?? "1m"} source candles for {filters.horizon} event horizon, showing {console?.recentCandles.length ?? 0} of {marketData?.candleCount ?? console?.dataProvenance.candleCount ?? console?.recentCandles.length ?? 0}. Latest closed candle {formatUsd(console?.recentCandles.at(-1)?.close ?? null, filters.symbol)}; provider {providerLabel}.
                   </p>
                 </div>
                 <div className="flex gap-2 text-xs text-slate-500">
@@ -163,6 +172,8 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
               liveUnavailable={liveUnavailable}
               marketDataError={liveState.error}
               sourceType={dataSourceType}
+              displaySymbol={displaySymbol}
+              providerLabel={providerLabel}
               vetoReasons={vetoReasons}
             />
             <details className="border border-slate-800 bg-[#0b111d] p-3" data-testid="advanced-drawer">
@@ -194,6 +205,7 @@ async function loadEventSignalConsole(filters: TerminalFilters): Promise<Console
     symbol: filters.symbol,
     horizon: filters.horizon,
     sourceMode: filters.sourceMode,
+    provider: providerQueryValue(filters.provider),
     profile: filters.profile
   });
   try {
@@ -209,9 +221,13 @@ async function loadEventSignalConsole(filters: TerminalFilters): Promise<Console
   }
 }
 
-async function loadLiveMarketData(symbol: SignalSymbol): Promise<LiveLoadState> {
+async function loadLiveMarketData(symbol: SignalSymbol, provider: LiveMarketDataSource): Promise<LiveLoadState> {
+  const params = new URLSearchParams({
+    symbol,
+    provider: providerQueryValue(provider)
+  });
   try {
-    const response = await fetch(`${apiBaseUrl}/market-data/live?symbol=${symbol}`, {
+    const response = await fetch(`${apiBaseUrl}/market-data/live?${params.toString()}`, {
       cache: "no-store"
     });
     if (!response.ok) {
@@ -228,6 +244,7 @@ function parseFilters(params: Awaited<SearchParams>): TerminalFilters {
     symbol: params.symbol === "ETH" ? "ETH" : "BTC",
     horizon: params.horizon === "10m" ? "10m" : "5m",
     sourceMode: params.sourceMode === "fixture" ? "fixture" : "live",
+    provider: parseProvider(params.provider),
     profile:
       params.profile === "conservative" || params.profile === "aggressive"
         ? params.profile
@@ -268,6 +285,32 @@ function SegmentedLinks({
   );
 }
 
+function ProviderLinks({ current }: { current: TerminalFilters }) {
+  const options: Array<{ label: string; provider: LiveMarketDataSource }> = [
+    { label: "Binance", provider: "binance-spot-public" },
+    { label: "Coinbase", provider: "coinbase-exchange" }
+  ];
+  return (
+    <div className="flex min-h-10 items-center border border-slate-800 bg-slate-950 p-1">
+      <span className="px-2 text-[11px] uppercase tracking-[0.12em] text-slate-500">Provider</span>
+      {options.map((option) => {
+        const active = current.provider === option.provider;
+        return (
+          <Link
+            className={`px-3 py-1.5 text-xs font-semibold ${
+              active ? "bg-slate-100 text-slate-950" : "text-slate-400 hover:bg-slate-900 hover:text-slate-100"
+            }`}
+            href={terminalHref(current, { provider: option.provider })}
+            key={option.provider}
+          >
+            {option.label}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
 function SignalCard({
   console,
   consoleError,
@@ -275,6 +318,8 @@ function SignalCard({
   liveUnavailable,
   marketDataError,
   sourceType,
+  displaySymbol,
+  providerLabel,
   vetoReasons
 }: {
   console: EventSignalConsoleResponse | undefined;
@@ -283,6 +328,8 @@ function SignalCard({
   liveUnavailable: boolean;
   marketDataError: string | undefined;
   sourceType: DataSourceType;
+  displaySymbol: string;
+  providerLabel: string;
   vetoReasons: string[];
 }) {
   const direction = liveUnavailable || !console ? "NO_SIGNAL" : console.currentSignal.direction;
@@ -302,13 +349,13 @@ function SignalCard({
           <div className={`mt-2 text-3xl font-semibold ${directionClass(direction)}`}>{displayDirection(direction)}</div>
         </div>
         <div className="text-right text-xs text-slate-500">
-          <div>{console?.symbol ?? "BTC"} {console?.horizon ?? "5m"}</div>
-          <div>{console?.profileName ?? "balanced"}</div>
+          <div>{displaySymbol} {console?.horizon ?? "5m"}</div>
+          <div>{providerLabel}</div>
         </div>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <Metric label="Data source" value={sourceType === "mock" ? "DEV mock" : sourceType} />
+        <Metric label="Data source" value={sourceType === "mock" ? "DEV MOCK" : sourceType} />
         <Metric label="Model" value="Experimental" />
         <Metric label="Confidence" value={formatPercent(confidence)} />
         <Metric label="Score" value={formatSigned(score)} />
@@ -505,6 +552,9 @@ function terminalHref(current: TerminalFilters, updates: Partial<TerminalFilters
   if (next.sourceMode !== "live") {
     params.set("sourceMode", next.sourceMode);
   }
+  if (next.provider !== "binance-spot-public") {
+    params.set("provider", providerQueryValue(next.provider));
+  }
   if (next.profile !== "balanced") {
     params.set("profile", next.profile);
   }
@@ -516,7 +566,7 @@ function terminalHref(current: TerminalFilters, updates: Partial<TerminalFilters
 }
 
 function displayDirection(direction: SignalDirection) {
-  return direction === "LONG" ? "LONG bias" : direction === "SHORT" ? "SHORT bias" : "NO_SIGNAL";
+  return direction === "LONG" ? "LONG BIAS" : direction === "SHORT" ? "SHORT BIAS" : "NO_SIGNAL";
 }
 
 function directionClass(direction: SignalDirection) {
@@ -525,6 +575,25 @@ function directionClass(direction: SignalDirection) {
 
 function topItems(values: string[]): string[] {
   return [...new Set(values.filter((value) => value && !value.includes("No execution instruction")))].slice(0, 3);
+}
+
+function parseProvider(value?: string): LiveMarketDataSource {
+  return value === "coinbase" || value === "coinbase-exchange" ? "coinbase-exchange" : "binance-spot-public";
+}
+
+function providerQueryValue(provider: LiveMarketDataSource): string {
+  return provider === "coinbase-exchange" ? "coinbase" : "binance";
+}
+
+function providerDisplayName(provider: LiveMarketDataSource | string): string {
+  return provider === "coinbase-exchange" ? "Coinbase Exchange" : "Binance public";
+}
+
+function productFor(symbol: SignalSymbol, provider: LiveMarketDataSource): string {
+  if (provider === "coinbase-exchange") {
+    return symbol === "BTC" ? "BTC-USD" : "ETH-USD";
+  }
+  return symbol === "BTC" ? "BTCUSDT" : "ETHUSDT";
 }
 
 function formatUsd(value: number | null | undefined, symbol: SignalSymbol) {

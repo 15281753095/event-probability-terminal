@@ -2,26 +2,18 @@ import type {
   Candle,
   DataSourceType,
   LiveMarketDataResponse,
+  MarketDataProvenance,
   OHLCVFetchRequest,
   OHLCVFetchResult,
   OHLCVFreshness,
   OhlcvInterval,
-  ResearchSignalSourceMode,
   SignalSymbol
 } from "@ept/shared-types";
+import type { FetchLike, LiveMarketDataFetcher, LiveMarketDataFetchRequest } from "./types.js";
 
 export const COINBASE_EXCHANGE_BASE_URL = "https://api.exchange.coinbase.com";
 export const COINBASE_EXCHANGE_SOURCE = "coinbase_exchange" as const;
-
-export type FetchLike = (
-  url: string,
-  init: { headers: Record<string, string>; signal: AbortSignal }
-) => Promise<{
-  ok: boolean;
-  status: number;
-  statusText: string;
-  json: () => Promise<unknown>;
-}>;
+export const COINBASE_EXCHANGE_PROVIDER = "coinbase-exchange" as const;
 
 export type CoinbaseExchangeOptions = {
   baseUrl?: string;
@@ -30,21 +22,10 @@ export type CoinbaseExchangeOptions = {
   extraLookbackCandles?: number;
 };
 
-export type LiveMarketDataFetchRequest = {
-  symbol: SignalSymbol;
-  interval?: OhlcvInterval;
-  lookback?: number;
-  sourceMode?: ResearchSignalSourceMode;
-  requestedAt: string;
-};
-
-export type LiveMarketDataFetcher = (
-  request: LiveMarketDataFetchRequest
-) => Promise<LiveMarketDataResponse>;
-
 type CoinbaseTickerResult = Pick<
   LiveMarketDataResponse,
   | "productId"
+  | "displaySymbol"
   | "latestPrice"
   | "bid"
   | "ask"
@@ -142,12 +123,13 @@ export async function fetchCoinbaseExchangeMarketData(
   const candleFreshnessSeconds =
     candleResult.freshness.ageMs === null ? null : Math.max(0, Math.round(candleResult.freshness.ageMs / 1000));
 
-  return {
+  return withMarketDataProvenance({
     symbol: request.symbol,
-    source: "coinbase-exchange",
+    source: COINBASE_EXCHANGE_PROVIDER,
     sourceType: "live",
-    provider: "coinbase-exchange",
+    provider: COINBASE_EXCHANGE_PROVIDER,
     productId: ticker.productId,
+    displaySymbol: ticker.displaySymbol,
     fetchedAt: request.requestedAt,
     latestPrice: ticker.latestPrice,
     bid: ticker.bid,
@@ -163,22 +145,24 @@ export async function fetchCoinbaseExchangeMarketData(
     lastCandleTime: latestCandleTime,
     candleFreshnessSeconds,
     isLive: true,
+    isMock: false,
     isFixtureBacked: false,
     warnings: unique([...ticker.warnings, ...candleResult.warnings]),
     failClosedReasons: unique([...ticker.failClosedReasons, ...candleResult.failClosedReasons])
-  };
+  });
 }
 
 export function emptyFailClosedLiveMarketData(
   request: Pick<LiveMarketDataFetchRequest, "symbol" | "requestedAt"> & Partial<LiveMarketDataFetchRequest>,
   reason: string
 ): LiveMarketDataResponse {
-  return {
+  return withMarketDataProvenance({
     symbol: request.symbol,
-    source: "coinbase-exchange",
+    source: COINBASE_EXCHANGE_PROVIDER,
     sourceType: "live",
-    provider: "coinbase-exchange",
+    provider: COINBASE_EXCHANGE_PROVIDER,
     productId: buildCoinbaseProductId(request.symbol),
+    displaySymbol: buildCoinbaseProductId(request.symbol),
     fetchedAt: request.requestedAt,
     latestPrice: null,
     bid: null,
@@ -194,10 +178,11 @@ export function emptyFailClosedLiveMarketData(
     lastCandleTime: null,
     candleFreshnessSeconds: null,
     isLive: true,
+    isMock: false,
     isFixtureBacked: false,
     warnings: [reason],
     failClosedReasons: [reason]
-  };
+  });
 }
 
 async function fetchCoinbaseExchangeTicker(
@@ -258,8 +243,9 @@ export function emptyFailClosedOHLCVResult(
     candles: [],
     source: COINBASE_EXCHANGE_SOURCE,
     sourceType,
-    provider: "coinbase-exchange",
+    provider: COINBASE_EXCHANGE_PROVIDER,
     productId: buildCoinbaseProductId(request.symbol),
+    displaySymbol: buildCoinbaseProductId(request.symbol),
     candleGranularity: coinbaseGranularity(request.interval),
     candleCount: 0,
     lastCandleTime: null,
@@ -268,6 +254,7 @@ export function emptyFailClosedOHLCVResult(
     warnings: [reason],
     failClosedReasons: [reason],
     isLive: request.sourceMode === "live",
+    isMock: false,
     isFixtureBacked: false
   };
 }
@@ -316,6 +303,7 @@ function parseCoinbaseTicker(
   const ageSeconds = Math.max(0, Math.round((Date.parse(request.requestedAt) - tickerTimeMs) / 1000));
   return {
     productId,
+    displaySymbol: productId,
     latestPrice,
     bid,
     ask,
@@ -330,6 +318,7 @@ function parseCoinbaseTicker(
 function emptyTickerResult(productId: string, reason: string): CoinbaseTickerResult {
   return {
     productId,
+    displaySymbol: productId,
     latestPrice: null,
     bid: null,
     ask: null,
@@ -393,8 +382,9 @@ function parseCoinbaseCandles(
     candles,
     source: COINBASE_EXCHANGE_SOURCE,
     sourceType: "live",
-    provider: "coinbase-exchange",
+    provider: COINBASE_EXCHANGE_PROVIDER,
     productId: buildCoinbaseProductId(request.symbol),
+    displaySymbol: buildCoinbaseProductId(request.symbol),
     candleGranularity: coinbaseGranularity(request.interval),
     candleCount: candles.length,
     lastCandleTime: latest?.startTime ?? null,
@@ -403,6 +393,7 @@ function parseCoinbaseCandles(
     warnings,
     failClosedReasons,
     isLive: true,
+    isMock: false,
     isFixtureBacked: false
   };
 }
@@ -433,11 +424,12 @@ function parseCoinbaseRow(
   return {
     source: COINBASE_EXCHANGE_SOURCE,
     sourceType: "live",
-    provider: "coinbase-exchange",
+    provider: COINBASE_EXCHANGE_PROVIDER,
     symbol: request.symbol,
     interval: request.interval,
     granularity: coinbaseGranularity(request.interval),
     productId: buildCoinbaseProductId(request.symbol),
+    displaySymbol: buildCoinbaseProductId(request.symbol),
     openTime: startTime,
     startTime,
     timestamp: startTime,
@@ -447,6 +439,7 @@ function parseCoinbaseRow(
     close,
     volume,
     isLive: true,
+    isMock: false,
     isFixtureBacked: false,
     isClosed: requestedAtMs >= startMs + intervalMs
   };
@@ -501,6 +494,31 @@ function optionalNumeric(value: unknown, field: string, warnings: string[]): num
     return null;
   }
   return parsed;
+}
+
+function withMarketDataProvenance(
+  response: Omit<LiveMarketDataResponse, "provenance">
+): LiveMarketDataResponse {
+  const provenance: MarketDataProvenance = {
+    source: response.source,
+    sourceType: response.sourceType,
+    provider: response.provider,
+    productId: response.productId,
+    displaySymbol: response.displaySymbol,
+    sourceMode: response.sourceType === "fixture" ? "fixture" : "live",
+    isLive: response.isLive,
+    isMock: response.isMock,
+    isFixtureBacked: response.isFixtureBacked,
+    fetchedAt: response.fetchedAt,
+    candleInterval: response.candleInterval,
+    candleGranularity: response.candleGranularity,
+    candleCount: response.candleCount,
+    lastCandleTime: response.lastCandleTime
+  };
+  return {
+    ...response,
+    provenance
+  };
 }
 
 function unique(values: string[]): string[] {

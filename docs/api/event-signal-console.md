@@ -1,7 +1,7 @@
 # Event Signal Console API
 
-Status: RC-14 real-data-integrity, read-only research console. It defaults to live Coinbase Exchange
-public ticker/candles and keeps fixture data behind explicit dev mode.
+Status: RC-15 Binance public kline terminal, read-only research console. It defaults to live Binance
+Spot public ticker/candles and keeps fixture data behind explicit dev mode.
 
 This API returns one BTC/ETH short-horizon research console payload. It is not a trading API, not
 investment advice, not a fair-probability pricing model, and not an order-generation system.
@@ -11,10 +11,13 @@ investment advice, not a fair-probability pricing model, and not an order-genera
 ```text
 GET /signals/console
 GET /signals/console?symbol=BTC&horizon=5m
+GET /signals/console?symbol=BTC&horizon=5m&provider=binance
+GET /signals/console?symbol=BTC&horizon=5m&provider=coinbase
 GET /signals/console?symbol=BTC&horizon=5m&sourceMode=fixture
 GET /signals/console?symbol=BTC&horizon=5m&profile=conservative
 GET /signals/console?symbol=BTC&horizon=5m&includeObservationPreview=true
-GET /market-data/live?symbol=BTC
+GET /market-data/live?symbol=BTC&provider=binance
+GET /market-data/live?symbol=BTC&provider=coinbase
 GET /market-data/live?symbol=BTC&interval=15m
 ```
 
@@ -22,6 +25,7 @@ Supported query filters:
 
 - `symbol`: `BTC` or `ETH`; default `BTC`
 - `horizon`: `5m` or `10m`; default `5m`
+- `provider`: `binance`, `binance-spot-public`, `coinbase`, or `coinbase-exchange`; default `binance`
 - `sourceMode`: `live` or `fixture`; default `live`
 - `profile`: `balanced`, `conservative`, or `aggressive`; default `balanced`
 - `includeObservationPreview`: `true` only when the user explicitly requests the preview
@@ -43,7 +47,7 @@ Top-level fields:
 - `symbol`: selected `BTC` or `ETH`
 - `horizon`: selected `5m` or `10m`
 - `sourceMode`: `live` or `fixture`
-- `dataProvenance`: source, `sourceType`, provider, product id, candle interval, candle count, and live/fixture flags
+- `dataProvenance`: source, `sourceType`, provider, product id, display symbol, candle interval, candle count, and live/mock/fixture flags
 - `profileName`: active research profile
 - `eventWindow`: 5m/10m observation window metadata, including expected resolution time
 - `observationCandidate`: local observation seed fields for the web UI
@@ -59,10 +63,11 @@ Top-level fields:
 `GET /market-data/live` returns the current live market-data packet used by the console:
 
 - `symbol`
-- `source: "coinbase-exchange"`
-- `sourceType: "live"` for real Coinbase public data, or `"mock"` for deterministic CI/smoke packets
-- `provider: "coinbase-exchange"`
-- `productId`: `BTC-USD` or `ETH-USD`
+- `source: "binance-spot-public"` or `"coinbase-exchange"`
+- `sourceType: "live"` for real public provider data, or `"mock"` for deterministic CI/smoke packets
+- `provider: "binance-spot-public"` or `"coinbase-exchange"`
+- `productId`: `BTCUSDT`, `ETHUSDT`, `BTC-USD`, or `ETH-USD`
+- `displaySymbol`: chart/product label such as `BTCUSDT`
 - `fetchedAt`
 - `latestPrice`
 - `bid`
@@ -77,11 +82,20 @@ Top-level fields:
 - `lastCandleTime`
 - `candleFreshnessSeconds`
 - `isLive`
+- `isMock`
 - `isFixtureBacked`
+- `provenance`
 - `warnings`
 - `failClosedReasons`
 
-Coinbase Exchange interval mapping follows the official historical-rates granularities:
+Binance Spot public interval mapping:
+
+- `1m` -> `interval=1m`
+- `5m` -> `interval=5m`
+- `15m` -> `interval=15m`
+- `1h` -> `interval=1h`
+
+Coinbase Exchange fallback interval mapping follows the official historical-rates granularities:
 
 - `1m` -> `granularity=60`
 - `5m` -> `granularity=300`
@@ -165,8 +179,8 @@ volatile, flat by EMA/MACD checks, missing confirmation, or blocked by manual ev
 - `isReferenceApproximation`
 - `warnings`
 
-In live mode, `referencePrice` uses the latest closed candle close while `currentPrice` uses the
-latest Coinbase ticker price. `distanceFromReferencePct` is computed from those two values. The
+In live mode, `referencePrice` uses the latest closed 1m candle close while `currentPrice` uses the
+latest public ticker price from the selected provider. `distanceFromReferencePct` is computed from those two values. The
 reference remains an approximation and is not official event-contract settlement.
 
 `observationCandidate` is used by the web UI to create a localStorage observation. It is not a
@@ -175,13 +189,14 @@ trade record and is not persisted server-side.
 ## Runtime UI Notes
 
 The Web terminal can manually refresh `/signals/console` from the browser. It is display fetching
-only and does not place orders or connect accounts. Coinbase documents WebSocket feeds for realtime
-updates; RC-14 does not add a WebSocket client and must not high-frequency poll public REST ticker
+only and does not place orders, connect accounts, read assets, create API keys, or call signed
+endpoints. RC-15 does not add a WebSocket client and must not high-frequency poll public REST ticker
 or candles.
 
-CI and smoke tests may run the API gateway with deterministic mocked Coinbase packets. Those packets
+CI and smoke tests may run the API gateway with deterministic mocked provider packets. Those packets
 must be marked `sourceType: "mock"`, `isLive: false`, and displayed with a DEV marker. Product
-default mode uses real Coinbase public data and fails closed when it is unavailable.
+default mode uses real Binance public data and fails closed when it is unavailable. Coinbase is an
+explicit fallback provider, not a fixture fallback.
 
 The homepage shows a compact observation summary by default. The larger browser-local observation
 feedback tools are kept out of the first screen and may be reached only from dev/advanced surfaces.
@@ -233,6 +248,7 @@ and is not a predictive guarantee.
 - No private/authenticated endpoint.
 - No wallet integration.
 - No Predict.fun or Binance Wallet adapter.
+- No Binance account, asset, signed, order, position, leverage, or trading endpoint.
 - No paper broker.
 - No full replay engine.
 - No live X/news/macro dependency.
