@@ -11,6 +11,7 @@ import type {
 } from "@ept/shared-types";
 import { apiErrorMessage } from "./api-client";
 import { ConsoleCandlestickChart } from "./ConsoleCandlestickChart";
+import { RealTimePriceCard } from "./RealTimePriceCard";
 
 export const dynamic = "force-dynamic";
 
@@ -133,6 +134,11 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
             </div>
           </div>
         </header>
+
+        <section className="grid gap-3 md:grid-cols-2" data-testid="homepage-realtime-prices">
+          <RealTimePriceCard symbol="BTC" />
+          <RealTimePriceCard symbol="ETH" />
+        </section>
 
         <section className="grid min-h-0 gap-3 xl:grid-cols-[minmax(0,1fr)_390px]" data-testid="minimal-prediction-terminal">
           <section className="grid min-h-0 gap-3">

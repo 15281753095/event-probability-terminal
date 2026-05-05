@@ -38,6 +38,14 @@ export {
 } from "./profiles.js";
 export type { HorizonThresholdConfig, SignalProfile, SignalProfileName } from "./profiles.js";
 export {
+  RESEARCH_ONLY_STRATEGY_REGISTRY,
+  baselineUnderlyingMomentumSignal,
+  researchStrategyRegistryCount
+} from "./strategies/baselines.js";
+export type { ResearchStrategyCandidate, ResearchStrategyInput } from "./strategies/types.js";
+export { runResearchBacktest } from "./backtest/runner.js";
+export type { BacktestSample, RunBacktestInput } from "./backtest/types.js";
+export {
   BINANCE_SPOT_PUBLIC_PROVIDER,
   BINANCE_SPOT_PUBLIC_SOURCE,
   binanceSpotInterval,
@@ -49,6 +57,24 @@ export {
   fetchBinanceSpotMarketData
 } from "./ohlcv/binance-spot.js";
 export type { BinanceSpotOptions } from "./ohlcv/binance-spot.js";
+export {
+  BINANCE_SPOT_PUBLIC_WS_BASE_URL,
+  BinanceSpotRealtimeClient,
+  buildBinanceSpotRealtimeStreamUrl,
+  parseBinanceAggTrade,
+  parseBinanceBookTicker,
+  parseBinanceKline,
+  parseBinanceSpotRealtimeMessage,
+  parseBinanceTrade,
+  toBinanceRealtimeSymbol
+} from "./realtime/binance-spot-ws.js";
+export type {
+  BinanceRealtimeClientOptions,
+  BinanceRealtimeParseResult,
+  BinanceRealtimeStreamType,
+  RealtimeWebSocketFactory,
+  RealtimeWebSocketLike
+} from "./realtime/binance-spot-ws.js";
 export {
   buildCoinbaseProductId,
   coinbaseGranularity,

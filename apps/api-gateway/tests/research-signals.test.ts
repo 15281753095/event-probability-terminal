@@ -15,6 +15,7 @@ import {
   type OHLCVFetchResult,
   type OhlcvCandle,
   type OhlcvSource,
+  type RealtimePriceSsePayload,
   type ResearchSignalsResponse
 } from "@ept/shared-types";
 import { buildServer } from "../src/server.js";
@@ -539,7 +540,69 @@ describe("research signals API", () => {
 
     await server.close();
   });
+
+  it("streams deterministic mock realtime ticks over SSE without private fields", async () => {
+    const previous = process.env.EPT_LIVE_MARKET_DATA_MOCK;
+    process.env.EPT_LIVE_MARKET_DATA_MOCK = "true";
+    const server = buildServer({ logger: false, now: () => fixedGeneratedAt });
+    try {
+      const response = await server.inject({
+        method: "GET",
+        url: "/market-data/realtime?symbol=BTC&provider=binance&once=true"
+      });
+
+      assert.equal(response.statusCode, 200);
+      assert.match(response.headers["content-type"] as string, /text\/event-stream/);
+      assert.match(response.body, /event: price/);
+      const payload = parseFirstPriceSsePayload(response.body);
+      assert.equal(payload.symbol, "BTC");
+      assert.equal(payload.displaySymbol, "BTCUSDT");
+      assert.equal(payload.provider, "mock");
+      assert.equal(payload.sourceType, "mock");
+      assert.equal(payload.connectionStatus, "open");
+      assert.equal(payload.providerHealth.requestedProvider, "mock");
+      assert.equal(payload.providerHealth.resolvedProvider, "mock");
+      assert.ok(payload.price !== null);
+      assert.equal(/account|order|balance|position|listenKey|apiKey|secret/i.test(response.body), false);
+    } finally {
+      await server.close();
+      if (previous === undefined) {
+        delete process.env.EPT_LIVE_MARKET_DATA_MOCK;
+      } else {
+        process.env.EPT_LIVE_MARKET_DATA_MOCK = previous;
+      }
+    }
+  });
+
+  it("marks research strategies as research-only in the console payload", async () => {
+    const server = buildServer({
+      logger: false,
+      now: () => fixedGeneratedAt,
+      liveMarketDataFetcher: async (request) => mockLiveMarketData(request)
+    });
+    const response = await server.inject({
+      method: "GET",
+      url: "/signals/console?symbol=BTC&horizon=5m"
+    });
+
+    assert.equal(response.statusCode, 200);
+    const payload = response.json<EventSignalConsoleResponse>();
+    assert.ok(payload.researchStrategies.registryCount >= 1);
+    assert.equal(payload.researchStrategies.backtestScaffoldStatus, "research_only");
+    assert.equal(payload.researchStrategies.productionEnabled, false);
+
+    await server.close();
+  });
 });
+
+function parseFirstPriceSsePayload(body: string): RealtimePriceSsePayload {
+  const events = body.split("\n\n").filter(Boolean);
+  const priceEvent = events.find((event) => event.includes("event: price"));
+  assert.ok(priceEvent);
+  const dataLine = priceEvent.split("\n").find((line) => line.startsWith("data: "));
+  assert.ok(dataLine);
+  return JSON.parse(dataLine.slice("data: ".length)) as RealtimePriceSsePayload;
+}
 
 function toLiveCandle(candle: OhlcvCandle, symbol: "BTC" | "ETH"): Candle {
   return {

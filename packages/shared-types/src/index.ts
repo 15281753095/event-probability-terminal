@@ -322,6 +322,102 @@ export interface ProviderHealth {
 
 export type ProviderProduct = "BTCUSDT" | "ETHUSDT" | "BTC-USD" | "ETH-USD";
 
+export type RealtimePriceSymbol = "BTCUSDT" | "ETHUSDT";
+
+export type RealtimePriceEventType = "trade" | "aggTrade" | "bookTicker" | "kline";
+
+export type RealtimeConnectionStatus = "connecting" | "open" | "stale" | "reconnecting" | "closed" | "failed";
+
+export interface RealTimePriceTick {
+  symbol: RealtimePriceSymbol;
+  displaySymbol: RealtimePriceSymbol;
+  provider: "binance-spot-public" | "mock";
+  sourceType: DataSourceType;
+  eventType: RealtimePriceEventType;
+  price: number;
+  bidPrice?: number | undefined;
+  askPrice?: number | undefined;
+  eventTime: string;
+  receivedAt: string;
+  latencyMs: number | null;
+  sequenceId?: string | number | undefined;
+  isClosedKline?: boolean | undefined;
+  rawProviderEventType?: string | undefined;
+  candle?: OhlcvCandle | undefined;
+}
+
+export interface RealtimePriceEvent {
+  type: "price" | "health" | "stale" | "error";
+  tick?: RealTimePriceTick;
+  providerHealth?: ProviderHealth;
+  connectionStatus: RealtimeConnectionStatus;
+  message?: string;
+  checkedAt: string;
+}
+
+export interface RealtimePriceSsePayload {
+  symbol: SignalSymbol;
+  displaySymbol: RealtimePriceSymbol;
+  provider: "binance-spot-public" | "mock";
+  sourceType: DataSourceType;
+  price: number | null;
+  bidPrice: number | null;
+  askPrice: number | null;
+  eventTime: string | null;
+  receivedAt: string;
+  latencyMs: number | null;
+  connectionStatus: RealtimeConnectionStatus;
+  stale: boolean;
+  providerHealth: ProviderHealth;
+  tick?: RealTimePriceTick;
+}
+
+export interface ResearchStrategyStatus {
+  registryCount: number;
+  backtestScaffoldStatus: "research_only";
+  productionEnabled: false;
+  message: string;
+}
+
+export type BaselineResearchDirection = "UP" | "DOWN" | "NO_SIGNAL";
+
+export interface BaselineSignalResult {
+  direction: BaselineResearchDirection;
+  confidence: number;
+  reasons: string[];
+  vetoReasons: string[];
+  isResearchOnly: true;
+}
+
+export interface StrategyCandidate<Input = unknown> {
+  id: string;
+  name: string;
+  hypothesis: string;
+  requiredInputs: string[];
+  forbiddenInputs: string[];
+  signalFn: (input: Input) => BaselineSignalResult;
+  riskNotes: string[];
+  status: "research_only";
+}
+
+export interface BacktestResult {
+  strategyId: string;
+  sampleCount: number;
+  winRate: number | null;
+  avgReturn: number | null;
+  maxDrawdown: number | null;
+  feesAssumption: string;
+  slippageAssumption: string;
+  spreadAssumption: string;
+  dataRange: {
+    start: string | null;
+    end: string | null;
+  };
+  warnings: string[];
+  rejectedReasons: string[];
+  isResearchOnly: true;
+}
+
 export interface OhlcvCandle {
   timestamp: string;
   open: number;
@@ -672,5 +768,6 @@ export interface EventSignalConsoleResponse {
   recentMarkers: SignalMarker[];
   observationPreview: ObservationPreview;
   backtestPreview: BacktestPreview;
+  researchStrategies: ResearchStrategyStatus;
   warnings: string[];
 }

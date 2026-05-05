@@ -1,6 +1,6 @@
 # Research Signals API
 
-Status: implemented through RC-16 as a fixture-default, live-optional, read-only research signal and
+Status: implemented through RC-17 as a fixture-default, live-optional, read-only research signal and
 confluence slice.
 
 This API publishes BTC/ETH 5m and 10m research signals. Fixture mode remains the default for this
@@ -146,6 +146,12 @@ request is `status: "ok"` and `fallbackUsed: false`. If Binance public data fail
 Exchange supplies the live packet, the response is `status: "degraded"`, `fallbackUsed: true`, and
 `resolvedProvider: "coinbase-exchange"`; it must not be presented as Binance success.
 
+RC-17 adds `/market-data/realtime` for BTC/ETH SSE price ticks. API Gateway connects to Binance
+Spot public WebSocket market streams (`trade`, `aggTrade`, `bookTicker`, and `kline`) and normalizes
+them into `RealTimePriceTick`. The browser receives SSE from the local API boundary only. REST
+candles remain the bootstrap chart path. Mock/smoke mode emits deterministic `sourceType: "mock"`
+ticks and does not connect to Binance.
+
 `NO_SIGNAL` remains a model output. It is not by itself a provider failure. Provider failure is
 expressed through `providerHealth.status`, `providerHealth.failClosedReasons`, and data-quality
 fields.
@@ -202,3 +208,5 @@ by default.
 - No full historical signal marker overlay; recent markers belong to the Event Signal Console and
   replay/stats workflows remain out of scope.
 - No default backtest execution on page open; RC-9 preview is on-demand and small-sample only.
+- No production strategy enablement. RC-17 strategy candidates and backtest runner are research-only
+  scaffolds and cannot drive live signals.

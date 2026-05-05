@@ -8,14 +8,15 @@ This repository is in Phase 1 foundation work. It has a minimal local end-to-end
 
 - `services/market-ingestor`: Polymarket public-read adapter boundary, fixture-first by default.
 - `packages/shared-types`: shared contracts for `EventMarket`, `OrderBookSnapshot`, `MarketDetailResponse`, and placeholder scanner/pricing objects.
-- `packages/research-signals`: deterministic technical-indicator, confluence, and research-signal engine with Binance Spot public live ticker/candles by default, Coinbase Exchange fallback, and explicit fixture dev mode.
+- `packages/research-signals`: deterministic technical-indicator, confluence, Binance Spot public realtime parser, research-only backtest scaffold, and research-signal engine with Binance Spot public live ticker/candles by default, Coinbase Exchange fallback, and explicit fixture dev mode.
 - `apps/api-gateway`: Fastify read-only API for live market data, fixture-backed markets/scanner metadata, contract-backed market detail, research signals, Event Signal Console, and pricing placeholders.
 - `apps/web`: Next.js RC-13 minimal live BTC/ETH 5m/10m prediction terminal, hidden legacy scanner route, and Market Detail RC-3 evidence views that read from the API gateway.
 - `services/pricing-engine`: Python placeholder contract for fair-value output shape.
 
-The current homepage is live-first. It uses Binance Spot public `BTCUSDT`/`ETHUSDT` ticker and
-candles by default for local manual use, with Coinbase Exchange `BTC-USD`/`ETH-USD` available as a
-fallback provider. Fixture data remains available only through explicit dev mode or the legacy
+The current homepage is live-first. It uses Binance Spot public `BTCUSDT`/`ETHUSDT` ticker,
+candles, and RC-17 API Gateway SSE over Binance Spot public WebSocket ticks for local manual use,
+with Coinbase Exchange `BTC-USD`/`ETH-USD` available as a fallback provider. Fixture data remains
+available only through explicit dev mode or the legacy
 scanner route. A limited Polymarket Gamma/public-search live fixture capture was completed on
 2026-04-21 to tighten contract tests, but it did not confirm active BTC/ETH 5m/10m market discovery
 for homepage display.
@@ -34,6 +35,7 @@ Supported research scope:
 - Secondary/reference venues: Predict.fun and Binance Wallet Prediction Markets are documented only; they are not implemented.
 - Mode: read-only market discovery and display, with pricing-engine v0 placeholder outputs.
 - Research signals: live-first BTC/ETH `5m`/`10m` technical research bias for the terminal, Event Signal Console confluence breakdown, recent-only markers capped at 10, balanced/conservative/aggressive research profiles, compact observation summary, and explicit fixture dev mode; not trade advice.
+- Strategy research: registry and offline backtest scaffold only; not production-enabled and not a profitability claim.
 - Market contract: binary outcome markets only. The shared contract preserves upstream outcome labels, including fixture-backed `Yes`/`No` and observed `Up`/`Down`; it does not support multi-outcome markets.
 
 Explicit exclusions:
@@ -41,7 +43,7 @@ Explicit exclusions:
 - No real-money order placement, cancellation, settlement, wallet funding, withdrawal, or trading automation.
 - No private/authenticated Polymarket adapter.
 - No Predict.fun or Binance Wallet adapter.
-- No real pricing model, paper broker, replay engine, or news-signal business implementation.
+- No real pricing model, paper broker, replay engine, production strategy activation, or news-signal business implementation.
 - No signal output that is a buy/sell instruction, order, leverage, position size, or real trading entry.
 - No runtime Up/Down payoff extraction and no non-placeholder Up/Down fair probabilities.
 - No multi-outcome market model.
@@ -166,6 +168,8 @@ curl http://localhost:4000/scanner/top
 curl "http://localhost:4000/market-data/live?symbol=BTC&provider=binance"
 curl "http://localhost:4000/market-data/live?symbol=ETH&provider=binance"
 curl "http://localhost:4000/market-data/live?symbol=BTC&provider=coinbase"
+curl -N "http://localhost:4000/market-data/realtime?symbol=BTC&provider=binance"
+curl -N "http://localhost:4000/market-data/realtime?symbol=ETH&provider=binance"
 curl http://localhost:4000/signals/research
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=live"
@@ -205,6 +209,10 @@ includes source provenance, product/display symbol, latest price, bid/ask, ticke
 candle count, latest candle time/freshness, warnings, and fail-closed reasons. It uses no API key,
 wallet, private endpoint, signed endpoint, order endpoint, or account data.
 
+`/market-data/realtime` streams SSE `price`, `health`, `stale`, and `error` events for BTC/ETH.
+API Gateway connects internally to Binance Spot public WebSocket market streams in live mode.
+Smoke/mock mode emits deterministic local ticks labeled `DEV MOCK` and does not connect to Binance.
+
 `/signals/console` returns one `EventSignalConsoleResponse` for BTC/ETH 5m/10m and defaults to
 `sourceMode=live`. It includes the current research signal, active research profile, confluence
 scores, risk filters, event window, observation candidate, recent live candles, recent-only markers
@@ -223,10 +231,10 @@ return trade instructions, leverage, position size, order fields, or a real perf
   - compact confluence, risk/no-trade, and observation summaries
   - collapsed Advanced drawer for fixture dev mode, old scanner link, diagnostics, and warnings
 - `/scanner`: legacy Markets Scanner RC-2, moved out of the homepage first screen
-- `/market-data/live`: Binance Spot public ticker and real candle terminal with BTC/ETH, provider,
-  and `1m`/`5m`/`15m`/`1h` controls
-- `/signals/console`: live-default research signal console with experimental model labels and no
-  trading action
+- `/market-data/live`: Binance Spot public ticker, realtime BTC/ETH cards, and real candle terminal
+  with BTC/ETH, provider, and `1m`/`5m`/`15m`/`1h` controls
+- `/signals/console`: live-default research signal console with realtime BTC/ETH cards,
+  experimental model labels, research-only strategy status, and no trading action
 - `/markets/:id`: Market Detail RC-3
   - binary outcomes, timing, liquidity, spread, and provenance
   - fixture-backed order-book snapshot when available

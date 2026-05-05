@@ -91,6 +91,8 @@ curl "http://localhost:4000/market-data/live?symbol=BTC&provider=binance"
 curl "http://localhost:4000/market-data/live?symbol=ETH&provider=binance"
 curl "http://localhost:4000/market-data/live?symbol=BTC&provider=coinbase"
 curl "http://localhost:4000/market-data/live?symbol=BTC&provider=binance&interval=15m"
+curl -N "http://localhost:4000/market-data/realtime?symbol=BTC&provider=binance"
+curl -N "http://localhost:4000/market-data/realtime?symbol=ETH&provider=binance"
 curl http://localhost:4000/signals/research
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=live"
@@ -132,6 +134,12 @@ Binance failure can transparently fall back to Coinbase Exchange, but the respon
 `fallbackUsed=true`, a non-empty `fallbackReason`, and `resolvedProvider=coinbase-exchange`. Smoke
 mock packets must show `DEV MOCK` and must not request real Binance.
 
+RC-17 adds realtime price SSE at `/market-data/realtime`. Live mode connects internally from API
+Gateway to Binance Spot public WebSocket market streams only; the browser must not connect directly
+to Binance. Mock/smoke mode is enabled with `EPT_LIVE_MARKET_DATA_MOCK=true` and emits deterministic
+local ticks labeled `DEV MOCK`. If the WebSocket becomes stale or fails, the SSE stream sends
+`stale` or `error` events and the UI must not present the last price as healthy live data.
+
 ## Start Web
 
 Start the API gateway first so the terminal can load live market data.
@@ -149,13 +157,13 @@ http://localhost:3000
 Current pages:
 
 - `/`: RC-15 Binance public kline prediction terminal with BTC/ETH and 5m/10m controls, LIVE status,
-  latest public ticker price, freshness, live candlestick chart, compact prediction card,
+  realtime BTC/ETH price cards, latest public ticker price, freshness, live candlestick chart, compact prediction card,
   confluence/risk/observation summaries, manual refresh, and collapsed Advanced drawer.
 - `/market-data/live`: live Binance/Coinbase BTC/ETH ticker and real candle terminal with
-  provider, `1m`, `5m`, `15m`, and `1h` interval controls plus data provenance and provider
+  realtime BTC/ETH price cards, provider, `1m`, `5m`, `15m`, and `1h` interval controls plus data provenance and provider
   health diagnostics.
 - `/signals/console`: live-default research signal console with underlying candle provenance,
-  provider health diagnostics, experimental model labeling, and no trading action.
+  realtime BTC/ETH price cards, provider health diagnostics, experimental model labeling, research-only strategy status, and no trading action.
 - `/scanner`: legacy Markets Scanner RC-2, moved out of the homepage first screen.
 - `/markets/:id`: Market Detail RC-3 for a normalized fixture-backed market, backed by `GET /markets/:id/detail`.
 

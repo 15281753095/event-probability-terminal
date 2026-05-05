@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import { createPolymarketPublicReadAdapter } from "@ept/market-ingestor";
 import {
   buildFixtureEventSignalConsole,
+  BinanceSpotRealtimeClient,
   CONSOLE_CANDLE_LOOKBACK,
   emptyFailClosedBinanceMarketData,
   emptyFailClosedLiveMarketData,
@@ -12,7 +13,8 @@ import {
   listResearchSignals,
   type LiveMarketDataFetchRequest,
   type LiveMarketDataFetcher,
-  type OHLCVFetcher
+  type OHLCVFetcher,
+  type RealtimeWebSocketFactory
 } from "@ept/research-signals";
 import type {
   ApiErrorResponse,
@@ -29,6 +31,10 @@ import type {
   OrderBookLevel,
   OrderBookSnapshot,
   ProviderHealth,
+  RealtimeConnectionStatus,
+  RealtimePriceSsePayload,
+  RealtimePriceSymbol,
+  RealTimePriceTick,
   ResearchSignalsResponse,
   ScannerCandidate,
   ScannerMeta,
@@ -66,6 +72,7 @@ export type BuildServerOptions = {
   sourceMode?: SourceProvenance["sourceMode"];
   researchSignalOhlcvFetcher?: OHLCVFetcher;
   liveMarketDataFetcher?: LiveMarketDataFetcher;
+  realtimeWebSocketFactory?: RealtimeWebSocketFactory;
 };
 
 export function buildServer(options: BuildServerOptions = {}) {
@@ -289,6 +296,158 @@ export function buildServer(options: BuildServerOptions = {}) {
     }
   });
 
+  server.get<{ Querystring: { symbol?: string; provider?: string; once?: string } }>("/market-data/realtime", async (request, reply) => {
+    const generatedAt = now();
+    const symbol = parseSignalSymbol(request.query.symbol) ?? "BTC";
+    const provider = parseLiveMarketDataProvider(request.query.provider) ?? "binance-spot-public";
+    if (request.query.symbol && !parseSignalSymbol(request.query.symbol)) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Realtime market data currently supports symbol=BTC or symbol=ETH only.",
+          generatedAt
+        })
+      );
+    }
+    if (provider !== "binance-spot-public") {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Realtime market data currently supports provider=binance only.",
+          generatedAt
+        })
+      );
+    }
+
+    reply.raw.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "Access-Control-Allow-Origin": "*"
+    });
+    reply.hijack();
+
+    let closed = false;
+    let lastTick: RealTimePriceTick | undefined;
+    let connectionStatus: RealtimeConnectionStatus = "connecting";
+    const requestedProvider = process.env.EPT_LIVE_MARKET_DATA_MOCK === "true" ? "mock" : "binance";
+    const sourceType = process.env.EPT_LIVE_MARKET_DATA_MOCK === "true" ? "mock" : "live";
+    const cleanupFns: Array<() => void> = [];
+    const close = () => {
+      closed = true;
+      cleanupFns.splice(0).forEach((cleanup) => cleanup());
+    };
+    request.raw.on("close", close);
+
+    const send = (type: "price" | "health" | "stale" | "error", payload: RealtimePriceSsePayload, message?: string) => {
+      if (closed || reply.raw.destroyed) {
+        return;
+      }
+      const eventPayload = message ? { ...payload, message } : payload;
+      reply.raw.write(`event: ${type}\n`);
+      reply.raw.write(`data: ${JSON.stringify(eventPayload)}\n\n`);
+      if (request.query.once === "true" && type === "price") {
+        reply.raw.end();
+        close();
+      }
+    };
+
+    const sendHealth = (status: RealtimeConnectionStatus, message?: string) => {
+      connectionStatus = status;
+      send(status === "failed" ? "error" : status === "stale" ? "stale" : "health", toRealtimePayload({
+        symbol,
+        status,
+        sourceType,
+        requestedProvider,
+        tick: lastTick,
+        checkedAt: now(),
+        failClosedReasons: message ? [message] : []
+      }), message);
+    };
+
+    if (process.env.EPT_LIVE_MARKET_DATA_MOCK === "true") {
+      connectionStatus = "open";
+      sendHealth("open", "DEV ONLY deterministic mock realtime stream.");
+      const ticks = deterministicMockRealtimeTicks(symbol, now());
+      let index = 0;
+      const interval = setInterval(() => {
+        const tick = ticks[index % ticks.length] ?? ticks[0];
+        if (!tick) {
+          return;
+        }
+        lastTick = { ...tick, receivedAt: now(), eventTime: now() };
+        send("price", toRealtimePayload({
+          symbol,
+          status: connectionStatus,
+          sourceType: "mock",
+          requestedProvider: "mock",
+          tick: lastTick,
+          checkedAt: now()
+        }));
+        index += 1;
+      }, 250);
+      cleanupFns.push(() => clearInterval(interval));
+      lastTick = ticks[0];
+      if (!lastTick) {
+        sendHealth("failed", "Mock realtime tick fixture was empty.");
+        return;
+      }
+      send("price", toRealtimePayload({
+        symbol,
+        status: "open",
+        sourceType: "mock",
+        requestedProvider: "mock",
+        tick: lastTick,
+        checkedAt: now()
+      }));
+      return;
+    }
+
+    let client: BinanceSpotRealtimeClient | undefined;
+    try {
+      client = new BinanceSpotRealtimeClient({
+        symbol,
+        streams: ["trade", "bookTicker", "kline_1m"],
+        ...(options.realtimeWebSocketFactory ? { websocketFactory: options.realtimeWebSocketFactory } : {}),
+        onTick: (tick) => {
+          lastTick = tick;
+          connectionStatus = "open";
+          send("price", toRealtimePayload({
+            symbol,
+            status: connectionStatus,
+            sourceType: "live",
+            requestedProvider: "binance",
+            tick,
+            checkedAt: now()
+          }));
+        },
+        onStatus: (status, reason) => {
+          sendHealth(status, reason);
+        }
+      });
+      cleanupFns.push(() => client?.stop());
+      client.start();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? `Binance Spot public WebSocket unavailable: ${error.message}`
+          : "Binance Spot public WebSocket unavailable with an unknown error.";
+      send("error", toRealtimePayload({
+        symbol,
+        status: "failed",
+        sourceType: "live",
+        requestedProvider: "binance",
+        tick: lastTick,
+        checkedAt: now(),
+        failClosedReasons: [message]
+      }), message);
+      reply.raw.end();
+      close();
+    }
+  });
+
   server.get<{ Querystring: { symbol?: string; horizon?: string; sourceMode?: string; profile?: string } }>("/signals/research", async (request, reply) => {
     const generatedAt = now();
     const symbol = parseSignalSymbol(request.query.symbol);
@@ -442,6 +601,85 @@ export function buildServer(options: BuildServerOptions = {}) {
 
 function parseSignalSymbol(value?: string): SignalSymbol | undefined {
   return value === "BTC" || value === "ETH" ? value : undefined;
+}
+
+function realtimeDisplaySymbol(symbol: SignalSymbol): RealtimePriceSymbol {
+  return symbol === "BTC" ? "BTCUSDT" : "ETHUSDT";
+}
+
+function deterministicMockRealtimeTicks(symbol: SignalSymbol, checkedAt: string): RealTimePriceTick[] {
+  const displaySymbol = realtimeDisplaySymbol(symbol);
+  const base = symbol === "BTC" ? 64_250 : 3_180;
+  const step = symbol === "BTC" ? 3.25 : 0.42;
+  return [0, 1, 2, 3].map((offset) => {
+    const price = roundPrice(base + offset * step);
+    return {
+      symbol: displaySymbol,
+      displaySymbol,
+      provider: "mock",
+      sourceType: "mock",
+      eventType: offset % 2 === 0 ? "bookTicker" : "trade",
+      price,
+      bidPrice: roundPrice(price - step / 2),
+      askPrice: roundPrice(price + step / 2),
+      eventTime: checkedAt,
+      receivedAt: checkedAt,
+      latencyMs: 1,
+      sequenceId: `mock-${symbol}-${offset}`,
+      rawProviderEventType: "mock"
+    };
+  });
+}
+
+function toRealtimePayload(input: {
+  symbol: SignalSymbol;
+  status: RealtimeConnectionStatus;
+  sourceType: "live" | "mock";
+  requestedProvider: "binance" | "mock";
+  tick?: RealTimePriceTick | undefined;
+  checkedAt: string;
+  failClosedReasons?: string[];
+}): RealtimePriceSsePayload {
+  const displaySymbol = realtimeDisplaySymbol(input.symbol);
+  const stale = input.status === "stale" || input.status === "failed" || input.status === "closed";
+  const failClosedReasons = input.failClosedReasons ?? [];
+  const price = input.tick?.price ?? null;
+  return {
+    symbol: input.symbol,
+    displaySymbol,
+    provider: input.sourceType === "mock" ? "mock" : "binance-spot-public",
+    sourceType: input.sourceType,
+    price,
+    bidPrice: input.tick?.bidPrice ?? null,
+    askPrice: input.tick?.askPrice ?? null,
+    eventTime: input.tick?.eventTime ?? null,
+    receivedAt: input.tick?.receivedAt ?? input.checkedAt,
+    latencyMs: input.tick?.latencyMs ?? (input.sourceType === "mock" ? 1 : null),
+    connectionStatus: input.status,
+    stale,
+    providerHealth: {
+      requestedProvider: input.requestedProvider,
+      resolvedProvider: input.sourceType === "mock" ? "mock" : "binance-spot-public",
+      sourceType: input.sourceType,
+      status: failClosedReasons.length > 0 || input.status === "failed"
+        ? "failed"
+        : stale
+          ? "degraded"
+          : price === null
+            ? "degraded"
+            : "ok",
+      latencyMs: input.tick?.latencyMs ?? (input.sourceType === "mock" ? 1 : null),
+      candleCount: input.tick?.candle ? 1 : 0,
+      expectedMinCandles: 0,
+      lastCandleTime: input.tick?.candle?.timestamp ?? null,
+      isFixtureBacked: false,
+      fallbackUsed: false,
+      fallbackReason: null,
+      failClosedReasons,
+      checkedAt: input.checkedAt
+    },
+    ...(input.tick ? { tick: input.tick } : {})
+  };
 }
 
 function parseOhlcvInterval(value?: string): OhlcvInterval | undefined {
