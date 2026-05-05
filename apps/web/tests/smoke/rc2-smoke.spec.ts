@@ -16,6 +16,12 @@ test("home renders the real-data terminal and labels smoke mock data as DEV", as
   await expect(page.getByRole("link", { name: "Binance" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Coinbase" })).toBeVisible();
   await expect(page.getByTestId("data-source-badge")).toHaveText("DEV MOCK");
+  await expect(page.getByTestId("realtime-price-card-BTC")).toContainText("DEV MOCK");
+  await expect(page.getByTestId("realtime-price-card-ETH")).toContainText("DEV MOCK");
+  await expect(page.getByTestId("realtime-price-value-BTC")).toContainText(/\$[0-9,]+\.[0-9]{2}/);
+  await expect(page.getByTestId("realtime-price-value-ETH")).toContainText(/\$[0-9,]+\.[0-9]{2}/);
+  await expect(page.getByTestId("realtime-price-status-BTC")).toContainText(/open|stale|connecting/i);
+  await expect(page.getByTestId("realtime-price-latency-BTC")).toContainText(/ms|Pending/);
   await expect(page.getByTestId("live-badge")).toHaveCount(0);
   await expect(page.getByTestId("terminal-header").getByText(/\$[0-9,]+\.[0-9]{2}/)).toBeVisible();
   await expect(page.getByText("Price updated")).toBeVisible();
@@ -48,6 +54,11 @@ test("live market data page supports BTC ETH and candle intervals", async ({ pag
   await expect(page.getByTestId("live-market-data-page")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Live Market Data" })).toBeVisible();
   await expect(page.getByTestId("data-source-badge")).toHaveText("DEV MOCK");
+  await expect(page.getByTestId("realtime-price-card-BTC")).toContainText("DEV MOCK");
+  await expect(page.getByTestId("realtime-price-card-ETH")).toContainText("DEV MOCK");
+  await expect(page.getByTestId("realtime-price-value-BTC")).toContainText(/\$[0-9,]+\.[0-9]{2}/);
+  await expect(page.getByTestId("realtime-price-status-ETH")).toContainText(/open|stale|connecting/i);
+  await expect(page.getByTestId("realtime-price-latency-ETH")).toContainText(/ms|Pending/);
   await expect(page.getByText("BTCUSDT").first()).toBeVisible();
   await expect(page.getByText("Binance public").first()).toBeVisible();
   await expect(page.getByRole("link", { name: "BTC" })).toBeVisible();
@@ -73,6 +84,11 @@ test("signals console defaults to live mode and marks experimental output", asyn
   await expect(page.getByTestId("signals-console-page")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Signals Console" })).toBeVisible();
   await expect(page.getByTestId("data-source-badge")).toHaveText("DEV MOCK");
+  await expect(page.getByTestId("realtime-price-card-BTC")).toContainText("DEV MOCK");
+  await expect(page.getByTestId("realtime-price-card-ETH")).toContainText("DEV MOCK");
+  await expect(page.getByTestId("realtime-price-value-BTC")).toContainText(/\$[0-9,]+\.[0-9]{2}/);
+  await expect(page.getByTestId("realtime-price-status-BTC")).toContainText(/open|stale|connecting/i);
+  await expect(page.getByTestId("realtime-price-latency-BTC")).toContainText(/ms|Pending/);
   await expect(page.getByTestId("provider-health-card")).toContainText("DEV MOCK");
   await expect(page.getByTestId("provider-health-card")).toContainText("fallbackUsed");
   await expect(page.getByText("Experimental model")).toBeVisible();
@@ -80,6 +96,8 @@ test("signals console defaults to live mode and marks experimental output", asyn
   await expect(page.getByText("Binance public").first()).toBeVisible();
   await expect(page.getByTestId("signals-console-card")).toContainText(/LONG bias|SHORT bias|NO_SIGNAL/);
   await expect(page.getByTestId("signals-console-card")).toContainText("No trading action");
+  await expect(page.getByTestId("research-strategy-status")).toContainText("research_only");
+  await expect(page.getByTestId("research-strategy-status")).toContainText("production enabled");
   await expect(page.getByTestId("event-signal-chart")).toBeVisible();
   await expect(page.getByTestId("advanced-drawer")).not.toHaveAttribute("open", "");
   await expect(page.getByText(/BUY|SELL|ENTRY|LEVERAGE|POSITION SIZE/i)).toHaveCount(0);

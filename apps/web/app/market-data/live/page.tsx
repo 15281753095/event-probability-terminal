@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { DataSourceType, LiveMarketDataResponse, LiveMarketDataSource, OhlcvInterval, SignalSymbol } from "@ept/shared-types";
 import { apiErrorMessage } from "../../api-client";
 import { ConsoleCandlestickChart } from "../../ConsoleCandlestickChart";
+import { RealTimePriceCard } from "../../RealTimePriceCard";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +77,11 @@ export default async function LiveMarketDataPage({ searchParams }: { searchParam
             </div>
           </div>
         </header>
+
+        <section className="grid gap-3 md:grid-cols-2" data-testid="live-page-realtime-prices">
+          <RealTimePriceCard symbol="BTC" />
+          <RealTimePriceCard symbol="ETH" />
+        </section>
 
         <section className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
           <section className="border border-slate-800 bg-[#0b111d] p-3">

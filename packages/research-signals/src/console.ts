@@ -12,6 +12,7 @@ import {
   type OhlcvSource,
   type ObservationPreview,
   type ProviderHealth,
+  type ResearchStrategyStatus,
   type ResearchSignal,
   type ResearchSignalSourceMode,
   type SignalObservationCandidate,
@@ -41,6 +42,7 @@ import {
 } from "./ohlcv/coinbase-exchange.js";
 import type { LiveMarketDataFetcher } from "./ohlcv/types.js";
 import { evaluateConfluence } from "./confluence.js";
+import { researchStrategyRegistryCount } from "./strategies/baselines.js";
 
 export const CONSOLE_CANDLE_LOOKBACK = 80;
 export const RECENT_CANDLE_LIMIT = 60;
@@ -372,6 +374,12 @@ function buildConsoleResponse(input: {
     ...eventWindow.warnings,
     "Research only. Not trade advice. No auto trading."
   ]);
+  const researchStrategies: ResearchStrategyStatus = {
+    registryCount: researchStrategyRegistryCount(),
+    backtestScaffoldStatus: "research_only",
+    productionEnabled: false,
+    message: "Research strategies are registry/backtest-only and do not drive production signal output."
+  };
 
   return {
     meta: {
@@ -406,6 +414,7 @@ function buildConsoleResponse(input: {
     recentMarkers,
     observationPreview,
     backtestPreview,
+    researchStrategies,
     warnings
   };
 }

@@ -19,6 +19,8 @@ GET /signals/console?symbol=BTC&horizon=5m&includeObservationPreview=true
 GET /market-data/live?symbol=BTC&provider=binance
 GET /market-data/live?symbol=BTC&provider=coinbase
 GET /market-data/live?symbol=BTC&interval=15m
+GET /market-data/realtime?symbol=BTC&provider=binance
+GET /market-data/realtime?symbol=ETH&provider=binance
 ```
 
 Supported query filters:
@@ -31,6 +33,7 @@ Supported query filters:
 - `includeObservationPreview`: `true` only when the user explicitly requests the preview
 - `includeBacktest`: legacy alias for `includeObservationPreview`
 - `/market-data/live interval`: `1m`, `5m`, `15m`, or `1h`; default `1m`
+- `/market-data/realtime provider`: `binance` only; API Gateway uses Binance Spot public WebSocket internally
 
 Unsupported filters return a typed `ept-api-v1` error with:
 
@@ -60,6 +63,8 @@ Top-level fields:
 - `recentMarkers`: recent signal markers only, capped at 10
 - `observationPreview`: disabled unless `includeObservationPreview=true`
 - `backtestPreview`: legacy-compatible alias of the observation preview metrics
+- `researchStrategies`: registry count and research-only/backtest scaffold status; these strategies
+  do not drive `currentSignal`
 - `warnings`: user-facing research-only and fail-closed warnings
 
 `GET /market-data/live` returns the current live market-data packet used by the console:
@@ -111,6 +116,19 @@ Fallback must be explicit. When Binance public data fails and Coinbase Exchange 
 packet, `resolvedProvider` changes to `coinbase-exchange`, `fallbackUsed` is `true`, and
 `fallbackReason` preserves the Binance failure. The UI must not silently label that payload as
 Binance success.
+
+`GET /market-data/realtime` is an SSE stream:
+
+- `Content-Type: text/event-stream`
+- event names: `price`, `health`, `stale`, and `error`
+- browser clients connect to API Gateway, not directly to Binance
+- live mode uses Binance Spot public market streams only
+- mock mode uses deterministic local ticks and marks `sourceType: "mock"`
+
+Each realtime payload includes `symbol`, `displaySymbol`, `provider`, `sourceType`, `price`,
+`bidPrice`, `askPrice`, `eventTime`, `receivedAt`, `latencyMs`, `connectionStatus`, `stale`,
+`providerHealth`, and the normalized `tick` when available. `stale` or `error` events may keep the
+last price for display, but the UI must not label that price as healthy live data.
 
 Binance Spot public interval mapping:
 

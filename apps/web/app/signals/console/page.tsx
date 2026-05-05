@@ -10,6 +10,7 @@ import type {
 } from "@ept/shared-types";
 import { apiErrorMessage } from "../../api-client";
 import { ConsoleCandlestickChart } from "../../ConsoleCandlestickChart";
+import { RealTimePriceCard } from "../../RealTimePriceCard";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +97,11 @@ export default async function SignalsConsolePage({ searchParams }: { searchParam
           </div>
         </header>
 
+        <section className="grid gap-3 md:grid-cols-2" data-testid="signals-console-realtime-prices">
+          <RealTimePriceCard symbol="BTC" />
+          <RealTimePriceCard symbol="ETH" />
+        </section>
+
         <section className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_390px]">
           <section className="grid gap-3">
             <section className="border border-slate-800 bg-[#0b111d] p-3">
@@ -147,6 +153,24 @@ export default async function SignalsConsolePage({ searchParams }: { searchParam
               </div>
               <ReasonBlock title="Reasons" items={console?.confluence.reasons ?? []} empty="No directional reason." />
               <ReasonBlock title="Veto / limits" items={vetoItems} empty="No active veto." />
+            </section>
+
+            <section className="border border-slate-800 bg-[#0b111d] p-4" data-testid="research-strategy-status">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold text-slate-100">Research Strategies</h2>
+                <span className="border border-amber-400/50 bg-amber-400/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-100">
+                  research_only
+                </span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Metric label="registry count" value={`${console?.researchStrategies.registryCount ?? 0}`} />
+                <Metric label="production enabled" value={String(console?.researchStrategies.productionEnabled ?? false)} />
+                <Metric label="backtest scaffold" value={console?.researchStrategies.backtestScaffoldStatus ?? "research_only"} />
+                <Metric label="drives signal" value="false" />
+              </div>
+              <p className="mt-3 text-xs leading-5 text-slate-400">
+                {console?.researchStrategies.message ?? "Research strategies are not production enabled."}
+              </p>
             </section>
 
             <section className="border border-slate-800 bg-[#0b111d] p-4">
