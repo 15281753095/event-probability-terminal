@@ -3,6 +3,7 @@ import type {
   DataSourceType,
   EventSignalConsoleResponse,
   LiveMarketDataSource,
+  PolymarketActiveMarketsResponse,
   ResearchSignalSourceMode,
   SignalDirection,
   SignalHorizon,
@@ -37,11 +38,19 @@ type ConsoleLoadState = {
   error?: string;
 };
 
+type PolymarketLoadState = {
+  data?: PolymarketActiveMarketsResponse;
+  error?: string;
+};
+
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
 export default async function SignalsConsolePage({ searchParams }: { searchParams?: SearchParams }) {
   const filters = parseFilters((await searchParams) ?? {});
-  const { console, error } = await loadEventSignalConsole(filters);
+  const [{ console, error }, polymarketState] = await Promise.all([
+    loadEventSignalConsole(filters),
+    loadPolymarketActiveMarkets(filters.symbol)
+  ]);
   const sourceType: DataSourceType =
     console?.dataProvenance.sourceType ?? (filters.sourceMode === "fixture" ? "fixture" : "live");
   const unavailable =
@@ -173,6 +182,33 @@ export default async function SignalsConsolePage({ searchParams }: { searchParam
               </p>
             </section>
 
+            <section className="border border-slate-800 bg-[#0b111d] p-4" data-testid="linked-polymarket-candidates">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold text-slate-100">Linked Polymarket Candidates</h2>
+                <span className="border border-cyan-400/50 bg-cyan-400/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-cyan-100">
+                  read_only
+                </span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Metric label="candidate count" value={`${polymarketState.data?.markets.length ?? 0}`} />
+                <Metric label="drives signal" value="false" />
+                <Metric label="source type" value={polymarketState.data?.sourceType === "mock" ? "DEV MOCK" : polymarketState.data?.sourceType ?? "unavailable"} />
+                <Metric label="provider" value={polymarketState.data?.providerHealth.resolvedProvider ?? "polymarket-gamma"} />
+              </div>
+              <ReasonBlock
+                title="Binding / limits"
+                items={[
+                  ...(polymarketState.error ? [polymarketState.error] : []),
+                  ...(polymarketState.data?.warnings ?? []),
+                  ...(polymarketState.data?.markets.at(0)?.researchRejectReasons ?? [])
+                ]}
+                empty="No active linked candidate limits reported."
+              />
+              <Link className="mt-3 inline-flex border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-semibold text-slate-300" href={`/markets/polymarket?symbol=${filters.symbol}`}>
+                Open read-only market odds
+              </Link>
+            </section>
+
             <section className="border border-slate-800 bg-[#0b111d] p-4">
               <h2 className="text-sm font-semibold text-slate-100">Data Provenance</h2>
               <div className="mt-3 grid gap-2 text-xs text-slate-300">
@@ -242,6 +278,20 @@ async function loadEventSignalConsole(filters: SignalsConsoleFilters): Promise<C
     return { console: (await response.json()) as EventSignalConsoleResponse };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Event Signal Console API request failed." };
+  }
+}
+
+async function loadPolymarketActiveMarkets(symbol: SignalSymbol): Promise<PolymarketLoadState> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/markets/polymarket/active?symbol=${symbol}`, {
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      return { error: await apiErrorMessage(response) };
+    }
+    return { data: (await response.json()) as PolymarketActiveMarketsResponse };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Polymarket active markets API request failed." };
   }
 }
 

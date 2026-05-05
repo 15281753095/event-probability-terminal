@@ -36,6 +36,8 @@ Supported research scope:
 - Mode: read-only market discovery and display, with pricing-engine v0 placeholder outputs.
 - Research signals: live-first BTC/ETH `5m`/`10m` technical research bias for the terminal, Event Signal Console confluence breakdown, recent-only markers capped at 10, balanced/conservative/aggressive research profiles, compact observation summary, and explicit fixture dev mode; not trade advice.
 - Strategy research: registry and offline backtest scaffold only; not production-enabled and not a profitability claim.
+- Polymarket market odds: read-only active BTC/ETH market discovery, Yes/No outcome prices, CLOB
+  token IDs, midpoint/spread/orderbook diagnostics, and Binance underlying binding.
 - Market contract: binary outcome markets only. The shared contract preserves upstream outcome labels, including fixture-backed `Yes`/`No` and observed `Up`/`Down`; it does not support multi-outcome markets.
 
 Explicit exclusions:
@@ -44,6 +46,8 @@ Explicit exclusions:
 - No private/authenticated Polymarket adapter.
 - No Predict.fun or Binance Wallet adapter.
 - No real pricing model, paper broker, replay engine, production strategy activation, or news-signal business implementation.
+- No Polymarket authenticated trading endpoint, wallet, private key, API key, secret, passphrase,
+  order placement, cancellation, balance, or position integration.
 - No signal output that is a buy/sell instruction, order, leverage, position size, or real trading entry.
 - No runtime Up/Down payoff extraction and no non-placeholder Up/Down fair probabilities.
 - No multi-outcome market model.
@@ -170,6 +174,7 @@ curl "http://localhost:4000/market-data/live?symbol=ETH&provider=binance"
 curl "http://localhost:4000/market-data/live?symbol=BTC&provider=coinbase"
 curl -N "http://localhost:4000/market-data/realtime?symbol=BTC&provider=binance"
 curl -N "http://localhost:4000/market-data/realtime?symbol=ETH&provider=binance"
+curl "http://localhost:4000/markets/polymarket/active?symbol=ALL"
 curl http://localhost:4000/signals/research
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=live"
@@ -213,6 +218,12 @@ wallet, private endpoint, signed endpoint, order endpoint, or account data.
 API Gateway connects internally to Binance Spot public WebSocket market streams in live mode.
 Smoke/mock mode emits deterministic local ticks labeled `DEV MOCK` and does not connect to Binance.
 
+`/markets/polymarket/active` returns read-only Polymarket active market odds for BTC/ETH. Gamma
+public data is used for active market discovery, and CLOB public endpoints are used for orderbook,
+midpoint, price, and spread diagnostics when available. Missing resolution evidence, missing token
+IDs/outcomes, or ambiguous BTC/ETH binding marks a row data-insufficient; it is not converted into
+a production signal.
+
 `/signals/console` returns one `EventSignalConsoleResponse` for BTC/ETH 5m/10m and defaults to
 `sourceMode=live`. It includes the current research signal, active research profile, confluence
 scores, risk filters, event window, observation candidate, recent live candles, recent-only markers
@@ -235,6 +246,9 @@ return trade instructions, leverage, position size, order fields, or a real perf
   with BTC/ETH, provider, and `1m`/`5m`/`15m`/`1h` controls
 - `/signals/console`: live-default research signal console with realtime BTC/ETH cards,
   experimental model labels, research-only strategy status, and no trading action
+- `/markets/polymarket`: read-only BTC/ETH Polymarket active market odds with Yes/No prices,
+  implied probabilities, CLOB token IDs, spread/liquidity diagnostics, binding status, and research
+  eligibility
 - `/markets/:id`: Market Detail RC-3
   - binary outcomes, timing, liquidity, spread, and provenance
   - fixture-backed order-book snapshot when available

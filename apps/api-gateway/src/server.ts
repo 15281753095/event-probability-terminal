@@ -8,6 +8,7 @@ import {
   emptyFailClosedLiveMarketData,
   fetchBinanceSpotMarketData,
   fetchCoinbaseExchangeMarketData,
+  findCryptoEventMarkets,
   buildLiveEventSignalConsole,
   listLiveResearchSignals,
   listResearchSignals,
@@ -31,6 +32,7 @@ import type {
   OrderBookLevel,
   OrderBookSnapshot,
   ProviderHealth,
+  PolymarketActiveMarketsResponse,
   RealtimeConnectionStatus,
   RealtimePriceSsePayload,
   RealtimePriceSymbol,
@@ -124,6 +126,32 @@ export function buildServer(options: BuildServerOptions = {}) {
         uncertainty: result.uncertainty
       }
     };
+  });
+
+  server.get<{ Querystring: { symbol?: string } }>("/markets/polymarket/active", async (request, reply) => {
+    const generatedAt = now();
+    const symbol = parsePolymarketSymbolFilter(request.query.symbol);
+    if (request.query.symbol && !symbol) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Polymarket active markets currently support symbol=BTC, symbol=ETH, or symbol=ALL only.",
+          generatedAt
+        })
+      );
+    }
+
+    const realtimeUnderlyingPrice = await loadUnderlyingPrices(symbol ?? "ALL", generatedAt, liveMarketDataFetcher);
+    return (await findCryptoEventMarkets({
+      symbol: symbol ?? "ALL",
+      limit: 20,
+      now,
+      realtimeUnderlyingPrice,
+      ...(process.env.POLYMARKET_GAMMA_BASE_URL ? { gammaBaseUrl: process.env.POLYMARKET_GAMMA_BASE_URL } : {}),
+      ...(process.env.POLYMARKET_CLOB_BASE_URL ? { clobBaseUrl: process.env.POLYMARKET_CLOB_BASE_URL } : {}),
+      useMock: process.env.EPT_LIVE_MARKET_DATA_MOCK === "true" || process.env.EPT_POLYMARKET_MOCK === "true"
+    })) satisfies PolymarketActiveMarketsResponse;
   });
 
   server.get<{ Params: { id: string } }>("/markets/:id", async (request, reply) => {
@@ -601,6 +629,37 @@ export function buildServer(options: BuildServerOptions = {}) {
 
 function parseSignalSymbol(value?: string): SignalSymbol | undefined {
   return value === "BTC" || value === "ETH" ? value : undefined;
+}
+
+function parsePolymarketSymbolFilter(value?: string): SignalSymbol | "ALL" | undefined {
+  if (!value || value === "ALL") {
+    return "ALL";
+  }
+  return parseSignalSymbol(value);
+}
+
+async function loadUnderlyingPrices(
+  symbol: SignalSymbol | "ALL",
+  requestedAt: string,
+  fetcher: LiveMarketDataFetcher
+): Promise<Partial<Record<SignalSymbol, number | null>>> {
+  const symbols: SignalSymbol[] = symbol === "ALL" ? ["BTC", "ETH"] : [symbol];
+  const entries = await Promise.all(symbols.map(async (item) => {
+    try {
+      const response = await fetcher({
+        symbol: item,
+        interval: "1m",
+        lookback: 1,
+        sourceMode: "live",
+        provider: "binance-spot-public",
+        requestedAt
+      });
+      return [item, response.latestPrice] as const;
+    } catch {
+      return [item, null] as const;
+    }
+  }));
+  return Object.fromEntries(entries) as Partial<Record<SignalSymbol, number | null>>;
 }
 
 function realtimeDisplaySymbol(symbol: SignalSymbol): RealtimePriceSymbol {

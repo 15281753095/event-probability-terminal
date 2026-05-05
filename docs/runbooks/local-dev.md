@@ -93,6 +93,9 @@ curl "http://localhost:4000/market-data/live?symbol=BTC&provider=coinbase"
 curl "http://localhost:4000/market-data/live?symbol=BTC&provider=binance&interval=15m"
 curl -N "http://localhost:4000/market-data/realtime?symbol=BTC&provider=binance"
 curl -N "http://localhost:4000/market-data/realtime?symbol=ETH&provider=binance"
+curl "http://localhost:4000/markets/polymarket/active?symbol=BTC"
+curl "http://localhost:4000/markets/polymarket/active?symbol=ETH"
+curl "http://localhost:4000/markets/polymarket/active?symbol=ALL"
 curl http://localhost:4000/signals/research
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=live"
@@ -140,6 +143,12 @@ to Binance. Mock/smoke mode is enabled with `EPT_LIVE_MARKET_DATA_MOCK=true` and
 local ticks labeled `DEV MOCK`. If the WebSocket becomes stale or fails, the SSE stream sends
 `stale` or `error` events and the UI must not present the last price as healthy live data.
 
+RC-18 adds `/markets/polymarket/active` for read-only BTC/ETH Polymarket market odds. Live mode uses
+Gamma public discovery and CLOB public orderbook/midpoint/spread diagnostics. Mock/smoke mode uses
+`packages/research-signals/fixtures/polymarket/active-crypto-markets.json` and must not connect to
+Polymarket. The endpoint must not expose wallet, key, account, order, cancellation, balance, or
+position fields.
+
 ## Start Web
 
 Start the API gateway first so the terminal can load live market data.
@@ -164,6 +173,9 @@ Current pages:
   health diagnostics.
 - `/signals/console`: live-default research signal console with underlying candle provenance,
   realtime BTC/ETH price cards, provider health diagnostics, experimental model labeling, research-only strategy status, and no trading action.
+- `/markets/polymarket`: read-only Polymarket active market odds with BTC/ETH realtime cards,
+  Yes/No prices, implied probabilities, spread/liquidity diagnostics, binding status, and research
+  eligibility.
 - `/scanner`: legacy Markets Scanner RC-2, moved out of the homepage first screen.
 - `/markets/:id`: Market Detail RC-3 for a normalized fixture-backed market, backed by `GET /markets/:id/detail`.
 
@@ -180,6 +192,7 @@ http://localhost:3000/
 http://localhost:3000/?symbol=ETH&horizon=10m
 http://localhost:3000/market-data/live?symbol=ETH&provider=binance&interval=15m
 http://localhost:3000/signals/console?symbol=BTC&horizon=5m&provider=binance
+http://localhost:3000/markets/polymarket
 http://localhost:3000/?symbol=BTC&horizon=5m&sourceMode=fixture
 http://localhost:3000/scanner
 ```

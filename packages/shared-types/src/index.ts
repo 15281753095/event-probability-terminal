@@ -31,7 +31,8 @@ export type ApiResponseKind =
   | "market_detail"
   | "research_signal"
   | "event_signal_console"
-  | "live_market_data";
+  | "live_market_data"
+  | "polymarket_active_markets";
 
 export type ApiResponseStatus = "ok" | "not_found" | "unsupported" | "fail_closed";
 
@@ -298,9 +299,9 @@ export type LiveMarketDataSource = "binance-spot-public" | "coinbase-exchange";
 
 export type MarketDataProvider = LiveMarketDataSource | "mock" | "fixture";
 
-export type ProviderHealthRequestedProvider = "binance" | "coinbase" | "mock";
+export type ProviderHealthRequestedProvider = "binance" | "coinbase" | "polymarket" | "mock";
 
-export type ProviderHealthResolvedProvider = LiveMarketDataSource | "mock";
+export type ProviderHealthResolvedProvider = LiveMarketDataSource | "polymarket-gamma" | "polymarket-clob-public" | "mock";
 
 export type ProviderHealthStatus = "ok" | "degraded" | "failed";
 
@@ -377,6 +378,81 @@ export interface ResearchStrategyStatus {
   backtestScaffoldStatus: "research_only";
   productionEnabled: false;
   message: string;
+}
+
+export type PolymarketPublicProvider = "polymarket-gamma" | "polymarket-clob-public" | "mock";
+
+export type PolymarketLiquidityStatus = "ok" | "thin" | "unknown";
+
+export type BoundEventMarketStatus = "bound" | "ambiguous" | "unsupported" | "failed";
+
+export interface EventMarketCandidate {
+  id: string;
+  eventId: string;
+  marketId: string;
+  question: string;
+  slug: string;
+  description?: string | undefined;
+  active: boolean;
+  closed: boolean;
+  archived?: boolean | undefined;
+  endDate?: string | undefined;
+  startDate?: string | undefined;
+  volume?: number | undefined;
+  liquidity?: number | undefined;
+  outcomes: string[];
+  outcomePrices: number[];
+  clobTokenIds: string[];
+  conditionId?: string | undefined;
+  questionId?: string | undefined;
+  resolutionSource?: string | undefined;
+  rawSource: "gamma";
+}
+
+export interface EventMarketOdds {
+  marketId: string;
+  question: string;
+  tokenIdYes: string | null;
+  tokenIdNo: string | null;
+  yesPrice: number | null;
+  noPrice: number | null;
+  yesMidpoint: number | null;
+  noMidpoint: number | null;
+  spread: number | null;
+  bestBidYes?: number | undefined;
+  bestAskYes?: number | undefined;
+  bestBidNo?: number | undefined;
+  bestAskNo?: number | undefined;
+  impliedProbabilityYes: number | null;
+  impliedProbabilityNo: number | null;
+  liquidityStatus: PolymarketLiquidityStatus;
+  sourceType: DataSourceType;
+  provider: PolymarketPublicProvider;
+  checkedAt: string;
+  failClosedReasons: string[];
+}
+
+export interface BoundEventMarket {
+  symbol: SignalSymbol;
+  underlyingSymbol: RealtimePriceSymbol;
+  market: EventMarketCandidate;
+  odds: EventMarketOdds;
+  realtimeUnderlyingPrice: number | null;
+  bindingStatus: BoundEventMarketStatus;
+  bindingReasons: string[];
+  researchEligible: boolean;
+  researchRejectReasons: string[];
+}
+
+export interface PolymarketActiveMarketsResponse {
+  symbol: SignalSymbol | "ALL";
+  checkedAt: string;
+  sourceType: DataSourceType;
+  providerHealth: ProviderHealth;
+  realtimeUnderlyingPrice: Record<SignalSymbol, number | null>;
+  markets: BoundEventMarket[];
+  warnings: string[];
+  failClosedReasons: string[];
 }
 
 export type BaselineResearchDirection = "UP" | "DOWN" | "NO_SIGNAL";

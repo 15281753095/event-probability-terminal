@@ -195,6 +195,9 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
                   <Link className="border border-slate-700 bg-slate-950 px-3 py-2 text-slate-300" href="/scanner">
                     Open old scanner
                   </Link>
+                  <Link className="border border-cyan-400/50 bg-cyan-400/10 px-3 py-2 font-semibold text-cyan-100" href="/markets/polymarket">
+                    Polymarket Active Markets · Read-only market odds
+                  </Link>
                 </div>
                 <Diagnostics console={console} marketData={marketData} consoleError={consoleState.error} marketDataError={liveState.error} />
               </div>

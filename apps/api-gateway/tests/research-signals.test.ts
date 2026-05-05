@@ -15,6 +15,7 @@ import {
   type OHLCVFetchResult,
   type OhlcvCandle,
   type OhlcvSource,
+  type PolymarketActiveMarketsResponse,
   type RealtimePriceSsePayload,
   type ResearchSignalsResponse
 } from "@ept/shared-types";
@@ -593,6 +594,61 @@ describe("research signals API", () => {
 
     await server.close();
   });
+
+  it("returns deterministic mock Polymarket active markets without private fields", async () => {
+    const previousMarketMock = process.env.EPT_POLYMARKET_MOCK;
+    const previousLiveMock = process.env.EPT_LIVE_MARKET_DATA_MOCK;
+    process.env.EPT_POLYMARKET_MOCK = "true";
+    process.env.EPT_LIVE_MARKET_DATA_MOCK = "true";
+    const server = buildServer({ logger: false, now: () => fixedGeneratedAt });
+    try {
+      const response = await server.inject({
+        method: "GET",
+        url: "/markets/polymarket/active?symbol=BTC"
+      });
+
+      assert.equal(response.statusCode, 200);
+      const payload = response.json<PolymarketActiveMarketsResponse>();
+      assert.equal(payload.symbol, "BTC");
+      assert.equal(payload.sourceType, "mock");
+      assert.equal(payload.providerHealth.requestedProvider, "mock");
+      assert.ok(payload.markets.length >= 2);
+      assert.ok(payload.markets.every((market) => market.symbol === "BTC"));
+      assert.ok(payload.markets.every((market) => market.market.clobTokenIds.length === 2));
+      assert.ok(payload.markets.every((market) => market.odds.impliedProbabilityYes !== null));
+      assert.equal(/privateKey|apiKey|secret|passphrase|order|cancel|balance|position/i.test(response.body), false);
+    } finally {
+      await server.close();
+      restoreEnv("EPT_POLYMARKET_MOCK", previousMarketMock);
+      restoreEnv("EPT_LIVE_MARKET_DATA_MOCK", previousLiveMock);
+    }
+  });
+
+  it("returns an explanatory empty Polymarket active markets response", async () => {
+    const previousMarketMock = process.env.EPT_POLYMARKET_MOCK;
+    const previousEmpty = process.env.EPT_POLYMARKET_MOCK_EMPTY;
+    const previousLiveMock = process.env.EPT_LIVE_MARKET_DATA_MOCK;
+    process.env.EPT_POLYMARKET_MOCK = "true";
+    process.env.EPT_POLYMARKET_MOCK_EMPTY = "true";
+    process.env.EPT_LIVE_MARKET_DATA_MOCK = "true";
+    const server = buildServer({ logger: false, now: () => fixedGeneratedAt });
+    try {
+      const response = await server.inject({
+        method: "GET",
+        url: "/markets/polymarket/active?symbol=ETH"
+      });
+
+      assert.equal(response.statusCode, 200);
+      const payload = response.json<PolymarketActiveMarketsResponse>();
+      assert.equal(payload.markets.length, 0);
+      assert.ok(payload.warnings.some((warning) => warning.includes("No active BTC/ETH Polymarket markets found")));
+    } finally {
+      await server.close();
+      restoreEnv("EPT_POLYMARKET_MOCK", previousMarketMock);
+      restoreEnv("EPT_POLYMARKET_MOCK_EMPTY", previousEmpty);
+      restoreEnv("EPT_LIVE_MARKET_DATA_MOCK", previousLiveMock);
+    }
+  });
 });
 
 function parseFirstPriceSsePayload(body: string): RealtimePriceSsePayload {
@@ -750,4 +806,12 @@ function withProvenance(
 
 function intervalSeconds(interval: LiveMarketDataFetchRequest["interval"]): number {
   return interval === "5m" ? 300 : interval === "15m" ? 900 : interval === "1h" ? 3600 : 60;
+}
+
+function restoreEnv(key: string, value: string | undefined) {
+  if (value === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = value;
+  }
 }
