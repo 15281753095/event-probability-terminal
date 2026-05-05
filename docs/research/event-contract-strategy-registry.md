@@ -2,6 +2,11 @@
 
 Status: RC-17 research-only registry. These candidates are not production signals, not trade advice, and not claims of profit.
 
+RC-18 adds real Polymarket active market odds as required research context. Registry candidates must
+consume those odds only after data sufficiency checks: active market status, binary outcomes, CLOB
+token IDs, event end time, resolution source/rule evidence, spread, liquidity, fees, and slippage.
+The odds binding does not make any registry candidate production-ready.
+
 All online, Twitter/X, chat, or community strategy ideas must enter this registry first. They cannot directly drive live signals. Any backtest must record fees, slippage, spread, liquidity, data range, sample count, and anti-look-ahead checks.
 
 ## Candidate Categories

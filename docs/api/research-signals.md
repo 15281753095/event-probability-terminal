@@ -152,6 +152,12 @@ them into `RealTimePriceTick`. The browser receives SSE from the local API bound
 candles remain the bootstrap chart path. Mock/smoke mode emits deterministic `sourceType: "mock"`
 ticks and does not connect to Binance.
 
+RC-18 adds read-only Polymarket active market odds at `/markets/polymarket/active`. Gamma public
+data is used for active market discovery; CLOB public data is used for orderbook, midpoint, price,
+and spread diagnostics. These market rows are displayed as event-contract context and are not used
+to produce production signals. Missing resolution rules, token IDs, outcomes, or ambiguous BTC/ETH
+binding must mark the market as research-ineligible.
+
 `NO_SIGNAL` remains a model output. It is not by itself a provider failure. Provider failure is
 expressed through `providerHealth.status`, `providerHealth.failClosedReasons`, and data-quality
 fields.
@@ -210,3 +216,5 @@ by default.
 - No default backtest execution on page open; RC-9 preview is on-demand and small-sample only.
 - No production strategy enablement. RC-17 strategy candidates and backtest runner are research-only
   scaffolds and cannot drive live signals.
+- No Polymarket odds-driven production signal. RC-18 odds binding is read-only context and data
+  sufficiency diagnostics only.

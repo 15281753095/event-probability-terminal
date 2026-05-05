@@ -46,6 +46,32 @@ export type { ResearchStrategyCandidate, ResearchStrategyInput } from "./strateg
 export { runResearchBacktest } from "./backtest/runner.js";
 export type { BacktestSample, RunBacktestInput } from "./backtest/types.js";
 export {
+  POLYMARKET_GAMMA_PUBLIC_BASE_URL,
+  fetchActivePolymarketMarkets,
+  findCryptoEventMarkets,
+  searchPolymarketMarkets
+} from "./polymarket/gamma.js";
+export {
+  POLYMARKET_CLOB_PUBLIC_BASE_URL,
+  buildEventMarketOdds,
+  fetchPolymarketMidpoint,
+  fetchPolymarketOrderBook,
+  fetchPolymarketPrice,
+  fetchPolymarketSpread
+} from "./polymarket/clob-public.js";
+export {
+  bindMarketToUnderlying,
+  inferSymbols,
+  mapGammaMarketToCandidate
+} from "./polymarket/market-mapper.js";
+export type {
+  FindCryptoEventMarketsInput,
+  FindCryptoEventMarketsResult,
+  PolymarketOrderBook,
+  PolymarketPublicOptions,
+  PolymarketSymbolFilter
+} from "./polymarket/types.js";
+export {
   BINANCE_SPOT_PUBLIC_PROVIDER,
   BINANCE_SPOT_PUBLIC_SOURCE,
   binanceSpotInterval,

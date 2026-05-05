@@ -98,8 +98,29 @@ test("signals console defaults to live mode and marks experimental output", asyn
   await expect(page.getByTestId("signals-console-card")).toContainText("No trading action");
   await expect(page.getByTestId("research-strategy-status")).toContainText("research_only");
   await expect(page.getByTestId("research-strategy-status")).toContainText("production enabled");
+  await expect(page.getByTestId("linked-polymarket-candidates")).toContainText("Linked Polymarket Candidates");
+  await expect(page.getByTestId("linked-polymarket-candidates")).toContainText("drives signal");
   await expect(page.getByTestId("event-signal-chart")).toBeVisible();
   await expect(page.getByTestId("advanced-drawer")).not.toHaveAttribute("open", "");
+  await expect(page.getByText(/BUY|SELL|ENTRY|LEVERAGE|POSITION SIZE/i)).toHaveCount(0);
+});
+
+test("polymarket active markets page shows read-only mock odds", async ({ page }) => {
+  await page.goto("/markets/polymarket");
+
+  await expect(page.getByTestId("polymarket-active-markets-page")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Polymarket Active Markets" })).toBeVisible();
+  await expect(page.getByText("READ ONLY")).toBeVisible();
+  await expect(page.getByText("NO TRADING")).toBeVisible();
+  await expect(page.getByText("PUBLIC MARKET DATA")).toBeVisible();
+  await expect(page.getByTestId("realtime-price-card-BTC")).toContainText("DEV MOCK");
+  await expect(page.getByTestId("realtime-price-card-ETH")).toContainText("DEV MOCK");
+  await expect(page.getByTestId("polymarket-market-table")).toBeVisible();
+  await expect(page.getByTestId("polymarket-market-row").first()).toContainText(/BTC|ETH/);
+  await expect(page.getByTestId("polymarket-market-row").first()).toContainText(/bound|ambiguous|unsupported|failed/);
+  await expect(page.getByTestId("polymarket-market-row").first()).toContainText(/eligible|data insufficient/);
+  await expect(page.getByRole("columnheader", { name: "Yes price" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "No price" })).toBeVisible();
   await expect(page.getByText(/BUY|SELL|ENTRY|LEVERAGE|POSITION SIZE/i)).toHaveCount(0);
 });
 

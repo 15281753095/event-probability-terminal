@@ -21,6 +21,9 @@ GET /market-data/live?symbol=BTC&provider=coinbase
 GET /market-data/live?symbol=BTC&interval=15m
 GET /market-data/realtime?symbol=BTC&provider=binance
 GET /market-data/realtime?symbol=ETH&provider=binance
+GET /markets/polymarket/active?symbol=BTC
+GET /markets/polymarket/active?symbol=ETH
+GET /markets/polymarket/active?symbol=ALL
 ```
 
 Supported query filters:
@@ -34,6 +37,7 @@ Supported query filters:
 - `includeBacktest`: legacy alias for `includeObservationPreview`
 - `/market-data/live interval`: `1m`, `5m`, `15m`, or `1h`; default `1m`
 - `/market-data/realtime provider`: `binance` only; API Gateway uses Binance Spot public WebSocket internally
+- `/markets/polymarket/active symbol`: `BTC`, `ETH`, or `ALL`; default `ALL`
 
 Unsupported filters return a typed `ept-api-v1` error with:
 
@@ -129,6 +133,25 @@ Each realtime payload includes `symbol`, `displaySymbol`, `provider`, `sourceTyp
 `bidPrice`, `askPrice`, `eventTime`, `receivedAt`, `latencyMs`, `connectionStatus`, `stale`,
 `providerHealth`, and the normalized `tick` when available. `stale` or `error` events may keep the
 last price for display, but the UI must not label that price as healthy live data.
+
+`GET /markets/polymarket/active` returns read-only active event-contract diagnostics:
+
+- `symbol`
+- `checkedAt`
+- `sourceType`
+- `providerHealth`
+- `realtimeUnderlyingPrice`
+- `markets`
+- `warnings`
+- `failClosedReasons`
+
+Each bound market includes Gamma-derived market metadata, outcome labels, outcome prices,
+`clobTokenIds`, CLOB-derived or fallback odds, `spread`, `liquidityStatus`, `bindingStatus`,
+`researchEligible`, and `researchRejectReasons`. Missing CLOB data does not fabricate odds; it
+adds fail-closed reasons and may use Gamma `outcomePrices` only as a clearly marked fallback.
+
+This endpoint is read-only public market data. It does not expose wallet, private key, API key,
+secret, passphrase, balance, position, order placement, cancellation, or trade execution fields.
 
 Binance Spot public interval mapping:
 
