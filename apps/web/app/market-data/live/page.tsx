@@ -41,6 +41,8 @@ export default async function LiveMarketDataPage({ searchParams }: { searchParam
         : unavailable ? "LIVE DATA UNAVAILABLE" : "LIVE";
   const displaySymbol = marketData?.displaySymbol ?? productFor(filters.symbol, filters.provider);
   const providerLabel = providerDisplayName(marketData?.provider ?? filters.provider);
+  const providerHealth = marketData?.providerHealth;
+  const chartEmptyReason = providerHealth?.failClosedReasons[0] ?? error ?? null;
 
   return (
     <main className="min-h-screen bg-[#070b12] px-4 py-4 text-slate-100">
@@ -62,6 +64,8 @@ export default async function LiveMarketDataPage({ searchParams }: { searchParam
               <ProviderLinks current={filters} />
               <HeaderMetric label="Product" value={displaySymbol} />
               <HeaderMetric label="Latest price" value={formatUsd(marketData?.latestPrice ?? null, filters.symbol)} strong />
+              <HeaderMetric label="Health" value={displayHealth(providerHealth?.status)} />
+              <HeaderMetric label="Latency" value={formatLatency(providerHealth?.latencyMs ?? null)} />
               <HeaderMetric label="Last updated" value={formatTime(marketData?.tickerTime ?? null)} />
               <Link
                 className="inline-flex min-h-10 items-center border border-cyan-400/60 bg-cyan-400/10 px-3 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/15"
@@ -93,6 +97,7 @@ export default async function LiveMarketDataPage({ searchParams }: { searchParam
               markers={[]}
               sourceMode="live"
               sourceType={sourceType}
+              emptyReason={chartEmptyReason ?? undefined}
             />
             {error ? <ErrorBanner message={error} /> : null}
             {marketData?.failClosedReasons.length ? <ReasonList items={marketData.failClosedReasons} title="Live data unavailable" /> : null}
@@ -108,7 +113,26 @@ export default async function LiveMarketDataPage({ searchParams }: { searchParam
                 <Metric label="Candle age" value={formatAge(marketData?.candleFreshnessSeconds ?? null)} />
                 <Metric label="Source type" value={sourceType === "mock" ? "DEV MOCK" : sourceType} />
                 <Metric label="Fixture backed" value={String(marketData?.isFixtureBacked ?? false)} />
+                <Metric label="Health" value={displayHealth(providerHealth?.status)} />
+                <Metric label="Fallback used" value={String(providerHealth?.fallbackUsed ?? false)} />
               </div>
+            </section>
+
+            <section className="border border-slate-800 bg-[#0b111d] p-4" data-testid="provider-health-card">
+              <h2 className="text-sm font-semibold text-slate-100">Provider Health</h2>
+              <div className="mt-3 grid gap-2 text-xs text-slate-300">
+                <ProvenanceRow label="requestedProvider" value={providerHealth?.requestedProvider ?? providerQueryValue(filters.provider)} />
+                <ProvenanceRow label="resolvedProvider" value={providerHealth?.resolvedProvider ?? marketData?.provider ?? filters.provider} />
+                <ProvenanceRow label="sourceType" value={sourceType === "mock" ? "DEV MOCK" : sourceType.toUpperCase()} />
+                <ProvenanceRow label="status" value={displayHealth(providerHealth?.status)} />
+                <ProvenanceRow label="candleCount" value={`${providerHealth?.candleCount ?? marketData?.candleCount ?? 0}/${providerHealth?.expectedMinCandles ?? 0}`} />
+                <ProvenanceRow label="lastCandleTime" value={providerHealth?.lastCandleTime ?? "Unavailable"} />
+                <ProvenanceRow label="latencyMs" value={formatLatency(providerHealth?.latencyMs ?? null)} />
+                <ProvenanceRow label="fallbackUsed" value={String(providerHealth?.fallbackUsed ?? false)} />
+                <ProvenanceRow label="fallbackReason" value={providerHealth?.fallbackReason ?? "None"} />
+                <ProvenanceRow label="checkedAt" value={providerHealth?.checkedAt ?? "Unavailable"} />
+              </div>
+              {providerHealth?.failClosedReasons.length ? <ReasonList items={providerHealth.failClosedReasons} title="Fail-closed reasons" /> : null}
             </section>
 
             <section className="border border-slate-800 bg-[#0b111d] p-4">
@@ -349,6 +373,14 @@ function formatAge(seconds: number | null) {
     return `${seconds}s`;
   }
   return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+}
+
+function displayHealth(status: LiveMarketDataResponse["providerHealth"]["status"] | undefined) {
+  return status ? status.toUpperCase() : "UNKNOWN";
+}
+
+function formatLatency(value: number | null) {
+  return value === null || !Number.isFinite(value) ? "Unavailable" : `${Math.max(0, Math.round(value))}ms`;
 }
 
 function formatTime(value: string | null) {

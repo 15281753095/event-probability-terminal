@@ -496,7 +496,7 @@ function optionalNumeric(value: unknown, field: string, warnings: string[]): num
 }
 
 function withMarketDataProvenance(
-  response: Omit<LiveMarketDataResponse, "provenance">
+  response: Omit<LiveMarketDataResponse, "provenance" | "providerHealth"> & Partial<Pick<LiveMarketDataResponse, "providerHealth">>
 ): LiveMarketDataResponse {
   const provenance: MarketDataProvenance = {
     source: response.source,
@@ -516,7 +516,22 @@ function withMarketDataProvenance(
   };
   return {
     ...response,
-    provenance
+    provenance,
+    providerHealth: response.providerHealth ?? {
+      requestedProvider: response.sourceType === "mock" ? "mock" : "binance",
+      resolvedProvider: response.sourceType === "mock" ? "mock" : BINANCE_SPOT_PUBLIC_PROVIDER,
+      sourceType: response.sourceType,
+      status: response.failClosedReasons.length ? "failed" : "ok",
+      latencyMs: null,
+      candleCount: response.candleCount,
+      expectedMinCandles: response.candleCount,
+      lastCandleTime: response.lastCandleTime,
+      isFixtureBacked: response.isFixtureBacked,
+      fallbackUsed: false,
+      fallbackReason: null,
+      failClosedReasons: response.failClosedReasons,
+      checkedAt: response.fetchedAt
+    }
   };
 }
 

@@ -28,6 +28,7 @@ import type {
   OhlcvInterval,
   OrderBookLevel,
   OrderBookSnapshot,
+  ProviderHealth,
   ResearchSignalsResponse,
   ScannerCandidate,
   ScannerMeta,
@@ -263,7 +264,7 @@ export function buildServer(options: BuildServerOptions = {}) {
         requestedAt: generatedAt
       })) satisfies LiveMarketDataResponse;
     } catch (error) {
-      return emptyFailClosedMarketDataForProvider(
+      return addProviderHealth(emptyFailClosedMarketDataForProvider(
         provider,
         {
           symbol,
@@ -275,7 +276,16 @@ export function buildServer(options: BuildServerOptions = {}) {
         error instanceof Error
           ? `Live data unavailable: live market-data adapter failed: ${error.message}`
           : "Live data unavailable: live market-data adapter failed with an unknown error."
-      ) satisfies LiveMarketDataResponse;
+      ), {
+        symbol,
+        interval,
+        lookback: CONSOLE_CANDLE_LOOKBACK,
+        sourceMode: "live",
+        provider,
+        requestedAt: generatedAt
+      }, {
+        latencyMs: null
+      }) satisfies LiveMarketDataResponse;
     }
   });
 
@@ -452,16 +462,130 @@ function buildProviderAwareMarketDataFetcher(
   injectedFetcher?: LiveMarketDataFetcher
 ): LiveMarketDataFetcher {
   return async (request) => {
+    const fetcher =
+      injectedFetcher ??
+      (process.env.EPT_LIVE_MARKET_DATA_MOCK === "true"
+        ? mockLiveMarketDataFetcher
+        : request.provider === "coinbase-exchange"
+          ? fetchCoinbaseExchangeMarketData
+          : fetchBinanceSpotMarketData);
+    const startedAt = Date.now();
     if (injectedFetcher) {
-      return injectedFetcher(request);
+      const primary = addProviderHealth(await injectedFetcher(request), request, {
+        latencyMs: Date.now() - startedAt
+      });
+      return shouldFallbackToCoinbase(request, primary)
+        ? fetchCoinbaseFallback(request, injectedFetcher, primary, startedAt)
+        : primary;
     }
     if (process.env.EPT_LIVE_MARKET_DATA_MOCK === "true") {
-      return mockLiveMarketDataFetcher(request);
+      return addProviderHealth(await mockLiveMarketDataFetcher(request), request, {
+        latencyMs: Date.now() - startedAt
+      });
     }
-    return request.provider === "coinbase-exchange"
-      ? fetchCoinbaseExchangeMarketData(request)
-      : fetchBinanceSpotMarketData(request);
+    const primary = addProviderHealth(await fetcher(request), request, {
+      latencyMs: Date.now() - startedAt
+    });
+    return shouldFallbackToCoinbase(request, primary)
+      ? fetchCoinbaseFallback(request, fetchCoinbaseExchangeMarketData, primary, startedAt)
+      : primary;
   };
+}
+
+async function fetchCoinbaseFallback(
+  request: LiveMarketDataFetchRequest,
+  fetcher: LiveMarketDataFetcher,
+  primary: LiveMarketDataResponse,
+  startedAt: number
+): Promise<LiveMarketDataResponse> {
+  const fallbackReason = providerFailureReason(primary);
+  const fallbackRequest: LiveMarketDataFetchRequest = {
+    ...request,
+    provider: "coinbase-exchange"
+  };
+  try {
+    const fallback = await fetcher(fallbackRequest);
+    return addProviderHealth(fallback, request, {
+      latencyMs: Date.now() - startedAt,
+      fallbackUsed: true,
+      fallbackReason
+    });
+  } catch (error) {
+    const failed = emptyFailClosedLiveMarketData(
+      fallbackRequest,
+      error instanceof Error
+        ? `Live data unavailable: Coinbase fallback failed after Binance failure: ${error.message}`
+        : "Live data unavailable: Coinbase fallback failed after Binance failure with an unknown error."
+    );
+    return addProviderHealth(failed, request, {
+      latencyMs: Date.now() - startedAt,
+      fallbackUsed: true,
+      fallbackReason
+    });
+  }
+}
+
+function shouldFallbackToCoinbase(
+  request: LiveMarketDataFetchRequest,
+  response: LiveMarketDataResponse
+): boolean {
+  return (
+    request.provider !== "coinbase-exchange" &&
+    response.sourceType === "live" &&
+    response.provider === "binance-spot-public" &&
+    providerHealthStatus(response, request.lookback ?? CONSOLE_CANDLE_LOOKBACK) === "failed"
+  );
+}
+
+function addProviderHealth(
+  response: LiveMarketDataResponse,
+  request: LiveMarketDataFetchRequest,
+  options: {
+    latencyMs: number | null;
+    fallbackUsed?: boolean;
+    fallbackReason?: string | null;
+  }
+): LiveMarketDataResponse {
+  const expectedMinCandles = request.lookback ?? CONSOLE_CANDLE_LOOKBACK;
+  const fallbackUsed = options.fallbackUsed ?? false;
+  const health: ProviderHealth = {
+    requestedProvider: response.sourceType === "mock" ? "mock" : request.provider === "coinbase-exchange" ? "coinbase" : "binance",
+    resolvedProvider: response.sourceType === "mock" ? "mock" : response.provider,
+    sourceType: response.sourceType,
+    status: fallbackUsed && providerHealthStatus(response, expectedMinCandles) === "ok"
+      ? "degraded"
+      : providerHealthStatus(response, expectedMinCandles),
+    latencyMs: options.latencyMs,
+    candleCount: response.candleCount,
+    expectedMinCandles,
+    lastCandleTime: response.lastCandleTime,
+    isFixtureBacked: response.isFixtureBacked,
+    fallbackUsed,
+    fallbackReason: options.fallbackReason ?? null,
+    failClosedReasons: response.failClosedReasons,
+    checkedAt: response.fetchedAt
+  };
+  return {
+    ...response,
+    providerHealth: health
+  };
+}
+
+function providerHealthStatus(
+  response: LiveMarketDataResponse,
+  expectedMinCandles: number
+): ProviderHealth["status"] {
+  if (response.failClosedReasons.length > 0 || response.candleCount === 0 || response.latestPrice === null) {
+    return "failed";
+  }
+  if (response.candleCount < expectedMinCandles) {
+    return "degraded";
+  }
+  return "ok";
+}
+
+function providerFailureReason(response: LiveMarketDataResponse): string {
+  return response.failClosedReasons[0] ?? response.warnings[0] ?? "Requested provider returned insufficient live market data.";
 }
 
 function emptyFailClosedMarketDataForProvider(
@@ -555,7 +679,7 @@ async function mockLiveMarketDataFetcher(
 }
 
 function withMarketDataProvenance(
-  response: Omit<LiveMarketDataResponse, "provenance">
+  response: Omit<LiveMarketDataResponse, "provenance" | "providerHealth"> & Partial<Pick<LiveMarketDataResponse, "providerHealth">>
 ): LiveMarketDataResponse {
   const provenance: MarketDataProvenance = {
     source: response.source,
@@ -575,7 +699,22 @@ function withMarketDataProvenance(
   };
   return {
     ...response,
-    provenance
+    provenance,
+    providerHealth: response.providerHealth ?? {
+      requestedProvider: "mock",
+      resolvedProvider: "mock",
+      sourceType: response.sourceType,
+      status: response.failClosedReasons.length || response.candleCount === 0 || response.latestPrice === null ? "failed" : "ok",
+      latencyMs: null,
+      candleCount: response.candleCount,
+      expectedMinCandles: response.candleCount,
+      lastCandleTime: response.lastCandleTime,
+      isFixtureBacked: response.isFixtureBacked,
+      fallbackUsed: false,
+      fallbackReason: null,
+      failClosedReasons: response.failClosedReasons,
+      checkedAt: response.fetchedAt
+    }
   };
 }
 

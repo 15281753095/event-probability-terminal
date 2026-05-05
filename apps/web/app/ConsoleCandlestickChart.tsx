@@ -19,9 +19,10 @@ type Props = {
   markers: EventSignalConsoleResponse["recentMarkers"];
   sourceMode?: EventSignalConsoleResponse["sourceMode"];
   sourceType?: DataSourceType;
+  emptyReason?: string | undefined;
 };
 
-export function ConsoleCandlestickChart({ candles, markers, sourceMode = "fixture", sourceType = sourceMode }: Props) {
+export function ConsoleCandlestickChart({ candles, markers, sourceMode = "fixture", sourceType = sourceMode, emptyReason }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const unavailable = sourceType === "live" && candles.length === 0;
 
@@ -101,6 +102,7 @@ export function ConsoleCandlestickChart({ candles, markers, sourceMode = "fixtur
     return (
       <div className="flex min-h-[360px] items-center justify-center border border-slate-800 bg-[#070b12] text-sm text-slate-400" data-testid="event-signal-chart-empty">
         {sourceType === "live" ? "Live candles unavailable" : "No recent candles available. The console is fail-closed."}
+        {emptyReason ? ` ${emptyReason}` : ""}
       </div>
     );
   }

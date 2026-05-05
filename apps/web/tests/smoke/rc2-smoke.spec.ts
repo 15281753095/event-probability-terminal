@@ -57,7 +57,9 @@ test("live market data page supports BTC ETH and candle intervals", async ({ pag
   await expect(page.getByRole("link", { name: "15m", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "1h", exact: true })).toBeVisible();
   await expect(page.getByTestId("event-signal-chart")).toBeVisible();
-  await expect(page.getByText("sourceType")).toBeVisible();
+  await expect(page.getByTestId("provider-health-card")).toContainText("DEV MOCK");
+  await expect(page.getByTestId("provider-health-card")).toContainText("fallbackUsed");
+  await expect(page.getByTestId("provider-health-card").getByText("sourceType")).toBeVisible();
 
   await page.getByRole("link", { name: "ETH" }).click();
   await expect(page).toHaveURL(/symbol=ETH/);
@@ -71,6 +73,8 @@ test("signals console defaults to live mode and marks experimental output", asyn
   await expect(page.getByTestId("signals-console-page")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Signals Console" })).toBeVisible();
   await expect(page.getByTestId("data-source-badge")).toHaveText("DEV MOCK");
+  await expect(page.getByTestId("provider-health-card")).toContainText("DEV MOCK");
+  await expect(page.getByTestId("provider-health-card")).toContainText("fallbackUsed");
   await expect(page.getByText("Experimental model")).toBeVisible();
   await expect(page.getByText("BTCUSDT").first()).toBeVisible();
   await expect(page.getByText("Binance public").first()).toBeVisible();
