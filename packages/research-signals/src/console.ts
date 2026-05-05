@@ -11,6 +11,7 @@ import {
   type OhlcvCandle,
   type OhlcvSource,
   type ObservationPreview,
+  type ProviderHealth,
   type ResearchSignal,
   type ResearchSignalSourceMode,
   type SignalObservationCandidate,
@@ -79,6 +80,7 @@ export function buildFixtureEventSignalConsole(input: BuildEventSignalConsoleInp
       generatedAt: input.generatedAt,
       currentPrice: null,
       dataProvenance: fixtureDataProvenance(input.symbol, input.generatedAt, 0, null),
+      providerHealth: fixtureProviderHealth(input.generatedAt, 0, null),
       includeObservationPreview: input.includeObservationPreview ?? input.includeBacktest ?? false
     });
   }
@@ -101,6 +103,7 @@ export function buildFixtureEventSignalConsole(input: BuildEventSignalConsoleInp
     generatedAt: input.generatedAt,
     currentPrice: candles.at(-1)?.close ?? null,
     dataProvenance: fixtureDataProvenance(input.symbol, input.generatedAt, candles.length, candles.at(-1)?.timestamp ?? null),
+    providerHealth: fixtureProviderHealth(input.generatedAt, candles.length, candles.at(-1)?.timestamp ?? null),
     includeObservationPreview: input.includeObservationPreview ?? input.includeBacktest ?? false
   });
 }
@@ -151,6 +154,7 @@ export async function buildLiveEventSignalConsole(
     generatedAt: input.generatedAt,
     currentPrice: result.candles.at(-1)?.close ?? null,
     dataProvenance: ohlcvDataProvenance(result, input.generatedAt),
+    providerHealth: ohlcvProviderHealth(result, input.generatedAt, CONSOLE_CANDLE_LOOKBACK),
     includeObservationPreview: input.includeObservationPreview ?? input.includeBacktest ?? false
   });
 }
@@ -191,6 +195,7 @@ async function buildLiveEventSignalConsoleFromMarketData(
       generatedAt: input.generatedAt,
       currentPrice: marketData.latestPrice,
       dataProvenance: liveMarketDataProvenance(marketData),
+      providerHealth: marketData.providerHealth,
       includeObservationPreview: input.includeObservationPreview ?? input.includeBacktest ?? false
     });
   } catch (error) {
@@ -227,6 +232,7 @@ async function buildLiveEventSignalConsoleFromMarketData(
       generatedAt: input.generatedAt,
       currentPrice: null,
       dataProvenance: ohlcvDataProvenance(result, input.generatedAt),
+      providerHealth: ohlcvProviderHealth(result, input.generatedAt, CONSOLE_CANDLE_LOOKBACK),
       includeObservationPreview: input.includeObservationPreview ?? input.includeBacktest ?? false
     });
   }
@@ -294,12 +300,58 @@ function ohlcvDataProvenance(result: OHLCVFetchResult, fetchedAt: string): Marke
   };
 }
 
+function fixtureProviderHealth(
+  checkedAt: string,
+  candleCount: number,
+  lastCandleTime: string | null
+): ProviderHealth {
+  return {
+    requestedProvider: "mock",
+    resolvedProvider: "mock",
+    sourceType: "fixture",
+    status: candleCount > 0 ? "ok" : "failed",
+    latencyMs: null,
+    candleCount,
+    expectedMinCandles: CONSOLE_CANDLE_LOOKBACK,
+    lastCandleTime,
+    isFixtureBacked: true,
+    fallbackUsed: false,
+    fallbackReason: null,
+    failClosedReasons: candleCount > 0 ? [] : ["Fixture candles unavailable for requested signal console scope."],
+    checkedAt
+  };
+}
+
+function ohlcvProviderHealth(
+  result: OHLCVFetchResult,
+  checkedAt: string,
+  expectedMinCandles: number
+): ProviderHealth {
+  const failed = result.failClosedReasons.length > 0 || result.candleCount === 0;
+  return {
+    requestedProvider: result.provider === "coinbase-exchange" ? "coinbase" : "binance",
+    resolvedProvider: result.provider,
+    sourceType: result.sourceType,
+    status: failed ? "failed" : result.candleCount < expectedMinCandles ? "degraded" : "ok",
+    latencyMs: null,
+    candleCount: result.candleCount,
+    expectedMinCandles,
+    lastCandleTime: result.lastCandleTime,
+    isFixtureBacked: result.isFixtureBacked,
+    fallbackUsed: false,
+    fallbackReason: null,
+    failClosedReasons: result.failClosedReasons,
+    checkedAt
+  };
+}
+
 function buildConsoleResponse(input: {
   signal: ResearchSignal;
   candles: OhlcvCandle[];
   generatedAt: string;
   currentPrice: number | null;
   dataProvenance: MarketDataProvenance;
+  providerHealth: ProviderHealth;
   includeObservationPreview: boolean;
 }): EventSignalConsoleResponse {
   const recentCandles = input.candles.slice(-RECENT_CANDLE_LIMIT);
@@ -344,6 +396,7 @@ function buildConsoleResponse(input: {
     horizon: input.signal.horizon,
     sourceMode: input.signal.sourceMode,
     dataProvenance: input.dataProvenance,
+    providerHealth: input.providerHealth,
     eventWindow,
     observationCandidate: buildObservationCandidate(input.signal, eventWindow, input.generatedAt),
     currentSignal: input.signal,

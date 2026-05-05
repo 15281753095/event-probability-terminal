@@ -58,6 +58,8 @@ export default async function SignalsConsolePage({ searchParams }: { searchParam
   const displaySymbol = console?.dataProvenance.displaySymbol ?? productFor(filters.symbol, filters.provider);
   const providerLabel = providerDisplayName(console?.dataProvenance.provider ?? filters.provider);
   const vetoItems = [...(console?.confluence.vetoReasons ?? []), ...(console?.currentSignal.failClosedReasons ?? [])];
+  const providerHealth = console?.providerHealth;
+  const chartEmptyReason = providerHealth?.failClosedReasons[0] ?? error ?? null;
 
   return (
     <main className="min-h-screen bg-[#070b12] px-4 py-4 text-slate-100">
@@ -81,6 +83,8 @@ export default async function SignalsConsolePage({ searchParams }: { searchParam
               <SegmentedLinks current={filters} label="Horizon" options={["5m", "10m"]} paramName="horizon" />
               <ProviderLinks current={filters} />
               <HeaderMetric label="Live price" value={formatUsd(console?.eventWindow.currentPrice ?? null, filters.symbol)} strong />
+              <HeaderMetric label="Health" value={displayHealth(providerHealth?.status)} />
+              <HeaderMetric label="Latency" value={formatLatency(providerHealth?.latencyMs ?? null)} />
               <HeaderMetric label="Generated" value={formatTime(console?.meta.generatedAt ?? null)} />
               <Link
                 className="inline-flex min-h-10 items-center border border-cyan-400/60 bg-cyan-400/10 px-3 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/15"
@@ -113,6 +117,7 @@ export default async function SignalsConsolePage({ searchParams }: { searchParam
                 markers={console?.recentMarkers ?? []}
                 sourceMode={filters.sourceMode}
                 sourceType={sourceType}
+                emptyReason={chartEmptyReason ?? undefined}
               />
               {error ? <ErrorBanner message={error} /> : null}
             </section>
@@ -136,6 +141,8 @@ export default async function SignalsConsolePage({ searchParams }: { searchParam
                 <Metric label="Product" value={displaySymbol} />
                 <Metric label="Interval" value={console?.dataProvenance.candleInterval ?? "1m"} />
                 <Metric label="Candle count" value={`${console?.dataProvenance.candleCount ?? 0}`} />
+                <Metric label="Provider health" value={displayHealth(providerHealth?.status)} />
+                <Metric label="Fallback used" value={String(providerHealth?.fallbackUsed ?? false)} />
                 <Metric label="No trading action" value="true" />
               </div>
               <ReasonBlock title="Reasons" items={console?.confluence.reasons ?? []} empty="No directional reason." />
@@ -153,6 +160,23 @@ export default async function SignalsConsolePage({ searchParams }: { searchParam
                 <ProvenanceRow label="isLive" value={String(console?.dataProvenance.isLive ?? false)} />
                 <ProvenanceRow label="fixtureBacked" value={String(console?.dataProvenance.isFixtureBacked ?? false)} />
               </div>
+            </section>
+
+            <section className="border border-slate-800 bg-[#0b111d] p-4" data-testid="provider-health-card">
+              <h2 className="text-sm font-semibold text-slate-100">Provider Health</h2>
+              <div className="mt-3 grid gap-2 text-xs text-slate-300">
+                <ProvenanceRow label="requestedProvider" value={providerHealth?.requestedProvider ?? providerQueryValue(filters.provider)} />
+                <ProvenanceRow label="resolvedProvider" value={providerHealth?.resolvedProvider ?? console?.dataProvenance.provider ?? filters.provider} />
+                <ProvenanceRow label="sourceType" value={sourceType === "mock" ? "DEV MOCK" : sourceType.toUpperCase()} />
+                <ProvenanceRow label="status" value={displayHealth(providerHealth?.status)} />
+                <ProvenanceRow label="candleCount" value={`${providerHealth?.candleCount ?? console?.dataProvenance.candleCount ?? 0}/${providerHealth?.expectedMinCandles ?? 0}`} />
+                <ProvenanceRow label="lastCandleTime" value={providerHealth?.lastCandleTime ?? "Unavailable"} />
+                <ProvenanceRow label="latencyMs" value={formatLatency(providerHealth?.latencyMs ?? null)} />
+                <ProvenanceRow label="fallbackUsed" value={String(providerHealth?.fallbackUsed ?? false)} />
+                <ProvenanceRow label="fallbackReason" value={providerHealth?.fallbackReason ?? "None"} />
+                <ProvenanceRow label="checkedAt" value={providerHealth?.checkedAt ?? "Unavailable"} />
+              </div>
+              <ReasonBlock title="Fail-closed reasons" items={providerHealth?.failClosedReasons ?? []} empty="Provider data is available." />
             </section>
 
             <details className="border border-slate-800 bg-[#0b111d] p-3" data-testid="advanced-drawer">
@@ -410,6 +434,14 @@ function formatUsd(value: number | null | undefined, symbol: SignalSymbol) {
 
 function formatPercent(value: number) {
   return `${(value * 100).toFixed(1)}%`;
+}
+
+function displayHealth(status: EventSignalConsoleResponse["providerHealth"]["status"] | undefined) {
+  return status ? status.toUpperCase() : "UNKNOWN";
+}
+
+function formatLatency(value: number | null) {
+  return value === null || !Number.isFinite(value) ? "Unavailable" : `${Math.max(0, Math.round(value))}ms`;
 }
 
 function formatTime(value: string | null) {

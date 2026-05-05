@@ -298,6 +298,28 @@ export type LiveMarketDataSource = "binance-spot-public" | "coinbase-exchange";
 
 export type MarketDataProvider = LiveMarketDataSource | "mock" | "fixture";
 
+export type ProviderHealthRequestedProvider = "binance" | "coinbase" | "mock";
+
+export type ProviderHealthResolvedProvider = LiveMarketDataSource | "mock";
+
+export type ProviderHealthStatus = "ok" | "degraded" | "failed";
+
+export interface ProviderHealth {
+  requestedProvider: ProviderHealthRequestedProvider;
+  resolvedProvider: ProviderHealthResolvedProvider;
+  sourceType: DataSourceType;
+  status: ProviderHealthStatus;
+  latencyMs: number | null;
+  candleCount: number;
+  expectedMinCandles: number;
+  lastCandleTime: string | null;
+  isFixtureBacked: boolean;
+  fallbackUsed: boolean;
+  fallbackReason: string | null;
+  failClosedReasons: string[];
+  checkedAt: string;
+}
+
 export type ProviderProduct = "BTCUSDT" | "ETHUSDT" | "BTC-USD" | "ETH-USD";
 
 export interface OhlcvCandle {
@@ -405,6 +427,7 @@ export interface LiveMarketDataResponse {
   warnings: string[];
   failClosedReasons: string[];
   provenance: MarketDataProvenance;
+  providerHealth: ProviderHealth;
 }
 
 export interface SignalFeatureSnapshot {
@@ -639,6 +662,7 @@ export interface EventSignalConsoleResponse {
   horizon: SignalHorizon;
   sourceMode: ResearchSignalSourceMode;
   dataProvenance: MarketDataProvenance;
+  providerHealth: ProviderHealth;
   eventWindow: EventWindow;
   observationCandidate: SignalObservationCandidate;
   currentSignal: ResearchSignal;

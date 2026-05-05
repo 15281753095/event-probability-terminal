@@ -116,6 +116,22 @@ Binance maps those intervals directly to Spot `klines` intervals; Coinbase maps 
 granularities `60`, `300`, `900`, and `3600`. It fails closed on real live failures and does not
 synthesize candles.
 
+RC-16 adds `providerHealth` to `/market-data/live` and `/signals/console`. Check this block first
+when a chart is empty or the page shows degraded data:
+
+- `status`: `ok`, `degraded`, or `failed`
+- `latencyMs`
+- `candleCount` / `expectedMinCandles`
+- `lastCandleTime`
+- `fallbackUsed`
+- `fallbackReason`
+- `failClosedReasons`
+- `checkedAt`
+
+Binance failure can transparently fall back to Coinbase Exchange, but the response must show
+`fallbackUsed=true`, a non-empty `fallbackReason`, and `resolvedProvider=coinbase-exchange`. Smoke
+mock packets must show `DEV MOCK` and must not request real Binance.
+
 ## Start Web
 
 Start the API gateway first so the terminal can load live market data.
@@ -136,9 +152,10 @@ Current pages:
   latest public ticker price, freshness, live candlestick chart, compact prediction card,
   confluence/risk/observation summaries, manual refresh, and collapsed Advanced drawer.
 - `/market-data/live`: live Binance/Coinbase BTC/ETH ticker and real candle terminal with
-  provider, `1m`, `5m`, `15m`, and `1h` interval controls plus data provenance.
+  provider, `1m`, `5m`, `15m`, and `1h` interval controls plus data provenance and provider
+  health diagnostics.
 - `/signals/console`: live-default research signal console with underlying candle provenance,
-  experimental model labeling, and no trading action.
+  provider health diagnostics, experimental model labeling, and no trading action.
 - `/scanner`: legacy Markets Scanner RC-2, moved out of the homepage first screen.
 - `/markets/:id`: Market Detail RC-3 for a normalized fixture-backed market, backed by `GET /markets/:id/detail`.
 

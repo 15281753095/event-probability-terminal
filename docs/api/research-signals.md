@@ -1,6 +1,6 @@
 # Research Signals API
 
-Status: implemented through RC-15 as a fixture-default, live-optional, read-only research signal and
+Status: implemented through RC-16 as a fixture-default, live-optional, read-only research signal and
 confluence slice.
 
 This API publishes BTC/ETH 5m and 10m research signals. Fixture mode remains the default for this
@@ -137,6 +137,18 @@ Live mode returns HTTP 200 with `NO_SIGNAL` when OHLCV evidence is unusable, inc
 The response surfaces `dataQuality.warnings`, `dataQuality.freshness`, and `failClosedReasons` so
 the UI can explain why no directional research bias was emitted. It must not synthesize missing
 candles or turn weak evidence into `LONG`/`SHORT`.
+
+RC-16 adds provider health metadata to the live market-data and event console payloads that feed
+the signal UI. `providerHealth` reports requested provider, resolved provider, `sourceType`, health
+status, latency, candle count versus expected minimum, last candle time, fixture/mock status,
+fallback usage, fallback reason, fail-closed reasons, and `checkedAt`. A successful Binance public
+request is `status: "ok"` and `fallbackUsed: false`. If Binance public data fails and Coinbase
+Exchange supplies the live packet, the response is `status: "degraded"`, `fallbackUsed: true`, and
+`resolvedProvider: "coinbase-exchange"`; it must not be presented as Binance success.
+
+`NO_SIGNAL` remains a model output. It is not by itself a provider failure. Provider failure is
+expressed through `providerHealth.status`, `providerHealth.failClosedReasons`, and data-quality
+fields.
 
 ## Rule Semantics
 

@@ -1,6 +1,6 @@
 # Event Signal Console API
 
-Status: RC-15 Binance public kline terminal, read-only research console. It defaults to live Binance
+Status: RC-16 provider health observability, read-only research console. It defaults to live Binance
 Spot public ticker/candles and keeps fixture data behind explicit dev mode.
 
 This API returns one BTC/ETH short-horizon research console payload. It is not a trading API, not
@@ -48,6 +48,8 @@ Top-level fields:
 - `horizon`: selected `5m` or `10m`
 - `sourceMode`: `live` or `fixture`
 - `dataProvenance`: source, `sourceType`, provider, product id, display symbol, candle interval, candle count, and live/mock/fixture flags
+- `providerHealth`: requested/resolved provider, health status, latency, fallback, candle count,
+  last candle, fail-closed reasons, and checked timestamp
 - `profileName`: active research profile
 - `eventWindow`: 5m/10m observation window metadata, including expected resolution time
 - `observationCandidate`: local observation seed fields for the web UI
@@ -85,8 +87,30 @@ Top-level fields:
 - `isMock`
 - `isFixtureBacked`
 - `provenance`
+- `providerHealth`
 - `warnings`
 - `failClosedReasons`
+
+`providerHealth` fields:
+
+- `requestedProvider`: `binance`, `coinbase`, or `mock`
+- `resolvedProvider`: `binance-spot-public`, `coinbase-exchange`, or `mock`
+- `sourceType`: `live`, `mock`, or `fixture`
+- `status`: `ok`, `degraded`, or `failed`
+- `latencyMs`
+- `candleCount`
+- `expectedMinCandles`
+- `lastCandleTime`
+- `isFixtureBacked`
+- `fallbackUsed`
+- `fallbackReason`
+- `failClosedReasons`
+- `checkedAt`
+
+Fallback must be explicit. When Binance public data fails and Coinbase Exchange supplies the
+packet, `resolvedProvider` changes to `coinbase-exchange`, `fallbackUsed` is `true`, and
+`fallbackReason` preserves the Binance failure. The UI must not silently label that payload as
+Binance success.
 
 Binance Spot public interval mapping:
 
@@ -194,9 +218,13 @@ endpoints. RC-15 does not add a WebSocket client and must not high-frequency pol
 or candles.
 
 CI and smoke tests may run the API gateway with deterministic mocked provider packets. Those packets
-must be marked `sourceType: "mock"`, `isLive: false`, and displayed with a DEV marker. Product
-default mode uses real Binance public data and fails closed when it is unavailable. Coinbase is an
-explicit fallback provider, not a fixture fallback.
+must be marked `sourceType: "mock"`, `isLive: false`, `providerHealth.resolvedProvider: "mock"`,
+and displayed with a DEV marker. Product default mode uses real Binance public data and fails
+closed or transparently falls back to Coinbase Exchange when Binance is unavailable. Coinbase is a
+public live fallback provider, not a fixture fallback.
+
+`NO_SIGNAL` is distinct from provider health. It can be emitted because of momentum, volatility,
+volume, chop, or profile vetoes even when `providerHealth.status` is `ok`.
 
 The homepage shows a compact observation summary by default. The larger browser-local observation
 feedback tools are kept out of the first screen and may be reached only from dev/advanced surfaces.

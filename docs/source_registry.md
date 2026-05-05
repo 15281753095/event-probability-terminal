@@ -55,6 +55,11 @@ This registry is the gate for external-source usage. A new adapter or external d
 - RC-7 research signals are read-only, deterministic, fixture-backed research outputs. They may compute technical indicators and a rule-based directional bias, but they are not fair-probability pricing, investment advice, trade advice, order instructions, wallet actions, or paper broker state.
 - News, X, and macro inputs are context contracts only in RC-7. Default execution must use manual fixtures or no context; it must not require live X, news, macro, vendor credentials, private keys, or user API keys.
 - RC-15 default terminal data source is Binance Spot public market data (`binance-spot-public`) for `BTCUSDT` and `ETHUSDT`. Coinbase Exchange remains an optional fallback provider for `BTC-USD` and `ETH-USD`. The terminal must default to `sourceMode=live`; fixture mode is an explicit dev path and must never be used to fill live chart or ticker failures.
+- RC-16 requires provider health observability for Binance, Coinbase, and deterministic mock flows.
+  Live responses must expose requested provider, resolved provider, source type, status, latency,
+  candle count, last candle time, fallback usage, fallback reason, fail-closed reasons, and checked
+  timestamp. Binance-to-Coinbase fallback must be transparent and must not be labeled as Binance
+  success. `NO_SIGNAL` is a model result, not proof of provider failure.
 - RC-14 separates request mode from actual data provenance: `sourceMode=live` can be exercised in CI with deterministic mocked HTTP/data, but product payloads and UI must expose `sourceType: "mock"` and a DEV marker for those test packets. Only real Coinbase Exchange public responses may be marked `sourceType: "live"` and `isLive: true`.
 - Binance Spot public market data is an approved RC-15 OHLCV/ticker provider. It must not be confused with Binance Wallet Prediction Markets, Binance account APIs, signed endpoints, wallet integration, or trading endpoints.
 - Coinbase Advanced Trade candles are not the RC-8 default because the public endpoint overview and specific candles page currently disagree about whether Bearer-token authorization is required.
