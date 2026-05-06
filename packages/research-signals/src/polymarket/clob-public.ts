@@ -26,7 +26,7 @@ export async function fetchPolymarketMidpoint(
   const url = new URL("/midpoint", options.clobBaseUrl ?? POLYMARKET_CLOB_PUBLIC_BASE_URL);
   url.searchParams.set("token_id", tokenId);
   const payload = await fetchJson<Record<string, unknown>>(url, options);
-  return numberValue(payload.mid ?? payload.midpoint) ?? null;
+  return numberValue(payload.mid_price ?? payload.mid ?? payload.midpoint) ?? null;
 }
 
 export async function fetchPolymarketSpread(
@@ -75,6 +75,8 @@ export async function buildEventMarketOdds(
   let noMidpoint: number | null = null;
   let yesSpread: number | null = null;
   let noSpread: number | null = null;
+  let yesPublicPrice: number | null = null;
+  let noPublicPrice: number | null = null;
 
   if (tokenIdYes && tokenIdNo && options.sourceType !== "mock" && options.sourceType !== "fixture") {
     try {
@@ -86,6 +88,10 @@ export async function buildEventMarketOdds(
         fetchPolymarketSpread(tokenIdYes, options),
         fetchPolymarketSpread(tokenIdNo, options)
       ]);
+      [yesPublicPrice, noPublicPrice] = await Promise.all([
+        fetchPolymarketPrice(tokenIdYes, "BUY", options).catch(() => null),
+        fetchPolymarketPrice(tokenIdNo, "BUY", options).catch(() => null)
+      ]);
     } catch (error) {
       failClosedReasons.push(error instanceof Error ? `CLOB public odds unavailable: ${error.message}` : "CLOB public odds unavailable.");
     }
@@ -95,8 +101,8 @@ export async function buildEventMarketOdds(
   const bestAskYes = bestAsk(yesBook);
   const bestBidNo = bestBid(noBook);
   const bestAskNo = bestAsk(noBook);
-  const yesPrice = firstNumber(yesMidpoint, midpointFromBook(yesBook), yesOutcomePrice);
-  const noPrice = firstNumber(noMidpoint, midpointFromBook(noBook), noOutcomePrice);
+  const yesPrice = firstNumber(yesMidpoint, midpointFromBook(yesBook), yesPublicPrice, yesOutcomePrice);
+  const noPrice = firstNumber(noMidpoint, midpointFromBook(noBook), noPublicPrice, noOutcomePrice);
   const spread = firstNumber(maxSpread(yesSpread, noSpread), spreadFromBook(yesBook), spreadFromBook(noBook), candidate.liquidity !== undefined ? null : undefined);
   const liquidityStatus = liquidityStatusFor({ yesBook, noBook, spread, liquidity: candidate.liquidity });
 
@@ -132,16 +138,19 @@ export async function buildEventMarketOdds(
 }
 
 function bestBid(book: PolymarketOrderBook | undefined): number | undefined {
-  return bestLevel(book?.bids);
+  return bestLevel(book?.bids, "bid");
 }
 
 function bestAsk(book: PolymarketOrderBook | undefined): number | undefined {
-  return bestLevel(book?.asks);
+  return bestLevel(book?.asks, "ask");
 }
 
-function bestLevel(levels: PolymarketOrderBook["bids"]): number | undefined {
+function bestLevel(levels: PolymarketOrderBook["bids"], side: "bid" | "ask"): number | undefined {
   const values = (levels ?? []).map((level) => numberValue(level.price)).filter((value): value is number => value !== undefined);
-  return values.length ? Math.max(...values) : undefined;
+  if (!values.length) {
+    return undefined;
+  }
+  return side === "bid" ? Math.max(...values) : Math.min(...values);
 }
 
 function midpointFromBook(book: PolymarketOrderBook | undefined): number | null {

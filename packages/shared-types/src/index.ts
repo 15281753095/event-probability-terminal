@@ -406,7 +406,7 @@ export interface EventMarketCandidate {
   conditionId?: string | undefined;
   questionId?: string | undefined;
   resolutionSource?: string | undefined;
-  rawSource: "gamma";
+  rawSource: "gamma" | "mock" | "fixture";
 }
 
 export interface EventMarketOdds {
