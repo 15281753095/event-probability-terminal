@@ -1,7 +1,9 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type {
   DataSourceType,
   EventSignalConsoleResponse,
+  FairValueSignalResponse,
   LiveMarketDataSource,
   PolymarketActiveMarketsResponse,
   ResearchSignalSourceMode,
@@ -43,13 +45,19 @@ type PolymarketLoadState = {
   error?: string;
 };
 
+type FairValueLoadState = {
+  data?: FairValueSignalResponse;
+  error?: string;
+};
+
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
 export default async function SignalsConsolePage({ searchParams }: { searchParams?: SearchParams }) {
   const filters = parseFilters((await searchParams) ?? {});
-  const [{ console, error }, polymarketState] = await Promise.all([
+  const [{ console, error }, polymarketState, fairValueState] = await Promise.all([
     loadEventSignalConsole(filters),
-    loadPolymarketActiveMarkets(filters.symbol)
+    loadPolymarketActiveMarkets(filters.symbol),
+    loadFairValueSignals(filters.symbol)
   ]);
   const sourceType: DataSourceType =
     console?.dataProvenance.sourceType ?? (filters.sourceMode === "fixture" ? "fixture" : "live");
@@ -130,11 +138,49 @@ export default async function SignalsConsolePage({ searchParams }: { searchParam
               <ConsoleCandlestickChart
                 candles={console?.recentCandles ?? []}
                 markers={console?.recentMarkers ?? []}
+                fairValueMarkers={fairValueState.data?.markers ?? []}
                 sourceMode={filters.sourceMode}
                 sourceType={sourceType}
                 emptyReason={chartEmptyReason ?? undefined}
               />
               {error ? <ErrorBanner message={error} /> : null}
+            </section>
+
+            <section className="border border-slate-800 bg-[#0b111d] p-4" data-testid="fair-value-research-signals">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-100">Fair Value Research Signals</h2>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <SafetyBadge>Research Only</SafetyBadge>
+                    <SafetyBadge>Not Trading Advice</SafetyBadge>
+                    <SafetyBadge>No Auto Execution</SafetyBadge>
+                    {fairValueState.data?.sourceType === "mock" ? <SafetyBadge>DEV MOCK</SafetyBadge> : null}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs md:min-w-[320px]">
+                  <Metric label="selected symbol" value={filters.symbol} />
+                  <Metric label="checkedAt" value={formatTime(fairValueState.data?.checkedAt ?? null)} />
+                  <Metric label="snapshots" value={`${fairValueState.data?.snapshots.length ?? 0}`} />
+                  <Metric label="rejected" value={`${fairValueState.data?.rejectedMarkets.length ?? 0}`} />
+                </div>
+              </div>
+              {fairValueState.error ? <ErrorBanner message={fairValueState.error} /> : null}
+              {fairValueState.data && fairValueState.data.snapshots.length === 0 ? (
+                <div className="mt-3 border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-100" data-testid="no-eligible-live-market">
+                  No eligible live market.
+                </div>
+              ) : null}
+              <FairValueTable data={fairValueState.data} />
+              <ReasonBlock
+                title="Rejected reason"
+                items={fairValueState.data?.rejectedMarkets.flatMap((market) => market.rejectReasons.map((reason) => `${market.marketId}: ${reason}`)) ?? []}
+                empty="No rejected market reported."
+              />
+              <ReasonBlock
+                title="Assumptions"
+                items={fairValueState.data?.snapshots.at(0)?.assumptions ?? []}
+                empty="No fair value assumptions available."
+              />
             </section>
 
             <section className="grid gap-3 lg:grid-cols-3">
@@ -295,6 +341,20 @@ async function loadPolymarketActiveMarkets(symbol: SignalSymbol): Promise<Polyma
   }
 }
 
+async function loadFairValueSignals(symbol: SignalSymbol): Promise<FairValueLoadState> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/signals/fair-value?symbol=${symbol}`, {
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      return { error: await apiErrorMessage(response) };
+    }
+    return { data: (await response.json()) as FairValueSignalResponse };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Fair value signals API request failed." };
+  }
+}
+
 function parseFilters(params: Awaited<SearchParams>): SignalsConsoleFilters {
   return {
     symbol: params.symbol === "ETH" ? "ETH" : "BTC",
@@ -437,6 +497,78 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
+function SafetyBadge({ children }: { children: string }) {
+  return (
+    <span className="border border-amber-400/50 bg-amber-400/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-100">
+      {children}
+    </span>
+  );
+}
+
+function FairValueTable({ data }: { data: FairValueSignalResponse | undefined }) {
+  const markers = data?.markers ?? [];
+  if (!data) {
+    return <div className="mt-3 border border-slate-800 bg-slate-950 p-3 text-xs text-slate-500">Fair value signals unavailable.</div>;
+  }
+  return (
+    <div className="mt-3 overflow-x-auto" data-testid="fair-value-marker-summary">
+      <table className="w-full min-w-[980px] border-collapse text-left text-xs">
+        <thead className="bg-slate-950 text-[11px] uppercase tracking-[0.12em] text-slate-500">
+          <tr>
+            <Th>Signal side</Th>
+            <Th>Market question</Th>
+            <Th>Model Yes</Th>
+            <Th>Market Yes</Th>
+            <Th>Edge Yes</Th>
+            <Th>Edge No</Th>
+            <Th>Confidence</Th>
+            <Th>Reason</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {markers.length ? markers.map((marker) => {
+            const snapshot = data.snapshots.find((item) => item.marketId === marker.marketId);
+            const rejected = data.rejectedMarkets.find((item) => item.marketId === marker.marketId);
+            return (
+              <tr className="border-t border-slate-800 align-top text-slate-300" key={marker.id}>
+                <Td>{displayFairValueSide(marker.side)}</Td>
+                <Td>
+                  <div className="max-w-[320px] font-semibold text-slate-100">
+                    {snapshot?.question ?? rejected?.question ?? marker.marketId}
+                  </div>
+                  <div className="mt-1 text-slate-500">{data.sourceType === "mock" ? "DEV MOCK" : data.sourceType}</div>
+                </Td>
+                <Td>{formatNullablePercent(snapshot?.modelProbabilityYes ?? marker.modelProbabilityYes)}</Td>
+                <Td>{formatNullablePercent(snapshot?.marketProbabilityYes ?? marker.marketProbabilityYes)}</Td>
+                <Td>{formatNullablePercent(snapshot?.edgeYes ?? (marker.side === "LONG_YES" ? marker.edge : null))}</Td>
+                <Td>{formatNullablePercent(snapshot?.edgeNo ?? (marker.side === "LONG_NO" ? marker.edge : null))}</Td>
+                <Td>{formatPercent(marker.confidence)}</Td>
+                <Td>
+                  <div className="max-w-[300px] text-slate-400">{marker.reason}</div>
+                  {rejected?.rejectReasons.length ? (
+                    <div className="mt-1 text-amber-200">{rejected.rejectReasons[0]}</div>
+                  ) : null}
+                </Td>
+              </tr>
+            );
+          }) : (
+            <tr>
+              <Td>No fair value marker</Td>
+              <Td>No eligible or rejected market marker was returned.</Td>
+              <Td>Unavailable</Td>
+              <Td>Unavailable</Td>
+              <Td>Unavailable</Td>
+              <Td>Unavailable</Td>
+              <Td>Unavailable</Td>
+              <Td>Research endpoint returned no marker.</Td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function ReasonBlock({ title, items, empty }: { title: string; items: string[]; empty: string }) {
   return (
     <section className="mt-4">
@@ -454,6 +586,14 @@ function ReasonBlock({ title, items, empty }: { title: string; items: string[]; 
   );
 }
 
+function Th({ children }: { children: string }) {
+  return <th className="border border-slate-800 px-2 py-2">{children}</th>;
+}
+
+function Td({ children }: { children: ReactNode }) {
+  return <td className="border border-slate-800 px-2 py-2">{children}</td>;
+}
+
 function ProvenanceRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3 border border-slate-800 bg-slate-950 px-2 py-1.5">
@@ -469,6 +609,10 @@ function ErrorBanner({ message }: { message: string }) {
 
 function displayDirection(direction: SignalDirection) {
   return direction === "LONG" ? "LONG BIAS" : direction === "SHORT" ? "SHORT BIAS" : "NO_SIGNAL";
+}
+
+function displayFairValueSide(side: FairValueSignalResponse["markers"][number]["side"]) {
+  return side === "LONG_YES" ? "Long YES" : side === "LONG_NO" ? "Long NO" : side === "REJECTED" ? "Rejected" : "No signal";
 }
 
 function directionClass(direction: SignalDirection) {
@@ -508,6 +652,10 @@ function formatUsd(value: number | null | undefined, symbol: SignalSymbol) {
 
 function formatPercent(value: number) {
   return `${(value * 100).toFixed(1)}%`;
+}
+
+function formatNullablePercent(value: number | null | undefined) {
+  return value === null || value === undefined || !Number.isFinite(value) ? "Unavailable" : formatPercent(value);
 }
 
 function displayHealth(status: EventSignalConsoleResponse["providerHealth"]["status"] | undefined) {

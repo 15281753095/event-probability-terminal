@@ -41,7 +41,7 @@ test("home renders the real-data terminal and labels smoke mock data as DEV", as
   await expect(page.getByTestId("advanced-drawer")).not.toHaveAttribute("open", "");
   await expect(page.getByText("Markets Scanner RC-2")).toHaveCount(0);
   await expect(page.getByText("DEV FIXTURE", { exact: true })).toHaveCount(0);
-  await expect(page.getByText(/BUY|SELL|ENTRY|LEVERAGE|POSITION SIZE/i)).toHaveCount(0);
+  await expect(page.getByText(/BUY NOW|SELL NOW|TRADE NOW|ENTRY|LEVERAGE|POSITION SIZE/i)).toHaveCount(0);
 
   await page.getByRole("link", { name: "ETH" }).click();
   await expect(page).toHaveURL(/symbol=ETH/);
@@ -68,6 +68,7 @@ test("live market data page supports BTC ETH and candle intervals", async ({ pag
   await expect(page.getByRole("link", { name: "15m", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "1h", exact: true })).toBeVisible();
   await expect(page.getByTestId("event-signal-chart")).toBeVisible();
+  await expect(page.getByTestId("live-fair-value-summary")).toContainText("Research Only");
   await expect(page.getByTestId("provider-health-card")).toContainText("DEV MOCK");
   await expect(page.getByTestId("provider-health-card")).toContainText("fallbackUsed");
   await expect(page.getByTestId("provider-health-card").getByText("sourceType")).toBeVisible();
@@ -101,8 +102,15 @@ test("signals console defaults to live mode and marks experimental output", asyn
   await expect(page.getByTestId("linked-polymarket-candidates")).toContainText("Linked Polymarket Candidates");
   await expect(page.getByTestId("linked-polymarket-candidates")).toContainText("drives signal");
   await expect(page.getByTestId("event-signal-chart")).toBeVisible();
+  await expect(page.getByTestId("console-candlestick-chart")).toBeVisible();
+  await expect(page.getByTestId("fair-value-research-signals")).toContainText("Fair Value Research Signals");
+  await expect(page.getByTestId("fair-value-research-signals")).toContainText("Research Only");
+  await expect(page.getByTestId("fair-value-research-signals")).toContainText("Not Trading Advice");
+  await expect(page.getByTestId("fair-value-research-signals")).toContainText("DEV MOCK");
+  await expect(page.getByTestId("fair-value-marker-summary")).toBeVisible();
+  await expect(page.getByTestId("strategy-marker-layer")).toContainText(/YES|NO|Rejected|No signal/);
   await expect(page.getByTestId("advanced-drawer")).not.toHaveAttribute("open", "");
-  await expect(page.getByText(/BUY|SELL|ENTRY|LEVERAGE|POSITION SIZE/i)).toHaveCount(0);
+  await expect(page.getByText(/BUY NOW|SELL NOW|TRADE NOW|ENTRY|LEVERAGE|POSITION SIZE/i)).toHaveCount(0);
 });
 
 test("polymarket active markets page shows read-only mock odds", async ({ page }) => {
@@ -121,7 +129,7 @@ test("polymarket active markets page shows read-only mock odds", async ({ page }
   await expect(page.getByTestId("polymarket-market-row").first()).toContainText(/eligible|data insufficient/);
   await expect(page.getByRole("columnheader", { name: "Yes price" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "No price" })).toBeVisible();
-  await expect(page.getByText(/BUY|SELL|ENTRY|LEVERAGE|POSITION SIZE/i)).toHaveCount(0);
+  await expect(page.getByText(/BUY NOW|SELL NOW|TRADE NOW|ENTRY|LEVERAGE|POSITION SIZE/i)).toHaveCount(0);
 });
 
 test("old scanner is available only on the scanner route", async ({ page }) => {

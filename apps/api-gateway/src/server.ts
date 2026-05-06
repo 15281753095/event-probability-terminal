@@ -4,6 +4,7 @@ import {
   buildFixtureEventSignalConsole,
   BinanceSpotRealtimeClient,
   CONSOLE_CANDLE_LOOKBACK,
+  buildFairValueSignalResponse,
   emptyFailClosedBinanceMarketData,
   emptyFailClosedLiveMarketData,
   fetchBinanceSpotMarketData,
@@ -23,6 +24,7 @@ import type {
   Candle,
   EventMarket,
   EventSignalConsoleResponse,
+  FairValueSignalResponse,
   FairValueSnapshot,
   LiveMarketDataResponse,
   LiveMarketDataSource,
@@ -542,6 +544,59 @@ export function buildServer(options: BuildServerOptions = {}) {
     }) satisfies ResearchSignalsResponse;
   });
 
+  server.get<{ Querystring: { symbol?: string } }>("/signals/fair-value", async (request, reply) => {
+    const generatedAt = now();
+    const symbol = parsePolymarketSymbolFilter(request.query.symbol);
+    if (request.query.symbol && !symbol) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Fair value signals currently support symbol=BTC, symbol=ETH, or symbol=ALL only.",
+          generatedAt
+        })
+      );
+    }
+
+    const resolvedSymbol = symbol ?? "BTC";
+    const marketData = await loadFairValueUnderlyingData(resolvedSymbol, generatedAt, liveMarketDataFetcher);
+    const realtimeUnderlyingPrice = Object.fromEntries(
+      Object.entries(marketData).map(([itemSymbol, data]) => [itemSymbol, data.latestPrice])
+    ) as Partial<Record<SignalSymbol, number | null>>;
+    const activeMarkets = await findCryptoEventMarkets({
+      symbol: resolvedSymbol,
+      limit: 20,
+      now,
+      realtimeUnderlyingPrice,
+      ...(process.env.POLYMARKET_GAMMA_BASE_URL ? { gammaBaseUrl: process.env.POLYMARKET_GAMMA_BASE_URL } : {}),
+      ...(process.env.POLYMARKET_CLOB_BASE_URL ? { clobBaseUrl: process.env.POLYMARKET_CLOB_BASE_URL } : {}),
+      useMock:
+        process.env.EPT_FAIR_VALUE_MOCK === "true" ||
+        process.env.EPT_LIVE_MARKET_DATA_MOCK === "true" ||
+        process.env.EPT_POLYMARKET_MOCK === "true"
+    });
+    return buildFairValueSignalResponse({
+      symbol: resolvedSymbol,
+      checkedAt: generatedAt,
+      sourceType: activeMarkets.sourceType,
+      providerHealth: activeMarkets.providerHealth,
+      markets: activeMarkets.markets,
+      candlesBySymbol: mapValues(marketData, (data) => data.candles),
+      currentPriceBySymbol: mapValues(marketData, (data) => data.latestPrice),
+      horizonSeconds: 5 * 60,
+      feesBps: 0,
+      slippageBps: 25,
+      minEdgeBps: 250,
+      maxSpread: 0.08,
+      minLiquidityStatus: "ok",
+      warnings: [
+        ...activeMarkets.warnings,
+        ...Object.values(marketData).flatMap((data) => data.warnings),
+        ...Object.values(marketData).flatMap((data) => data.failClosedReasons)
+      ]
+    }) satisfies FairValueSignalResponse;
+  });
+
   server.get<{ Querystring: { symbol?: string; horizon?: string; sourceMode?: string; includeBacktest?: string; includeObservationPreview?: string; profile?: string; provider?: string } }>("/signals/console", async (request, reply) => {
     const generatedAt = now();
     const symbol = parseSignalSymbol(request.query.symbol) ?? "BTC";
@@ -660,6 +715,57 @@ async function loadUnderlyingPrices(
     }
   }));
   return Object.fromEntries(entries) as Partial<Record<SignalSymbol, number | null>>;
+}
+
+async function loadFairValueUnderlyingData(
+  symbol: SignalSymbol | "ALL",
+  requestedAt: string,
+  fetcher: LiveMarketDataFetcher
+): Promise<Partial<Record<SignalSymbol, LiveMarketDataResponse>>> {
+  const symbols: SignalSymbol[] = symbol === "ALL" ? ["BTC", "ETH"] : [symbol];
+  const entries = await Promise.all(symbols.map(async (item) => {
+    try {
+      const response = await fetcher({
+        symbol: item,
+        interval: "1m",
+        lookback: CONSOLE_CANDLE_LOOKBACK,
+        sourceMode: "live",
+        provider: "binance-spot-public",
+        requestedAt
+      });
+      return [item, response] as const;
+    } catch (error) {
+      return [item, addProviderHealth(emptyFailClosedBinanceMarketData({
+        symbol: item,
+        interval: "1m",
+        lookback: CONSOLE_CANDLE_LOOKBACK,
+        sourceMode: "live",
+        provider: "binance-spot-public",
+        requestedAt
+      }, error instanceof Error
+        ? `Live data unavailable: fair-value Binance market-data adapter failed: ${error.message}`
+        : "Live data unavailable: fair-value Binance market-data adapter failed with an unknown error."
+      ), {
+        symbol: item,
+        interval: "1m",
+        lookback: CONSOLE_CANDLE_LOOKBACK,
+        sourceMode: "live",
+        provider: "binance-spot-public",
+        requestedAt
+      }, {
+        latencyMs: null
+      })] as const;
+    }
+  }));
+  return Object.fromEntries(entries) as Partial<Record<SignalSymbol, LiveMarketDataResponse>>;
+}
+
+function mapValues<T, U>(
+  input: Partial<Record<SignalSymbol, T>>,
+  mapper: (value: T) => U
+): Partial<Record<SignalSymbol, U>> {
+  const entries = (Object.entries(input) as Array<[SignalSymbol, T]>).map(([key, value]) => [key, mapper(value)] as const);
+  return Object.fromEntries(entries) as Partial<Record<SignalSymbol, U>>;
 }
 
 function realtimeDisplaySymbol(symbol: SignalSymbol): RealtimePriceSymbol {

@@ -32,7 +32,8 @@ export type ApiResponseKind =
   | "research_signal"
   | "event_signal_console"
   | "live_market_data"
-  | "polymarket_active_markets";
+  | "polymarket_active_markets"
+  | "fair_value_signal";
 
 export type ApiResponseStatus = "ok" | "not_found" | "unsupported" | "fail_closed";
 
@@ -453,6 +454,82 @@ export interface PolymarketActiveMarketsResponse {
   markets: BoundEventMarket[];
   warnings: string[];
   failClosedReasons: string[];
+}
+
+export type FairValueComparator = "ABOVE" | "BELOW" | "HIT";
+
+export type FairValueResolutionRuleConfidence = "high" | "medium" | "low" | "unknown";
+
+export type FairValueSignalSide = "LONG_YES" | "LONG_NO" | "NO_SIGNAL" | "REJECTED";
+
+export interface FairValueMarketEligibility {
+  eligible: boolean;
+  rejectReasons: string[];
+  extracted: {
+    thresholdPrice?: number | undefined;
+    comparator?: FairValueComparator | undefined;
+    expiryTime?: string | undefined;
+    underlyingSymbol?: RealtimePriceSymbol | undefined;
+    resolutionRuleConfidence: FairValueResolutionRuleConfidence;
+  };
+}
+
+export interface FairProbabilitySnapshot {
+  symbol: SignalSymbol;
+  marketId: string;
+  question: string;
+  modelProbabilityYes: number | null;
+  marketProbabilityYes: number | null;
+  edgeYes: number | null;
+  edgeNo: number | null;
+  fairYesPrice: number | null;
+  fairNoPrice: number | null;
+  marketYesPrice: number | null;
+  marketNoPrice: number | null;
+  spread: number | null;
+  confidence: number;
+  method: "realized-vol-terminal-probability-v1";
+  assumptions: string[];
+  warnings: string[];
+  rejectReasons: string[];
+  isResearchOnly: true;
+  checkedAt: string;
+}
+
+export interface FairValueSignalMarker {
+  id: string;
+  symbol: SignalSymbol;
+  marketId: string;
+  time: string;
+  price: number;
+  side: FairValueSignalSide;
+  label: string;
+  reason: string;
+  confidence: number;
+  modelProbabilityYes: number | null;
+  marketProbabilityYes: number | null;
+  edge: number | null;
+  isResearchOnly: true;
+}
+
+export interface FairValueRejectedMarket {
+  symbol: SignalSymbol;
+  marketId: string;
+  question: string;
+  rejectReasons: string[];
+  eligibility: FairValueMarketEligibility;
+}
+
+export interface FairValueSignalResponse {
+  symbol: SignalSymbol | "ALL";
+  checkedAt: string;
+  sourceType: DataSourceType;
+  providerHealth: ProviderHealth;
+  snapshots: FairProbabilitySnapshot[];
+  markers: FairValueSignalMarker[];
+  rejectedMarkets: FairValueRejectedMarket[];
+  warnings: string[];
+  isResearchOnly: true;
 }
 
 export type BaselineResearchDirection = "UP" | "DOWN" | "NO_SIGNAL";

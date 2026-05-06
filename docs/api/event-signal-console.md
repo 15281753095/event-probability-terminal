@@ -1,10 +1,11 @@
 # Event Signal Console API
 
-Status: RC-16 provider health observability, read-only research console. It defaults to live Binance
-Spot public ticker/candles and keeps fixture data behind explicit dev mode.
+Status: RC-19 read-only research console with provider health and fair-value chart markers. It
+defaults to live Binance Spot public ticker/candles and keeps fixture/mock data explicitly labeled.
 
 This API returns one BTC/ETH short-horizon research console payload. It is not a trading API, not
-investment advice, not a fair-probability pricing model, and not an order-generation system.
+investment advice, and not an execution system. The RC-19 fair-value marker surface is a
+research-only probability comparison for eligible BTC/ETH price-threshold markets.
 
 ## Endpoint
 
@@ -24,6 +25,9 @@ GET /market-data/realtime?symbol=ETH&provider=binance
 GET /markets/polymarket/active?symbol=BTC
 GET /markets/polymarket/active?symbol=ETH
 GET /markets/polymarket/active?symbol=ALL
+GET /signals/fair-value?symbol=BTC
+GET /signals/fair-value?symbol=ETH
+GET /signals/fair-value?symbol=ALL
 ```
 
 Supported query filters:
@@ -38,6 +42,7 @@ Supported query filters:
 - `/market-data/live interval`: `1m`, `5m`, `15m`, or `1h`; default `1m`
 - `/market-data/realtime provider`: `binance` only; API Gateway uses Binance Spot public WebSocket internally
 - `/markets/polymarket/active symbol`: `BTC`, `ETH`, or `ALL`; default `ALL`
+- `/signals/fair-value symbol`: `BTC`, `ETH`, or `ALL`; default `BTC`
 
 Unsupported filters return a typed `ept-api-v1` error with:
 
@@ -153,6 +158,24 @@ adds fail-closed reasons and may use Gamma `outcomePrices` only as a clearly mar
 This endpoint is read-only public market data. It does not expose wallet, private key, API key,
 secret, passphrase, balance, position, order placement, cancellation, or trade execution fields.
 
+`GET /signals/fair-value` returns research-only fair-value snapshots and chart markers:
+
+- `snapshots`: eligible market calculations only
+- `markers`: chart annotations with `LONG_YES`, `LONG_NO`, `NO_SIGNAL`, or `REJECTED`
+- `rejectedMarkets`: fail-closed markets with reasons and extracted eligibility fields
+- `warnings`
+- `isResearchOnly: true`
+
+The model is `realized-vol-terminal-probability-v1`: it estimates terminal probability from recent
+closed-candle realized volatility and an extracted threshold. The endpoint first applies a strict
+eligibility gate. Missing threshold, ambiguous BTC/ETH binding, missing Yes/No tokens, missing
+odds, excessive spread, unknown liquidity, missing/unclear resolution rule, expired markets, and
+path-dependent `hit/reach/trade above` markets are rejected before any edge is computed.
+
+If there is no eligible live market, the endpoint returns empty `snapshots` and explicit rejected
+reasons or warnings. It must not invent a live marker. Mock markers are for UI/CI only and must be
+shown as `DEV MOCK`.
+
 Binance Spot public interval mapping:
 
 - `1m` -> `interval=1m`
@@ -257,6 +280,10 @@ The Web terminal can manually refresh `/signals/console` from the browser. It is
 only and does not place orders, connect accounts, read assets, create API keys, or call signed
 endpoints. RC-15 does not add a WebSocket client and must not high-frequency poll public REST ticker
 or candles.
+
+RC-19 renders fair-value markers on the K-line chart and a stable marker summary below the chart for
+smoke tests. Marker labels such as `Long YES`, `Long NO`, `No signal`, and `Rejected` are research
+labels only. The console must show `Research Only`, `Not Trading Advice`, and `No Auto Execution`.
 
 CI and smoke tests may run the API gateway with deterministic mocked provider packets. Those packets
 must be marked `sourceType: "mock"`, `isLive: false`, `providerHealth.resolvedProvider: "mock"`,

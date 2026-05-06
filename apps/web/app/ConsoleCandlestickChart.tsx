@@ -12,17 +12,18 @@ import {
   type SeriesMarker,
   type UTCTimestamp
 } from "lightweight-charts";
-import type { DataSourceType, EventSignalConsoleResponse, SignalMarker } from "@ept/shared-types";
+import type { DataSourceType, EventSignalConsoleResponse, FairValueSignalMarker, SignalMarker } from "@ept/shared-types";
 
 type Props = {
   candles: EventSignalConsoleResponse["recentCandles"];
   markers: EventSignalConsoleResponse["recentMarkers"];
+  fairValueMarkers?: FairValueSignalMarker[] | undefined;
   sourceMode?: EventSignalConsoleResponse["sourceMode"];
   sourceType?: DataSourceType;
   emptyReason?: string | undefined;
 };
 
-export function ConsoleCandlestickChart({ candles, markers, sourceMode = "fixture", sourceType = sourceMode, emptyReason }: Props) {
+export function ConsoleCandlestickChart({ candles, markers, fairValueMarkers = [], sourceMode = "fixture", sourceType = sourceMode, emptyReason }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const unavailable = sourceType === "live" && candles.length === 0;
 
@@ -82,10 +83,14 @@ export function ConsoleCandlestickChart({ candles, markers, sourceMode = "fixtur
         bottom: 0
       }
     });
-    const markerApi = createSeriesMarkers(candleSeries, markers.map(toSeriesMarker), {
+    const chartMarkers = [
+      ...markers.map(toSeriesMarker),
+      ...fairValueMarkers.map(toFairValueSeriesMarker)
+    ];
+    const markerApi = createSeriesMarkers(candleSeries, chartMarkers, {
       autoScale: true
     });
-    markerApi.setMarkers(markers.map(toSeriesMarker));
+    markerApi.setMarkers(chartMarkers);
     chart.timeScale().fitContent();
 
     const resizeObserver = new ResizeObserver(() => resizeChart(chart, container));
@@ -96,7 +101,7 @@ export function ConsoleCandlestickChart({ candles, markers, sourceMode = "fixtur
       resizeObserver.disconnect();
       chart.remove();
     };
-  }, [candles, markers, unavailable]);
+  }, [candles, markers, fairValueMarkers, unavailable]);
 
   if (candles.length === 0 || unavailable) {
     return (
@@ -116,6 +121,25 @@ export function ConsoleCandlestickChart({ candles, markers, sourceMode = "fixtur
         ref={containerRef}
         style={{ minHeight: 360 }}
       />
+      <div className="mt-3 grid gap-2" data-testid="strategy-marker-layer">
+        {fairValueMarkers.length ? (
+          fairValueMarkers.slice(0, 8).map((marker) => (
+            <div
+              className="flex flex-wrap items-center justify-between gap-2 border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-slate-300"
+              data-testid={`fair-value-marker-${marker.side}`}
+              key={marker.id}
+            >
+              <span className={fairValueTone(marker.side)}>{marker.label}</span>
+              <span className="max-w-[760px] truncate text-slate-400">{marker.reason}</span>
+              <span className="text-slate-500">{formatMarkerTime(marker.time)}</span>
+            </div>
+          ))
+        ) : (
+          <div className="border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-slate-500">
+            No fair value markers.
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -152,6 +176,20 @@ function toSeriesMarker(marker: SignalMarker): SeriesMarker<UTCTimestamp> {
   };
 }
 
+function toFairValueSeriesMarker(marker: FairValueSignalMarker): SeriesMarker<UTCTimestamp> {
+  const longYes = marker.side === "LONG_YES";
+  const longNo = marker.side === "LONG_NO";
+  const rejected = marker.side === "REJECTED";
+  return {
+    time: toUtcTimestamp(marker.time),
+    position: longYes ? "belowBar" : longNo || rejected ? "aboveBar" : "inBar",
+    shape: longYes ? "arrowUp" : longNo ? "arrowDown" : "circle",
+    color: longYes ? "#22c55e" : longNo ? "#f43f5e" : rejected ? "#f59e0b" : "#94a3b8",
+    text: marker.label,
+    size: 1
+  };
+}
+
 function toUtcTimestamp(value: string): UTCTimestamp {
   return Math.floor(Date.parse(value) / 1000) as UTCTimestamp;
 }
@@ -161,4 +199,22 @@ function resizeChart(chart: IChartApi, container: HTMLDivElement) {
     width: Math.max(320, container.clientWidth),
     height: 360
   });
+}
+
+function fairValueTone(side: FairValueSignalMarker["side"]): string {
+  if (side === "LONG_YES") {
+    return "font-semibold text-emerald-200";
+  }
+  if (side === "LONG_NO") {
+    return "font-semibold text-rose-200";
+  }
+  if (side === "REJECTED") {
+    return "font-semibold text-amber-200";
+  }
+  return "font-semibold text-slate-200";
+}
+
+function formatMarkerTime(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Unavailable" : date.toISOString().slice(11, 19);
 }

@@ -1,14 +1,15 @@
 # Research Signals API
 
-Status: implemented through RC-17 as a fixture-default, live-optional, read-only research signal and
-confluence slice.
+Status: implemented through RC-19 as fixture/default research signals plus a live/mock
+fair-value chart-marker slice.
 
 This API publishes BTC/ETH 5m and 10m research signals. Fixture mode remains the default for this
 list endpoint. Live mode must be explicitly requested and now defaults to Binance Spot public
 candles. RC-9 adds confluence and
 risk-filter fields to each `ResearchSignal`; the richer console payload is documented separately in
-`docs/api/event-signal-console.md`. This is not a trading API, not investment advice, not a
-fair-probability pricing model, and not an order-generation system.
+`docs/api/event-signal-console.md`. RC-19 adds a separate research-only fair value endpoint for
+eligible BTC/ETH Polymarket price-threshold markets. This is not a trading API, not investment
+advice, and not an execution system.
 
 ## Endpoint
 
@@ -16,6 +17,9 @@ fair-probability pricing model, and not an order-generation system.
 GET /signals/research
 GET /signals/research?symbol=BTC&horizon=5m
 GET /signals/research?symbol=BTC&horizon=5m&sourceMode=live
+GET /signals/fair-value?symbol=BTC
+GET /signals/fair-value?symbol=ETH
+GET /signals/fair-value?symbol=ALL
 ```
 
 Supported query filters:
@@ -23,6 +27,8 @@ Supported query filters:
 - `symbol`: `BTC` or `ETH`
 - `horizon`: `5m` or `10m`
 - `sourceMode`: `fixture` or `live`
+
+For `/signals/fair-value`, supported `symbol` values are `BTC`, `ETH`, and `ALL`.
 
 Unsupported filters return a typed `ept-api-v1` error with:
 
@@ -158,6 +164,42 @@ and spread diagnostics. These market rows are displayed as event-contract contex
 to produce production signals. Missing resolution rules, token IDs, outcomes, or ambiguous BTC/ETH
 binding must mark the market as research-ineligible.
 
+RC-19 adds `/signals/fair-value`. The endpoint combines Binance public underlying candles/current
+price with Polymarket public market odds, but only after `evaluateMarketEligibility` accepts the
+market. The response is `FairValueSignalResponse`:
+
+- `symbol`
+- `checkedAt`
+- `sourceType`
+- `providerHealth`
+- `snapshots`
+- `markers`
+- `rejectedMarkets`
+- `warnings`
+- `isResearchOnly: true`
+
+Each `FairProbabilitySnapshot` includes model probability, market probability, Yes/No edge,
+prices, spread, confidence, method, assumptions, warnings, reject reasons, and
+`isResearchOnly: true`. Each fair-value marker has side `LONG_YES`, `LONG_NO`, `NO_SIGNAL`, or
+`REJECTED`. These side labels are research annotations for chart display and are not instructions
+to execute.
+
+The fair-value v1 method is `realized-vol-terminal-probability-v1`. It uses recent closed-candle
+log-return realized volatility to estimate terminal probability relative to an extracted threshold.
+It ignores jump risk, resolution disputes, and market impact beyond configured buffers. It does not
+claim risk-neutral pricing or profitability.
+
+Eligibility is fail-closed. A market is rejected unless it has a clear BTCUSDT/ETHUSDT binding,
+binary Yes/No tokens, usable Yes/No price or midpoint, acceptable spread, known liquidity status,
+explicit threshold, terminal above/below direction, valid expiry, and sufficiently explicit
+resolution rule. Ambiguous BTC+ETH text, missing threshold, missing resolution rule, unknown
+liquidity, high spread, and path-dependent `hit/reach/trade above` wording are rejected. Long vague
+events such as "Will bitcoin hit $1m before GTA VI?" are out of scope.
+
+When live discovery has no eligible market, `/signals/fair-value` must return empty `snapshots`
+and no fabricated live marker. Deterministic mock fair-value fixtures are allowed only for UI/CI and
+must be labeled `DEV MOCK`.
+
 `NO_SIGNAL` remains a model output. It is not by itself a provider failure. Provider failure is
 expressed through `providerHealth.status`, `providerHealth.failClosedReasons`, and data-quality
 fields.
@@ -218,3 +260,5 @@ by default.
   scaffolds and cannot drive live signals.
 - No Polymarket odds-driven production signal. RC-18 odds binding is read-only context and data
   sufficiency diagnostics only.
+- No forced fair-value calculation for ineligible Polymarket markets. RC-19 chart markers are
+  research-only annotations and must fail closed with rejected reasons.
