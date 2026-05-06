@@ -62,12 +62,14 @@ describe("Polymarket CLOB public odds", () => {
     const odds = await buildEventMarketOdds(candidate, {
       now: () => checkedAt,
       fetcher: fakeFetch({
-        "/book?token_id=yes-token": { bids: [{ price: "0.41", size: "10" }], asks: [{ price: "0.43", size: "12" }] },
-        "/book?token_id=no-token": { bids: [{ price: "0.57", size: "10" }], asks: [{ price: "0.59", size: "12" }] },
-        "/midpoint?token_id=yes-token": { mid: "0.42" },
-        "/midpoint?token_id=no-token": { mid: "0.58" },
+        "/book?token_id=yes-token": { bids: [{ price: "0.40", size: "9" }, { price: "0.41", size: "10" }], asks: [{ price: "0.44", size: "8" }, { price: "0.43", size: "12" }] },
+        "/book?token_id=no-token": { bids: [{ price: "0.56", size: "9" }, { price: "0.57", size: "10" }], asks: [{ price: "0.60", size: "8" }, { price: "0.59", size: "12" }] },
+        "/midpoint?token_id=yes-token": { mid_price: "0.42" },
+        "/midpoint?token_id=no-token": { mid_price: "0.58" },
         "/spread?token_id=yes-token": { spread: "0.02" },
-        "/spread?token_id=no-token": { spread: "0.02" }
+        "/spread?token_id=no-token": { spread: "0.02" },
+        "/price?token_id=yes-token&side=BUY": { price: 0.41 },
+        "/price?token_id=no-token&side=BUY": { price: 0.57 }
       })
     });
 
@@ -88,7 +90,9 @@ describe("Polymarket CLOB public odds", () => {
         "/midpoint?token_id=yes-token": {},
         "/midpoint?token_id=no-token": {},
         "/spread?token_id=yes-token": {},
-        "/spread?token_id=no-token": {}
+        "/spread?token_id=no-token": {},
+        "/price?token_id=yes-token&side=BUY": {},
+        "/price?token_id=no-token&side=BUY": {}
       })
     });
 
