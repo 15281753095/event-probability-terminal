@@ -1,9 +1,16 @@
 import assert from "node:assert/strict";
+import { mkdtempSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, it } from "node:test";
 import {
+  createJsonlResearchStore,
   emptyFailClosedOHLCVResult,
   getResearchSignalFixture,
-  type LiveMarketDataFetchRequest
+  type CaptureRunRecord,
+  type LiveMarketDataFetchRequest,
+  type ReplayResultRecord,
+  type StrategyLabResultRecord
 } from "@ept/research-signals";
 import {
   API_CONTRACT_VERSION,
@@ -27,6 +34,105 @@ import { buildServer } from "../src/server.js";
 const fixedGeneratedAt = "2026-04-23T00:00:00.000Z";
 
 describe("research signals API", () => {
+  it("returns research store status and capture runs without private fields", async () => {
+    const store = createApiTestStore();
+    await store.init();
+    await store.recordCaptureRun(mockCaptureRun());
+    const server = buildServer({ logger: false, now: () => fixedGeneratedAt, researchStore: store });
+    const statusResponse = await server.inject({ method: "GET", url: "/store/status" });
+    const runsResponse = await server.inject({ method: "GET", url: "/capture/runs" });
+
+    assert.equal(statusResponse.statusCode, 200);
+    assert.equal(runsResponse.statusCode, 200);
+    const statusPayload = statusResponse.json<{ counts: Record<string, number>; captureKind: string }>();
+    assert.equal(statusPayload.captureKind, "public-read-only");
+    assert.equal(statusPayload.counts.capture_runs, 1);
+    assertNoPrivateTradingFields(statusResponse.body);
+    assertNoPrivateTradingFields(runsResponse.body);
+
+    await server.close();
+  });
+
+  it("returns stored replay result or a missing warning", async () => {
+    const store = createApiTestStore();
+    await store.init();
+    await store.insertReplayResult(mockReplayResult());
+    const server = buildServer({ logger: false, now: () => fixedGeneratedAt, researchStore: store });
+
+    const storedResponse = await server.inject({
+      method: "GET",
+      url: "/signals/replay/stored?symbol=BTC&window=1w"
+    });
+    assert.equal(storedResponse.statusCode, 200);
+    const storedPayload = storedResponse.json<{ status: string; source: string; storedSampleCount: number }>();
+    assert.equal(storedPayload.status, "ok");
+    assert.equal(storedPayload.source, "stored");
+    assert.equal(storedPayload.storedSampleCount, 0);
+    assertNoPrivateTradingFields(storedResponse.body);
+
+    const missingResponse = await server.inject({
+      method: "GET",
+      url: "/signals/replay/stored?symbol=ETH&window=1w"
+    });
+    assert.equal(missingResponse.statusCode, 200);
+    assert.ok(missingResponse.json<{ warnings: string[] }>().warnings.includes("NO_STORED_REPLAY_RESULT"));
+
+    await server.close();
+  });
+
+  it("returns stored strategy lab result or a missing warning", async () => {
+    const store = createApiTestStore();
+    await store.init();
+    await store.insertStrategyLabResult(mockStrategyLabResult());
+    const server = buildServer({ logger: false, now: () => fixedGeneratedAt, researchStore: store });
+
+    const storedResponse = await server.inject({
+      method: "GET",
+      url: "/strategy-lab/stored?symbol=BTC&window=1w"
+    });
+    assert.equal(storedResponse.statusCode, 200);
+    const storedPayload = storedResponse.json<{ status: string; source: string; latestStoredAt: string }>();
+    assert.equal(storedPayload.status, "ok");
+    assert.equal(storedPayload.source, "stored");
+    assert.equal(storedPayload.latestStoredAt, fixedGeneratedAt);
+    assertNoPrivateTradingFields(storedResponse.body);
+
+    const missingResponse = await server.inject({
+      method: "GET",
+      url: "/strategy-lab/stored?symbol=ETH&window=1w"
+    });
+    assert.equal(missingResponse.statusCode, 200);
+    assert.ok(missingResponse.json<{ warnings: string[] }>().warnings.includes("NO_STORED_STRATEGY_LAB_RESULT"));
+
+    await server.close();
+  });
+
+  it("runs manual capture in mock mode through public capture endpoint", async () => {
+    const previous = process.env.EPT_LIVE_MARKET_DATA_MOCK;
+    process.env.EPT_LIVE_MARKET_DATA_MOCK = "true";
+    const store = createApiTestStore();
+    await store.init();
+    const server = buildServer({ logger: false, now: () => fixedGeneratedAt, researchStore: store });
+    try {
+      const response = await server.inject({
+        method: "POST",
+        url: "/capture/run?job=binance"
+      });
+      assert.equal(response.statusCode, 200);
+      const payload = response.json<{ results: Array<{ sourceType: string; recordsInserted: number }> }>();
+      assert.equal(payload.results[0]?.sourceType, "mock");
+      assert.ok((payload.results[0]?.recordsInserted ?? 0) > 0);
+      assertNoPrivateTradingFields(response.body);
+    } finally {
+      await server.close();
+      if (previous === undefined) {
+        delete process.env.EPT_LIVE_MARKET_DATA_MOCK;
+      } else {
+        process.env.EPT_LIVE_MARKET_DATA_MOCK = previous;
+      }
+    }
+  });
+
   it("returns fixture-backed research signals", async () => {
     const server = buildServer({ logger: false, now: () => fixedGeneratedAt });
     const response = await server.inject({
@@ -917,6 +1023,76 @@ function toLiveCandle(candle: OhlcvCandle, symbol: "BTC" | "ETH"): Candle {
     isFixtureBacked: false,
     isClosed: true
   };
+}
+
+function createApiTestStore() {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "ept-api-store-"));
+  return createJsonlResearchStore({ dirPath: dir });
+}
+
+function mockCaptureRun(): CaptureRunRecord {
+  return {
+    jobName: "binance-candles",
+    status: "success",
+    startedAt: fixedGeneratedAt,
+    finishedAt: "2026-04-23T00:00:01.000Z",
+    durationMs: 1_000,
+    sourceType: "mock",
+    recordsInserted: 1,
+    recordsUpdated: 0,
+    recordsSkipped: 0,
+    errorMessage: null,
+    warningsJson: JSON.stringify([])
+  };
+}
+
+function mockReplayResult(): ReplayResultRecord {
+  return {
+    sourceType: "mock",
+    symbol: "BTC",
+    window: "1w",
+    strategyId: "fair-value-v1",
+    sampleCount: 0,
+    actionableCount: 1,
+    winCount: 0,
+    lossCount: 0,
+    pendingCount: 1,
+    unresolvedCount: 0,
+    rejectedCount: 0,
+    noSignalCount: 0,
+    winRate: null,
+    coverageRate: 1,
+    rejectionRate: 0,
+    averageEdge: 0.04,
+    averageConfidence: 0.3,
+    theoreticalPnl: null,
+    maxDrawdown: null,
+    warningsJson: JSON.stringify(["NO_COMPLETED_REPLAY_SAMPLES"]),
+    checkedAt: fixedGeneratedAt
+  };
+}
+
+function mockStrategyLabResult(): StrategyLabResultRecord {
+  return {
+    sourceType: "mock",
+    symbol: "BTC",
+    window: "1w",
+    strategyId: "fair-value-v1",
+    parameterSetJson: JSON.stringify({ id: "fair-value-v1:i1m" }),
+    score: null,
+    winRate: null,
+    actionableCount: 0,
+    theoreticalPnl: null,
+    maxDrawdown: null,
+    overfitRisk: "unknown",
+    consistencyScore: null,
+    warningsJson: JSON.stringify(["LOW_SAMPLE_SIZE"]),
+    checkedAt: fixedGeneratedAt
+  };
+}
+
+function assertNoPrivateTradingFields(body: string): void {
+  assert.doesNotMatch(body, /privateKey|apiKey|secret|order|cancel|balance|position/i);
 }
 
 function mockLiveMarketData(

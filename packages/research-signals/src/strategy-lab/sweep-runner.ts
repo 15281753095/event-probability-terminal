@@ -21,7 +21,7 @@ import type { RunParameterSweepInput, RunParameterSweepOutput } from "./types.js
 export async function runParameterSweep(input: RunParameterSweepInput): Promise<RunParameterSweepOutput> {
   const checkedAt = input.now?.() ?? new Date().toISOString();
   const warnings: string[] = [
-    "Research only. Not trading advice. No auto execution.",
+    "Research only. Not trading advice. No automated trading action.",
     "Parameter sweep ranks research candidates only; it is not production approval."
   ];
   const maxCombinations = normalizeMaxCombinations(input.maxCombinations, warnings);

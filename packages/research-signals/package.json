@@ -10,7 +10,15 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
     "lint": "echo \"research-signals lint not configured yet\"",
-    "test": "node --import tsx --test tests/*.test.ts"
+    "test": "node --import tsx --test tests/*.test.ts",
+    "capture:snapshot": "tsx src/capture/cli.ts snapshot",
+    "capture:once": "tsx src/capture/cli.ts once",
+    "capture:binance": "tsx src/capture/cli.ts binance",
+    "capture:polymarket": "tsx src/capture/cli.ts polymarket",
+    "capture:fair-value": "tsx src/capture/cli.ts fair-value",
+    "capture:replay": "tsx src/capture/cli.ts replay",
+    "capture:strategy-lab": "tsx src/capture/cli.ts strategy-lab",
+    "store:status": "tsx src/capture/cli.ts status"
   },
   "dependencies": {
     "@ept/shared-types": "workspace:*"

@@ -41,7 +41,7 @@ export async function runSignalReplay(input: RunSignalReplayInput): Promise<Sign
   const window = resolveReplayWindow(input.window, checkedAt);
   const symbols = symbolsFor(input.symbol);
   const warnings: string[] = [
-    "Research only. Not trading advice. No auto execution.",
+    "Research only. Not trading advice. No automated trading action.",
     "Theoretical PnL is a replay assumption, not actual trading profit."
   ];
   const results: ReplayTradeLikeResult[] = [];
@@ -166,7 +166,7 @@ function runMockSignalReplay(input: RunSignalReplayInput, checkedAt: string): Si
   ).map((result, index) => applyMockFairValueParameters(result, input.fairValueParameters, interval, index));
   const warnings = unique([
     "DEV ONLY deterministic mock replay fixture. Not live performance.",
-    "Research only. Not trading advice. No auto execution.",
+    "Research only. Not trading advice. No automated trading action.",
     ...fixtures.flatMap((fixture) => fixture.warnings)
   ]);
   const metrics = computeReplayMetrics({

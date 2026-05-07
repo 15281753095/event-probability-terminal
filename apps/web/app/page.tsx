@@ -131,6 +131,12 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
               >
                 Refresh
               </Link>
+              <Link
+                className="inline-flex min-h-10 items-center border border-cyan-400/60 bg-cyan-400/10 px-3 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/15"
+                href="/data-store"
+              >
+                Research Data Store
+              </Link>
             </div>
           </div>
         </header>
@@ -203,6 +209,9 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
                   </Link>
                   <Link className="border border-cyan-400/50 bg-cyan-400/10 px-3 py-2 font-semibold text-cyan-100" href="/strategy-lab">
                     Strategy Lab · Parameter Sweep · Walk-Forward Validation
+                  </Link>
+                  <Link className="border border-cyan-400/50 bg-cyan-400/10 px-3 py-2 font-semibold text-cyan-100" href="/data-store">
+                    Research Data Store · Capture Status
                   </Link>
                 </div>
                 <Diagnostics console={console} marketData={marketData} consoleError={consoleState.error} marketDataError={liveState.error} />

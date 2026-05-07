@@ -27,6 +27,7 @@ test("home renders the real-data terminal and labels smoke mock data as DEV", as
   await expect(page.getByText("Price updated")).toBeVisible();
   await expect(page.getByText("Candle freshness")).toBeVisible();
   await expect(page.getByRole("link", { name: "Refresh" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Research Data Store" })).toBeVisible();
   await expect(page.getByTestId("prediction-card")).toContainText(/LONG bias|SHORT bias|NO_SIGNAL/);
   await expect(page.getByTestId("prediction-card")).toContainText("Confidence");
   await expect(page.getByTestId("prediction-card")).toContainText("Score");
@@ -153,6 +154,26 @@ test("strategy lab shows mock parameter sweep and walk-forward validation", asyn
   await expect(page.getByTestId("strategy-lab-summary")).toContainText("Overfit Risk");
   await expect(page.getByTestId("strategy-lab-warnings")).toContainText("Low Sample Warnings");
   await expect(page.getByTestId("parameter-table").first()).toContainText(/edge|spread|vol/);
+  await expect(page.getByText(/BUY NOW|SELL NOW|TRADE NOW/i)).toHaveCount(0);
+});
+
+test("research data store page shows capture status without trading language", async ({ page }) => {
+  await page.goto("/data-store");
+
+  await expect(page.getByTestId("research-data-store-page")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Research Data Store" })).toBeVisible();
+  await expect(page.getByText("Research Only", { exact: true })).toBeVisible();
+  await expect(page.getByText("Public Data Capture", { exact: true })).toBeVisible();
+  await expect(page.getByText("No Trading", { exact: true })).toBeVisible();
+  await expect(page.getByText("Store Status", { exact: true })).toBeVisible();
+  await expect(page.getByText("Capture Runs", { exact: true })).toBeVisible();
+  await expect(page.getByText("Data Coverage", { exact: true })).toBeVisible();
+  await expect(page.getByText("Latest Binance Candle", { exact: true })).toBeVisible();
+  await expect(page.getByText("Latest Polymarket Snapshot", { exact: true })).toBeVisible();
+  await expect(page.getByText("Latest Fair Value Signal", { exact: true })).toBeVisible();
+  await expect(page.getByText("Latest Replay Metrics", { exact: true })).toBeVisible();
+  await expect(page.getByText("Latest Strategy Lab Result", { exact: true })).toBeVisible();
+  await expect(page.getByText("Errors / warnings", { exact: true })).toBeVisible();
   await expect(page.getByText(/BUY NOW|SELL NOW|TRADE NOW/i)).toHaveCount(0);
 });
 

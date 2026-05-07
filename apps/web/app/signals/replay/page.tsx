@@ -35,6 +35,20 @@ type ReplayLoadState = {
   error?: string;
 };
 
+type StoredReplayPayload = {
+  status: "ok" | "missing";
+  source: "stored";
+  sourceType: "live" | "mock" | "fixture";
+  latestStoredAt: string | null;
+  storedSampleCount: number;
+  warnings: string[];
+};
+
+type StoredReplayLoadState = {
+  stored?: StoredReplayPayload;
+  error?: string;
+};
+
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 const symbols: Array<SignalSymbol | "ALL"> = ["BTC", "ETH", "ALL"];
 const windows: ReplayFilters["window"][] = ["1d", "3d", "1w", "1m"];
@@ -42,7 +56,10 @@ const intervals: OhlcvInterval[] = ["1m", "5m", "15m", "1h"];
 
 export default async function SignalReplayPage({ searchParams }: { searchParams?: SearchParams }) {
   const filters = parseFilters((await searchParams) ?? {});
-  const { data, error } = await loadReplay(filters);
+  const [{ data, error }, storedState] = await Promise.all([
+    loadReplay(filters),
+    loadStoredReplay(filters)
+  ]);
   const metrics = data?.metrics;
   const sourceBadge = data?.sourceType === "mock" ? "DEV MOCK" : data?.sourceType === "live" ? "LIVE" : "UNAVAILABLE";
 
@@ -130,12 +147,16 @@ export default async function SignalReplayPage({ searchParams }: { searchParams?
               <h2 className="text-sm font-semibold text-slate-100">Replay Health</h2>
               <div className="mt-3 grid gap-2 text-xs text-slate-300">
                 <ProvenanceRow label="sourceType" value={data?.sourceType ?? "unavailable"} />
+                <ProvenanceRow label="stored" value={storedState.stored?.status === "ok" ? "Stored Replay Results Available" : "No Stored Replay Results"} />
+                <ProvenanceRow label="storedSource" value={storedState.stored?.status === "ok" ? "stored" : "unavailable"} />
+                <ProvenanceRow label="latestStoredAt" value={formatTime(storedState.stored?.latestStoredAt ?? null)} />
+                <ProvenanceRow label="storedSampleCount" value={formatNumber(storedState.stored?.storedSampleCount)} />
                 <ProvenanceRow label="provider" value={data?.providerHealth.resolvedProvider ?? "unavailable"} />
                 <ProvenanceRow label="status" value={data?.providerHealth.status.toUpperCase() ?? "UNKNOWN"} />
                 <ProvenanceRow label="window" value={data?.window.label ?? filters.window} />
                 <ProvenanceRow label="strategy" value={filters.strategy} />
               </div>
-              <ReasonBlock title="Warnings" items={data?.warnings ?? []} empty="No replay warning." />
+              <ReasonBlock title="Warnings" items={[...(data?.warnings ?? []), ...(storedState.error ? [storedState.error] : [])]} empty="No replay warning." />
               <EmptyState metrics={metrics} />
             </section>
             <nav className="grid gap-2 text-xs">
@@ -184,6 +205,25 @@ async function loadReplay(filters: ReplayFilters): Promise<ReplayLoadState> {
     return { data: (await response.json()) as SignalReplayResponse };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Signal replay API request failed." };
+  }
+}
+
+async function loadStoredReplay(filters: ReplayFilters): Promise<StoredReplayLoadState> {
+  const params = new URLSearchParams({
+    symbol: filters.symbol,
+    window: filters.window,
+    strategy: filters.strategy
+  });
+  try {
+    const response = await fetch(`${apiBaseUrl}/signals/replay/stored?${params.toString()}`, {
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      return { error: await apiErrorMessage(response) };
+    }
+    return { stored: (await response.json()) as StoredReplayPayload };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Stored replay API request failed." };
   }
 }
 

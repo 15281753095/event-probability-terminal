@@ -33,6 +33,19 @@ type StrategyLabLoadState = {
   error?: string;
 };
 
+type StoredStrategyLabPayload = {
+  status: "ok" | "missing";
+  source: "stored";
+  sourceType: "live" | "mock" | "fixture";
+  latestStoredAt: string | null;
+  warnings: string[];
+};
+
+type StoredStrategyLabLoadState = {
+  stored?: StoredStrategyLabPayload;
+  error?: string;
+};
+
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 const symbols: StrategyLabFilters["symbol"][] = ["BTC", "ETH", "ALL"];
 const windows: StrategyLabFilters["window"][] = ["1d", "3d", "1w", "1m"];
@@ -41,7 +54,10 @@ const intervals: OhlcvInterval[] = ["1m", "5m", "15m", "1h"];
 
 export default async function StrategyLabPage({ searchParams }: { searchParams?: SearchParams }) {
   const filters = parseFilters((await searchParams) ?? {});
-  const { report, error } = await loadStrategyLab(filters);
+  const [{ report, error }, storedState] = await Promise.all([
+    loadStrategyLab(filters),
+    loadStoredStrategyLab(filters)
+  ]);
   const top = report?.topCandidates ?? [];
   const firstWalkForward = report?.walkForwardResults[0];
 
@@ -105,7 +121,7 @@ export default async function StrategyLabPage({ searchParams }: { searchParams?:
           <aside className="grid content-start gap-3">
             <section className="border border-slate-800 bg-[#0b111d] p-4" data-testid="strategy-lab-warnings">
               <h2 className="text-sm font-semibold text-slate-100">Low Sample Warnings</h2>
-              <ReasonBlock items={report?.warnings ?? []} empty="No Strategy Lab warning." />
+              <ReasonBlock items={[...(report?.warnings ?? []), ...(storedState.error ? [storedState.error] : [])]} empty="No Strategy Lab warning." />
             </section>
             <section className="border border-slate-800 bg-[#0b111d] p-4">
               <h2 className="text-sm font-semibold text-slate-100">Parameter Coverage</h2>
@@ -114,6 +130,8 @@ export default async function StrategyLabPage({ searchParams }: { searchParams?:
                 <Metric label="symbol" value={filters.symbol} />
                 <Metric label="window" value={filters.window} />
                 <Metric label="mode" value={filters.mode} />
+                <Metric label="stored" value={storedState.stored?.status === "ok" ? "Stored Results Available" : "No Stored Results"} />
+                <Metric label="Last Capture Time" value={formatTime(storedState.stored?.latestStoredAt ?? null)} />
               </div>
             </section>
           </aside>
@@ -178,6 +196,25 @@ async function loadStrategyLab(filters: StrategyLabFilters): Promise<StrategyLab
     return { report: payload.report };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Strategy Lab API request failed." };
+  }
+}
+
+async function loadStoredStrategyLab(filters: StrategyLabFilters): Promise<StoredStrategyLabLoadState> {
+  const params = new URLSearchParams({
+    symbol: filters.symbol,
+    window: filters.window,
+    strategy: "fair-value-v1"
+  });
+  try {
+    const response = await fetch(`${apiBaseUrl}/strategy-lab/stored?${params.toString()}`, {
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      return { error: await apiErrorMessage(response) };
+    }
+    return { stored: (await response.json()) as StoredStrategyLabPayload };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Stored Strategy Lab API request failed." };
   }
 }
 

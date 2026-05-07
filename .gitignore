@@ -28,11 +28,14 @@ blob-report/
 .env.local
 
 # Data and local state
+.var/
 research/datasets/*
 !research/datasets/README.md
 services/market-ingestor/fixtures/polymarket/live-capture-tmp/
 services/market-ingestor/fixtures/polymarket/live-target-discovery-tmp/
 *.sqlite
+*.sqlite-wal
+*.sqlite-shm
 *.db
 *.log
 logs/

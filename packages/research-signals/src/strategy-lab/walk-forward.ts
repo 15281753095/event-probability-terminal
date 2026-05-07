@@ -26,7 +26,7 @@ export async function runWalkForwardValidation(input: RunWalkForwardValidationIn
   const checkedAt = input.now?.() ?? new Date().toISOString();
   const warnings: string[] = [
     "Walk-forward validation separates in-sample train windows from out-of-sample test windows.",
-    "Research only. Not trading advice. No auto execution."
+    "Research only. Not trading advice. No automated trading action."
   ];
   if (input.candidateParameterSets.length === 0) {
     return { walkForwardResults: [], warnings: [...warnings, "NO_WALK_FORWARD_CANDIDATES"], windows: [], isResearchOnly: true };

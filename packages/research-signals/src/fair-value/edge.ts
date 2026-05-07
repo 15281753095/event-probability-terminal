@@ -69,7 +69,7 @@ export function buildFairValueSignalResponse(
     rejectedMarkets,
     warnings: unique([
       ...(input.warnings ?? []),
-      "Research only. Not trading advice. No auto execution.",
+      "Research only. Not trading advice. No automated trading action.",
       ...(rejectedMarkets.length ? ["Rejected markets failed closed before fair value calculation."] : [])
     ]),
     isResearchOnly: true
