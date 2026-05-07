@@ -33,7 +33,8 @@ export type ApiResponseKind =
   | "event_signal_console"
   | "live_market_data"
   | "polymarket_active_markets"
-  | "fair_value_signal";
+  | "fair_value_signal"
+  | "signal_replay";
 
 export type ApiResponseStatus = "ok" | "not_found" | "unsupported" | "fail_closed";
 
@@ -528,6 +529,127 @@ export interface FairValueSignalResponse {
   snapshots: FairProbabilitySnapshot[];
   markers: FairValueSignalMarker[];
   rejectedMarkets: FairValueRejectedMarket[];
+  warnings: string[];
+  isResearchOnly: true;
+}
+
+export type ReplayWindowId = "1d" | "3d" | "1w" | "1m" | "custom";
+
+export interface ReplayWindow {
+  id: ReplayWindowId;
+  startTime: string;
+  endTime: string;
+  label: string;
+}
+
+export type ReplayOutcomeStatus =
+  | "WIN"
+  | "LOSS"
+  | "PENDING"
+  | "UNRESOLVED"
+  | "REJECTED"
+  | "NO_SIGNAL";
+
+export type ReplayResolvedOutcome = "YES" | "NO";
+
+export type ReplayOutcomeSource =
+  | "polymarket-closed-market"
+  | "binance-threshold-reconstruction"
+  | "mock-fixture"
+  | "unknown";
+
+export interface ReplaySignal {
+  id: string;
+  symbol: SignalSymbol;
+  underlyingSymbol: RealtimePriceSymbol;
+  marketId: string;
+  question: string;
+  signalTime: string;
+  expiryTime: string;
+  priceAtSignal: number;
+  side: FairValueSignalSide;
+  modelProbabilityYes: number | null;
+  marketProbabilityYes: number | null;
+  edge: number | null;
+  confidence: number;
+  reason: string;
+  rejectReasons: string[];
+  assumptions: string[];
+  isResearchOnly: true;
+}
+
+export interface ReplayOutcome {
+  signalId: string;
+  marketId: string;
+  status: ReplayOutcomeStatus;
+  resolvedOutcome?: ReplayResolvedOutcome | undefined;
+  outcomeSource: ReplayOutcomeSource;
+  resolvedAt?: string | undefined;
+  priceAtExpiry?: number | undefined;
+  notes: string[];
+}
+
+export interface ReplayTradeLikeResult {
+  signal: ReplaySignal;
+  outcome: ReplayOutcome;
+  theoreticalEntryPrice: number | null;
+  theoreticalExitValue: number | null;
+  theoreticalPnl: number | null;
+  feesAssumption: string;
+  slippageAssumption: string;
+  spreadAssumption: string;
+  countedInWinRate: boolean;
+}
+
+export interface ReplayCalibrationBucket {
+  bucketStart: number;
+  bucketEnd: number;
+  sampleCount: number;
+  observedYesRate: number | null;
+  averageModelProbabilityYes: number | null;
+}
+
+export interface ReplayMetrics {
+  symbol: SignalSymbol | "ALL";
+  window: ReplayWindow;
+  sampleCount: number;
+  actionableCount: number;
+  winCount: number;
+  lossCount: number;
+  pendingCount: number;
+  unresolvedCount: number;
+  rejectedCount: number;
+  noSignalCount: number;
+  winRate: number | null;
+  longYesCount: number;
+  longYesWinRate: number | null;
+  longNoCount: number;
+  longNoWinRate: number | null;
+  coverageRate: number | null;
+  rejectionRate: number | null;
+  pendingRate: number | null;
+  averageEdge: number | null;
+  averageConfidence: number | null;
+  averageTheoreticalPnl: number | null;
+  cumulativeTheoreticalPnl: number | null;
+  maxDrawdown: number | null;
+  brierScore?: number | undefined;
+  calibrationBuckets?: ReplayCalibrationBucket[] | undefined;
+  warnings: string[];
+  isResearchOnly: true;
+  checkedAt: string;
+}
+
+export interface SignalReplayResponse {
+  symbol: SignalSymbol | "ALL";
+  window: ReplayWindow;
+  checkedAt: string;
+  sourceType: DataSourceType;
+  providerHealth: ProviderHealth;
+  metrics: ReplayMetrics;
+  signals: ReplaySignal[];
+  results: ReplayTradeLikeResult[];
+  markers: SignalMarker[];
   warnings: string[];
   isResearchOnly: true;
 }

@@ -48,9 +48,11 @@ export type { BacktestSample, RunBacktestInput } from "./backtest/types.js";
 export {
   POLYMARKET_GAMMA_PUBLIC_BASE_URL,
   fetchActivePolymarketMarkets,
+  fetchClosedPolymarketMarkets,
   findCryptoEventMarkets,
   searchPolymarketMarkets
 } from "./polymarket/gamma.js";
+export type { ClosedPolymarketMarket } from "./polymarket/gamma.js";
 export {
   POLYMARKET_CLOB_PUBLIC_BASE_URL,
   buildEventMarketOdds,
@@ -59,6 +61,16 @@ export {
   fetchPolymarketPrice,
   fetchPolymarketSpread
 } from "./polymarket/clob-public.js";
+export {
+  fetchPolymarketPriceHistory,
+  priceAtOrBeforeHistory
+} from "./polymarket/price-history.js";
+export type {
+  PolymarketPriceHistoryInterval,
+  PolymarketPriceHistoryRequest,
+  PolymarketPriceHistoryResult,
+  PolymarketPricePoint
+} from "./polymarket/price-history.js";
 export {
   bindMarketToUnderlying,
   inferSymbols,
@@ -101,6 +113,15 @@ export {
 } from "./ohlcv/binance-spot.js";
 export type { BinanceSpotOptions } from "./ohlcv/binance-spot.js";
 export {
+  fetchBinanceHistoricalKlines
+} from "./ohlcv/binance-history.js";
+export type {
+  BinanceHistoricalKlinesOptions,
+  BinanceHistoricalKlinesRequest,
+  BinanceHistoricalKlinesResult,
+  BinanceHistoryLookback
+} from "./ohlcv/binance-history.js";
+export {
   BINANCE_SPOT_PUBLIC_WS_BASE_URL,
   BinanceSpotRealtimeClient,
   buildBinanceSpotRealtimeStreamUrl,
@@ -130,3 +151,34 @@ export {
 } from "./ohlcv/coinbase-exchange.js";
 export type { CoinbaseExchangeOptions } from "./ohlcv/coinbase-exchange.js";
 export type { FetchLike, LiveMarketDataFetcher, LiveMarketDataFetchRequest } from "./ohlcv/types.js";
+export { computeReplayMetrics } from "./replay/metrics.js";
+export {
+  buildReplayTradeLikeResult,
+  labelReplayOutcome
+} from "./replay/outcome-labeler.js";
+export { runSignalReplay } from "./replay/runner.js";
+export {
+  intervalMsForReplay,
+  parseReplayWindowId,
+  resolveReplayWindow
+} from "./replay/window.js";
+export type {
+  BuildReplayResultInput,
+  LabelReplayOutcomeInput,
+  MockReplayFixture,
+  ReplayClosedMarketData,
+  ReplayHistoricalCandles,
+  ReplayMarketSource,
+  ReplayMetrics,
+  ReplayOutcome,
+  ReplayOutcomeStatus,
+  ReplaySignal,
+  ReplayStrategyId,
+  ReplaySymbolFilter,
+  ReplayTradeLikeResult,
+  ReplayWindow,
+  ReplayWindowId,
+  RunSignalReplayInput,
+  SignalMarker,
+  SignalReplayResponse
+} from "./replay/types.js";

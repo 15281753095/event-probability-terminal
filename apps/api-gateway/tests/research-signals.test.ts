@@ -18,7 +18,8 @@ import {
   type OhlcvSource,
   type PolymarketActiveMarketsResponse,
   type RealtimePriceSsePayload,
-  type ResearchSignalsResponse
+  type ResearchSignalsResponse,
+  type SignalReplayResponse
 } from "@ept/shared-types";
 import { buildServer } from "../src/server.js";
 
@@ -710,6 +711,127 @@ describe("research signals API", () => {
       restoreEnv("EPT_POLYMARKET_MOCK", previousMarketMock);
       restoreEnv("EPT_POLYMARKET_MOCK_EMPTY", previousEmpty);
       restoreEnv("EPT_LIVE_MARKET_DATA_MOCK", previousLiveMock);
+    }
+  });
+
+  it("returns deterministic mock signal replay metrics without private or execution fields", async () => {
+    const server = buildServer({ logger: false, now: () => fixedGeneratedAt });
+    try {
+      const first = await server.inject({
+        method: "GET",
+        url: "/signals/replay?symbol=BTC&window=1w&mock=true"
+      });
+      const second = await server.inject({
+        method: "GET",
+        url: "/signals/replay?symbol=BTC&window=1w&mock=true"
+      });
+
+      assert.equal(first.statusCode, 200);
+      assert.equal(second.statusCode, 200);
+      const payload = first.json<SignalReplayResponse>();
+      const again = second.json<SignalReplayResponse>();
+      assert.deepEqual(payload.metrics, again.metrics);
+      assert.equal(payload.symbol, "BTC");
+      assert.equal(payload.sourceType, "mock");
+      assert.equal(payload.isResearchOnly, true);
+      assert.equal(payload.metrics.sampleCount, 6);
+      assert.equal(payload.metrics.winRate, 0.666667);
+      assert.equal(payload.results.length, 10);
+      assert.ok(payload.signals.length > 0);
+      assert.ok(payload.markers.length > 0);
+      assert.ok(payload.metrics.pendingCount >= 1);
+      assert.ok(payload.metrics.rejectedCount >= 1);
+      assert.ok(payload.metrics.noSignalCount >= 1);
+      assert.equal(/privateKey|apiKey|secret|passphrase|order|cancel|balance|position/i.test(first.body), false);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("returns live replay warnings instead of fake stats when completed samples are unavailable", async () => {
+    const server = buildServer({
+      logger: false,
+      now: () => fixedGeneratedAt,
+      signalReplayRunner: async (input): Promise<SignalReplayResponse> => {
+        const window = typeof input.window === "string"
+          ? {
+              id: input.window,
+              startTime: "2026-04-22T00:00:00.000Z",
+              endTime: fixedGeneratedAt,
+              label: "test"
+            }
+          : input.window;
+        return {
+          symbol: input.symbol,
+          window,
+          checkedAt: fixedGeneratedAt,
+          sourceType: "live",
+          providerHealth: {
+            requestedProvider: "polymarket",
+            resolvedProvider: "polymarket-gamma",
+            sourceType: "live",
+            status: "degraded",
+            latencyMs: null,
+            candleCount: 0,
+            expectedMinCandles: 0,
+            lastCandleTime: null,
+            isFixtureBacked: false,
+            fallbackUsed: false,
+            fallbackReason: null,
+            failClosedReasons: ["No completed replay samples."],
+            checkedAt: fixedGeneratedAt
+          },
+          metrics: {
+            symbol: input.symbol,
+            window,
+            sampleCount: 0,
+            actionableCount: 0,
+            winCount: 0,
+            lossCount: 0,
+            pendingCount: 0,
+            unresolvedCount: 0,
+            rejectedCount: 0,
+            noSignalCount: 0,
+            winRate: null,
+            longYesCount: 0,
+            longYesWinRate: null,
+            longNoCount: 0,
+            longNoWinRate: null,
+            coverageRate: null,
+            rejectionRate: null,
+            pendingRate: null,
+            averageEdge: null,
+            averageConfidence: null,
+            averageTheoreticalPnl: null,
+            cumulativeTheoreticalPnl: null,
+            maxDrawdown: null,
+            warnings: ["NO_COMPLETED_REPLAY_SAMPLES"],
+            isResearchOnly: true,
+            checkedAt: fixedGeneratedAt
+          },
+          signals: [],
+          results: [],
+          markers: [],
+          warnings: ["NO_COMPLETED_REPLAY_SAMPLES"],
+          isResearchOnly: true
+        };
+      }
+    });
+    try {
+      const response = await server.inject({
+        method: "GET",
+        url: "/signals/replay?symbol=BTC&window=1w&mock=false"
+      });
+
+      assert.equal(response.statusCode, 200);
+      const payload = response.json<SignalReplayResponse>();
+      assert.equal(payload.sourceType, "live");
+      assert.equal(payload.metrics.sampleCount, 0);
+      assert.equal(payload.metrics.winRate, null);
+      assert.ok(payload.warnings.includes("NO_COMPLETED_REPLAY_SAMPLES"));
+      assert.equal(/privateKey|apiKey|secret|passphrase|order|cancel|balance|position/i.test(response.body), false);
+    } finally {
+      await server.close();
     }
   });
 });

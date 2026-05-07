@@ -99,6 +99,12 @@ curl "http://localhost:4000/markets/polymarket/active?symbol=ALL"
 curl "http://localhost:4000/signals/fair-value?symbol=BTC"
 curl "http://localhost:4000/signals/fair-value?symbol=ETH"
 curl "http://localhost:4000/signals/fair-value?symbol=ALL"
+curl "http://localhost:4000/signals/replay?symbol=BTC&window=1d"
+curl "http://localhost:4000/signals/replay?symbol=BTC&window=3d"
+curl "http://localhost:4000/signals/replay?symbol=BTC&window=1w"
+curl "http://localhost:4000/signals/replay?symbol=ETH&window=1w"
+curl "http://localhost:4000/signals/replay?symbol=ALL&window=1w"
+curl "http://localhost:4000/signals/replay?symbol=BTC&window=1w&mock=true"
 curl http://localhost:4000/signals/research
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=live"
@@ -165,6 +171,20 @@ EPT_LIVE_MARKET_DATA_MOCK=true EPT_FAIR_VALUE_MOCK=true make dev-api
 Mock fair-value markers are deterministic UI/CI artifacts and must appear as `DEV MOCK`; they are
 not live signals.
 
+RC-20 adds `/signals/replay` for fair-value v1 historical replay and win-rate metrics. Live mode
+uses Binance Spot public historical klines and Polymarket public market data, then fails closed when
+completed outcome evidence is insufficient. `winRate` is calculated only from completed
+`WIN`/`LOSS` samples; pending, unresolved, rejected, and no-signal rows are counted separately.
+Mock replay is deterministic for smoke:
+
+```bash
+EPT_LIVE_MARKET_DATA_MOCK=true EPT_FAIR_VALUE_MOCK=true make dev-api
+curl "http://localhost:4000/signals/replay?symbol=BTC&window=1w&mock=true"
+```
+
+Replay never places, cancels, or recommends trades. `theoreticalPnl` is a research assumption, not
+actual performance.
+
 ## Start Web
 
 Start the API gateway first so the terminal can load live market data.
@@ -190,6 +210,8 @@ Current pages:
 - `/signals/console`: live-default research signal console with underlying candle provenance,
   realtime BTC/ETH price cards, provider health diagnostics, experimental model labeling,
   fair-value research markers, research-only strategy status, and no trading action.
+- `/signals/replay`: Signal Replay & Win Rate Dashboard with BTC/ETH/ALL, `1d`/`3d`/`1w`/`1m`,
+  interval filters, replay metrics, marker timeline, result table, and research-only warnings.
 - `/markets/polymarket`: read-only Polymarket active market odds with BTC/ETH realtime cards,
   Yes/No prices, implied probabilities, spread/liquidity diagnostics, binding status, and research
   eligibility.
@@ -210,6 +232,8 @@ http://localhost:3000/?symbol=ETH&horizon=10m
 http://localhost:3000/market-data/live?symbol=ETH&provider=binance&interval=15m
 http://localhost:3000/signals/console?symbol=BTC&horizon=5m&provider=binance
 http://localhost:3000/signals/console?symbol=BTC&horizon=5m&provider=binance&refresh=1
+http://localhost:3000/signals/replay
+http://localhost:3000/signals/replay?symbol=ALL&window=1w
 http://localhost:3000/markets/polymarket
 http://localhost:3000/?symbol=BTC&horizon=5m&sourceMode=fixture
 http://localhost:3000/scanner

@@ -13,9 +13,12 @@ import {
   buildLiveEventSignalConsole,
   listLiveResearchSignals,
   listResearchSignals,
+  parseReplayWindowId,
+  runSignalReplay,
   type LiveMarketDataFetchRequest,
   type LiveMarketDataFetcher,
   type OHLCVFetcher,
+  type RunSignalReplayInput,
   type RealtimeWebSocketFactory
 } from "@ept/research-signals";
 import type {
@@ -43,6 +46,7 @@ import type {
   ScannerCandidate,
   ScannerMeta,
   ResearchSignalSourceMode,
+  SignalReplayResponse,
   SignalHorizon,
   SignalProfileName,
   SignalSymbol,
@@ -68,6 +72,8 @@ type PricingEngineLike = {
   quoteFairValue(market: EventMarket, requestedAt: string): Promise<FairValueSnapshot>;
 };
 
+type SignalReplayRunnerLike = (input: RunSignalReplayInput) => Promise<SignalReplayResponse>;
+
 export type BuildServerOptions = {
   logger?: boolean;
   now?: () => string;
@@ -77,6 +83,7 @@ export type BuildServerOptions = {
   researchSignalOhlcvFetcher?: OHLCVFetcher;
   liveMarketDataFetcher?: LiveMarketDataFetcher;
   realtimeWebSocketFactory?: RealtimeWebSocketFactory;
+  signalReplayRunner?: SignalReplayRunnerLike;
 };
 
 export function buildServer(options: BuildServerOptions = {}) {
@@ -104,6 +111,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     );
   const now = options.now ?? (() => new Date().toISOString());
   const liveMarketDataFetcher = buildProviderAwareMarketDataFetcher(options.liveMarketDataFetcher);
+  const signalReplayRunner = options.signalReplayRunner ?? runSignalReplay;
 
   server.get("/healthz", async () => {
     return {
@@ -597,6 +605,72 @@ export function buildServer(options: BuildServerOptions = {}) {
     }) satisfies FairValueSignalResponse;
   });
 
+  server.get<{ Querystring: { symbol?: string; window?: string; interval?: string; strategy?: string; mock?: string } }>("/signals/replay", async (request, reply) => {
+    const generatedAt = now();
+    const symbol = parsePolymarketSymbolFilter(request.query.symbol);
+    const window = parseReplayWindowId(request.query.window ?? "1w");
+    const interval = parseOhlcvInterval(request.query.interval ?? "1m");
+    const strategyId = request.query.strategy ?? "fair-value-v1";
+    const mockMode = parseBooleanQuery(request.query.mock);
+    if (request.query.symbol && !symbol) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Signal replay currently supports symbol=BTC, symbol=ETH, or symbol=ALL only.",
+          generatedAt
+        })
+      );
+    }
+    if (request.query.window && (!window || window === "custom")) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Signal replay currently supports window=1d, 3d, 1w, or 1m.",
+          generatedAt
+        })
+      );
+    }
+    if (request.query.interval && !interval) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Signal replay currently supports interval=1m, 5m, 15m, or 1h.",
+          generatedAt
+        })
+      );
+    }
+    if (strategyId !== "fair-value-v1") {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Signal replay currently supports strategy=fair-value-v1 only.",
+          generatedAt
+        })
+      );
+    }
+
+    return (await signalReplayRunner({
+      symbol: symbol ?? "BTC",
+      window: window ?? "1w",
+      interval: interval ?? "1m",
+      strategyId: "fair-value-v1",
+      useMock:
+        mockMode ??
+        (
+          process.env.EPT_SIGNAL_REPLAY_MOCK === "true" ||
+          process.env.EPT_LIVE_MARKET_DATA_MOCK === "true" ||
+          process.env.EPT_FAIR_VALUE_MOCK === "true"
+        ),
+      now,
+      ...(process.env.POLYMARKET_GAMMA_BASE_URL ? { gammaBaseUrl: process.env.POLYMARKET_GAMMA_BASE_URL } : {}),
+      ...(process.env.POLYMARKET_CLOB_BASE_URL ? { clobBaseUrl: process.env.POLYMARKET_CLOB_BASE_URL } : {})
+    })) satisfies SignalReplayResponse;
+  });
+
   server.get<{ Querystring: { symbol?: string; horizon?: string; sourceMode?: string; includeBacktest?: string; includeObservationPreview?: string; profile?: string; provider?: string } }>("/signals/console", async (request, reply) => {
     const generatedAt = now();
     const symbol = parseSignalSymbol(request.query.symbol) ?? "BTC";
@@ -691,6 +765,16 @@ function parsePolymarketSymbolFilter(value?: string): SignalSymbol | "ALL" | und
     return "ALL";
   }
   return parseSignalSymbol(value);
+}
+
+function parseBooleanQuery(value?: string): boolean | undefined {
+  if (value === "true") {
+    return true;
+  }
+  if (value === "false") {
+    return false;
+  }
+  return undefined;
 }
 
 async function loadUnderlyingPrices(
