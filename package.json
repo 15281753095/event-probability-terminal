@@ -17,6 +17,14 @@
     "test:js": "pnpm -r test",
     "test:python": "PYTHONPATH=services/pricing-engine/src .venv/bin/python -m pytest services/pricing-engine/tests",
     "test:smoke": "pnpm --filter @ept/web test:smoke",
-    "test:smoke:install": "pnpm --filter @ept/web exec playwright install chromium"
+    "test:smoke:install": "pnpm --filter @ept/web exec playwright install chromium",
+    "capture:snapshot": "pnpm --filter @ept/research-signals capture:snapshot",
+    "capture:once": "pnpm --filter @ept/research-signals capture:once",
+    "capture:binance": "pnpm --filter @ept/research-signals capture:binance",
+    "capture:polymarket": "pnpm --filter @ept/research-signals capture:polymarket",
+    "capture:fair-value": "pnpm --filter @ept/research-signals capture:fair-value",
+    "capture:replay": "pnpm --filter @ept/research-signals capture:replay",
+    "capture:strategy-lab": "pnpm --filter @ept/research-signals capture:strategy-lab",
+    "store:status": "pnpm --filter @ept/research-signals store:status"
   }
 }

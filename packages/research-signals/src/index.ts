@@ -218,3 +218,46 @@ export type {
   WalkForwardResult,
   WalkForwardWindow
 } from "./strategy-lab/types.js";
+export {
+  createResearchDataStore,
+  createJsonlResearchStore,
+  createSqliteResearchStore,
+  fairValueSignalRecordsFromResponse,
+  isNodeSqliteAvailable,
+  marketSnapshotFromBoundMarket,
+  replayResultRecordFromResponse,
+  stableRawHash,
+  strategyLabResultRecordFromReport,
+  underlyingCandleFromCandle
+} from "./store/index.js";
+export type {
+  CaptureRunRecord,
+  CaptureRunStatus,
+  CoverageWindowId,
+  FairValueSignalRecord,
+  InsertSummary,
+  MarketSnapshotRecord,
+  ReplayResultRecord,
+  ResearchDataStore,
+  ResearchStoreProvider,
+  StoreStatus,
+  StrategyLabResultRecord,
+  StoredReplayResult,
+  StoredSignalSymbol,
+  StoredStrategyLabResult,
+  UnderlyingCandleRecord
+} from "./store/index.js";
+export {
+  DEFAULT_CAPTURE_SCHEDULE_MS,
+  createCaptureScheduler,
+  runCaptureJobByName,
+  runCaptureOnce,
+  runSnapshotCaptureOnce
+} from "./capture/scheduler.js";
+export type { CaptureRunMode, CaptureScheduleConfig } from "./capture/scheduler.js";
+export { runBinanceCandlesCaptureJob } from "./capture/binance-candles-job.js";
+export { runPolymarketMarketsCaptureJob } from "./capture/polymarket-markets-job.js";
+export { runFairValueSignalsCaptureJob } from "./capture/fair-value-signals-job.js";
+export { runReplayMetricsCaptureJob } from "./capture/replay-metrics-job.js";
+export { runStrategyLabCaptureJob } from "./capture/strategy-lab-job.js";
+export type { CaptureJobContext, CaptureJobName, CaptureJobResult } from "./capture/types.js";

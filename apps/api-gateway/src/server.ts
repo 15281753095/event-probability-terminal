@@ -15,16 +15,22 @@ import {
   listResearchSignals,
   parseReplayWindowId,
   buildFairValueV1ParameterGrid,
+  createResearchDataStore,
   rankStrategyParameterResults,
+  runCaptureJobByName,
   runParameterSweep,
   runSignalReplay,
   runWalkForwardValidation,
+  type CaptureRunMode,
   type LiveMarketDataFetchRequest,
   type LiveMarketDataFetcher,
   type OHLCVFetcher,
   type ParameterGridOptions,
+  type ResearchDataStore,
+  type ReplayResultRecord,
   type RunSignalReplayInput,
-  type RealtimeWebSocketFactory
+  type RealtimeWebSocketFactory,
+  type StrategyLabResultRecord
 } from "@ept/research-signals";
 import type {
   ApiErrorResponse,
@@ -47,6 +53,7 @@ import type {
   RealtimePriceSsePayload,
   RealtimePriceSymbol,
   RealTimePriceTick,
+  ReplayWindowId,
   ResearchSignalsResponse,
   ScannerCandidate,
   ScannerMeta,
@@ -90,6 +97,7 @@ export type BuildServerOptions = {
   liveMarketDataFetcher?: LiveMarketDataFetcher;
   realtimeWebSocketFactory?: RealtimeWebSocketFactory;
   signalReplayRunner?: SignalReplayRunnerLike;
+  researchStore?: ResearchDataStore;
 };
 
 export function buildServer(options: BuildServerOptions = {}) {
@@ -118,6 +126,11 @@ export function buildServer(options: BuildServerOptions = {}) {
   const now = options.now ?? (() => new Date().toISOString());
   const liveMarketDataFetcher = buildProviderAwareMarketDataFetcher(options.liveMarketDataFetcher);
   const signalReplayRunner = options.signalReplayRunner ?? runSignalReplay;
+  const researchStore = options.researchStore ?? createResearchDataStore();
+
+  server.addHook("onClose", async () => {
+    await researchStore.close();
+  });
 
   server.get("/healthz", async () => {
     return {
@@ -611,13 +624,184 @@ export function buildServer(options: BuildServerOptions = {}) {
     }) satisfies FairValueSignalResponse;
   });
 
-  server.get<{ Querystring: { symbol?: string; window?: string; interval?: string; strategy?: string; mock?: string } }>("/signals/replay", async (request, reply) => {
+  server.get("/store/status", async () => {
+    await researchStore.init();
+    return {
+      ...(await researchStore.getStatus({ asOf: now() })),
+      isResearchOnly: true,
+      isReadOnly: true,
+      captureKind: "public-read-only"
+    };
+  });
+
+  server.post<{ Querystring: { job?: string }; Body: { job?: string } | undefined }>("/capture/run", async (request, reply) => {
+    const jobName = parseCaptureRunMode(request.body?.job ?? request.query.job ?? "snapshot");
+    if (!jobName) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Capture supports job=once, binance, polymarket, fair-value, replay, or strategy-lab.",
+          generatedAt: now()
+        })
+      );
+    }
+    await researchStore.init();
+    const results = await runCaptureJobByName({
+      store: researchStore,
+      now,
+      useMock: process.env.EPT_LIVE_MARKET_DATA_MOCK === "true",
+      timeoutMs: 1_500,
+      binanceLookbackMs: 24 * 60 * 60 * 1000,
+      binanceMaxPages: 1
+    }, jobName);
+    return {
+      status: results.some((result) => result.status === "failed")
+        ? "failed"
+        : results.some((result) => result.status === "partial")
+          ? "partial"
+          : "success",
+      results,
+      isResearchOnly: true,
+      isReadOnly: true,
+      captureKind: "public-read-only"
+    };
+  });
+
+  server.get<{ Querystring: { limit?: string } }>("/capture/runs", async (request) => {
+    await researchStore.init();
+    return {
+      runs: await researchStore.getCaptureRuns(parseOptionalInteger(request.query.limit) ?? 20),
+      isResearchOnly: true,
+      isReadOnly: true
+    };
+  });
+
+  server.get<{ Querystring: { symbol?: string; window?: string; strategy?: string } }>("/signals/replay/stored", async (request, reply) => {
+    const generatedAt = now();
+    const symbol = parsePolymarketSymbolFilter(request.query.symbol);
+    const window = parseReplayWindowId(request.query.window ?? "1w");
+    const strategyId = request.query.strategy ?? "fair-value-v1";
+    if (request.query.symbol && !symbol) {
+      return reply.code(400).send(apiError({
+        status: "unsupported",
+        error: "out_of_scope",
+        message: "Stored signal replay currently supports symbol=BTC, symbol=ETH, or symbol=ALL only.",
+        generatedAt
+      }));
+    }
+    if (request.query.window && (!window || window === "custom")) {
+      return reply.code(400).send(apiError({
+        status: "unsupported",
+        error: "out_of_scope",
+        message: "Stored signal replay currently supports window=1d, 3d, 1w, or 1m.",
+        generatedAt
+      }));
+    }
+    if (strategyId !== "fair-value-v1") {
+      return reply.code(400).send(apiError({
+        status: "unsupported",
+        error: "out_of_scope",
+        message: "Stored signal replay currently supports strategy=fair-value-v1 only.",
+        generatedAt
+      }));
+    }
+    await researchStore.init();
+    const stored = await researchStore.getLatestReplayResult({
+      symbol: symbol ?? "BTC",
+      window: window && window !== "custom" ? window : "1w",
+      strategyId: "fair-value-v1"
+    });
+    if (!stored) {
+      return {
+        source: "stored",
+        status: "missing",
+        sourceType: "fixture",
+        latestStoredAt: null,
+        storedSampleCount: 0,
+        result: null,
+        warnings: ["NO_STORED_REPLAY_RESULT"],
+        isResearchOnly: true
+      };
+    }
+    const result = stored.response ?? buildStoredReplayResponse(stored.record, generatedAt);
+      return {
+        source: "stored",
+        status: "ok",
+        sourceType: stored.record.sourceType,
+        latestStoredAt: stored.record.checkedAt,
+        storedSampleCount: stored.record.sampleCount,
+        result,
+        warnings: parseStoredWarnings(stored.record.warningsJson),
+        isResearchOnly: true
+      };
+  });
+
+  server.get<{ Querystring: { symbol?: string; window?: string; strategy?: string } }>("/strategy-lab/stored", async (request, reply) => {
+    const generatedAt = now();
+    const symbol = parsePolymarketSymbolFilter(request.query.symbol);
+    const window = parseReplayWindowId(request.query.window ?? "1w");
+    const strategyId = request.query.strategy ?? "fair-value-v1";
+    if (request.query.symbol && !symbol) {
+      return reply.code(400).send(apiError({
+        status: "unsupported",
+        error: "out_of_scope",
+        message: "Stored Strategy Lab currently supports symbol=BTC, symbol=ETH, or symbol=ALL only.",
+        generatedAt
+      }));
+    }
+    if (request.query.window && (!window || window === "custom")) {
+      return reply.code(400).send(apiError({
+        status: "unsupported",
+        error: "out_of_scope",
+        message: "Stored Strategy Lab currently supports window=1d, 3d, 1w, or 1m.",
+        generatedAt
+      }));
+    }
+    if (strategyId !== "fair-value-v1") {
+      return reply.code(400).send(apiError({
+        status: "unsupported",
+        error: "out_of_scope",
+        message: "Stored Strategy Lab currently supports strategy=fair-value-v1 only.",
+        generatedAt
+      }));
+    }
+    await researchStore.init();
+    const stored = await researchStore.getLatestStrategyLabResult({
+      symbol: symbol ?? "BTC",
+      window: window && window !== "custom" ? window : "1w",
+      strategyId: "fair-value-v1"
+    });
+    if (!stored) {
+      return {
+        source: "stored",
+        status: "missing",
+        sourceType: "fixture",
+        latestStoredAt: null,
+        report: null,
+        warnings: ["NO_STORED_STRATEGY_LAB_RESULT"],
+        isResearchOnly: true
+      };
+    }
+    return {
+      source: "stored",
+      status: "ok",
+      sourceType: stored.record.sourceType,
+      latestStoredAt: stored.record.checkedAt,
+      report: stored.report ?? buildStoredStrategyLabReport(stored.record, generatedAt),
+      warnings: parseStoredWarnings(stored.record.warningsJson),
+      isResearchOnly: true
+    };
+  });
+
+  server.get<{ Querystring: { symbol?: string; window?: string; interval?: string; strategy?: string; mock?: string; useStored?: string } }>("/signals/replay", async (request, reply) => {
     const generatedAt = now();
     const symbol = parsePolymarketSymbolFilter(request.query.symbol);
     const window = parseReplayWindowId(request.query.window ?? "1w");
     const interval = parseOhlcvInterval(request.query.interval ?? "1m");
     const strategyId = request.query.strategy ?? "fair-value-v1";
     const mockMode = parseBooleanQuery(request.query.mock);
+    const useStored = parseBooleanQuery(request.query.useStored);
     if (request.query.symbol && !symbol) {
       return reply.code(400).send(
         apiError({
@@ -657,6 +841,27 @@ export function buildServer(options: BuildServerOptions = {}) {
           generatedAt
         })
       );
+    }
+
+    if (useStored === true) {
+      await researchStore.init();
+      const stored = await researchStore.getLatestReplayResult({
+        symbol: symbol ?? "BTC",
+        window: window && window !== "custom" ? window : "1w",
+        strategyId: "fair-value-v1"
+      });
+      if (stored) {
+        return {
+          ...(stored.response ?? buildStoredReplayResponse(stored.record, generatedAt)),
+          storageSource: "stored",
+          latestStoredAt: stored.record.checkedAt,
+          storedSampleCount: stored.record.sampleCount,
+          warnings: unique([
+            ...parseStoredWarnings(stored.record.warningsJson),
+            "Loaded from local research data store."
+          ])
+        };
+      }
     }
 
     return (await signalReplayRunner({
@@ -777,7 +982,7 @@ export function buildServer(options: BuildServerOptions = {}) {
       walkForwardResults: walkForward.walkForwardResults,
       rejectedParameterSets: finalRanking.rejectedParameterSets,
       warnings: unique([
-        "Research only. Not trading advice. No auto execution.",
+        "Research only. Not trading advice. No automated trading action.",
         "Top candidates are research candidates, not production trading strategies.",
         ...grid.warnings,
         ...grid.rejectedValues.map((value) => `Rejected invalid parameter value: ${value}`),
@@ -914,6 +1119,139 @@ function parseStrategyLabMode(value: string | undefined, mockFlag: boolean | und
     return "live";
   }
   return undefined;
+}
+
+function parseCaptureRunMode(value: string): CaptureRunMode | undefined {
+  switch (value) {
+    case "once":
+    case "capture-once":
+      return "once";
+    case "snapshot":
+    case "snapshot-once":
+      return "snapshot";
+    case "binance":
+    case "binance-candles":
+      return "binance-candles";
+    case "polymarket":
+    case "polymarket-markets":
+      return "polymarket-markets";
+    case "fair-value":
+    case "fair-value-signals":
+      return "fair-value-signals";
+    case "replay":
+    case "replay-metrics":
+      return "replay-metrics";
+    case "strategy-lab":
+      return "strategy-lab";
+    default:
+      return undefined;
+  }
+}
+
+function buildStoredReplayResponse(record: ReplayResultRecord, generatedAt: string): SignalReplayResponse {
+  const window = {
+    id: record.window,
+    startTime: new Date(Date.parse(record.checkedAt) - replayWindowMs(record.window)).toISOString(),
+    endTime: record.checkedAt,
+    label: `Stored ${record.window}`
+  } as const;
+  const warnings = unique([...parseStoredWarnings(record.warningsJson), "Stored replay payload was unavailable; returned summary metrics only."]);
+  return {
+    symbol: record.symbol,
+    window,
+    checkedAt: record.checkedAt,
+    sourceType: record.sourceType,
+    providerHealth: storedProviderHealth(record.sourceType, generatedAt, record.sampleCount),
+    metrics: {
+      symbol: record.symbol,
+      window,
+      sampleCount: record.sampleCount,
+      actionableCount: record.actionableCount,
+      winCount: record.winCount,
+      lossCount: record.lossCount,
+      pendingCount: record.pendingCount,
+      unresolvedCount: record.unresolvedCount,
+      rejectedCount: record.rejectedCount,
+      noSignalCount: record.noSignalCount,
+      winRate: record.winRate,
+      longYesCount: 0,
+      longYesWinRate: null,
+      longNoCount: 0,
+      longNoWinRate: null,
+      coverageRate: record.coverageRate,
+      rejectionRate: record.rejectionRate,
+      pendingRate: null,
+      averageEdge: record.averageEdge,
+      averageConfidence: record.averageConfidence,
+      averageTheoreticalPnl: null,
+      cumulativeTheoreticalPnl: record.theoreticalPnl,
+      maxDrawdown: record.maxDrawdown,
+      warnings,
+      isResearchOnly: true,
+      checkedAt: record.checkedAt
+    },
+    signals: [],
+    results: [],
+    markers: [],
+    warnings,
+    isResearchOnly: true
+  };
+}
+
+function buildStoredStrategyLabReport(record: StrategyLabResultRecord, generatedAt: string): StrategyLabReport {
+  return {
+    symbol: record.symbol,
+    window: record.window,
+    strategyId: record.strategyId,
+    parameterResults: [],
+    topCandidates: [],
+    walkForwardResults: [],
+    rejectedParameterSets: [],
+    warnings: unique([...parseStoredWarnings(record.warningsJson), "Stored Strategy Lab payload was unavailable; returned summary shell only."]),
+    sourceType: record.sourceType,
+    isResearchOnly: true,
+    checkedAt: generatedAt
+  };
+}
+
+function storedProviderHealth(sourceType: SignalReplayResponse["sourceType"], checkedAt: string, count: number): ProviderHealth {
+  return {
+    requestedProvider: sourceType === "mock" ? "mock" : "polymarket",
+    resolvedProvider: sourceType === "mock" ? "mock" : "polymarket-gamma",
+    sourceType,
+    status: "ok",
+    latencyMs: null,
+    candleCount: count,
+    expectedMinCandles: 0,
+    lastCandleTime: null,
+    isFixtureBacked: sourceType === "fixture",
+    fallbackUsed: false,
+    fallbackReason: null,
+    failClosedReasons: [],
+    checkedAt
+  };
+}
+
+function parseStoredWarnings(value: string): string[] {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function replayWindowMs(window: Exclude<ReplayWindowId, "custom">): number {
+  switch (window) {
+    case "1d":
+      return 24 * 60 * 60 * 1000;
+    case "3d":
+      return 3 * 24 * 60 * 60 * 1000;
+    case "1w":
+      return 7 * 24 * 60 * 60 * 1000;
+    case "1m":
+      return 30 * 24 * 60 * 60 * 1000;
+  }
 }
 
 function parseIntervals(value?: string): OhlcvInterval[] | undefined {

@@ -1,7 +1,8 @@
 # Research Signals API
 
-Status: implemented through RC-21 as fixture/default research signals, live/mock fair-value
-chart markers, research-only signal replay metrics, and Strategy Lab parameter validation.
+Status: implemented through RC-22 as fixture/default research signals, live/mock fair-value chart
+markers, research-only signal replay metrics, Strategy Lab parameter validation, and local research
+data-store capture.
 
 This API publishes BTC/ETH 5m and 10m research signals. Fixture mode remains the default for this
 list endpoint. Live mode must be explicitly requested and now defaults to Binance Spot public
@@ -25,10 +26,16 @@ GET /signals/replay?symbol=ETH&window=1w
 GET /signals/replay?symbol=ALL&window=1w
 GET /signals/replay?symbol=BTC&window=1d&interval=5m&strategy=fair-value-v1
 GET /signals/replay?symbol=BTC&window=1w&mock=true
+GET /signals/replay?symbol=BTC&window=1w&useStored=true
+GET /signals/replay/stored?symbol=BTC&window=1w
 GET /strategy-lab/sweep?symbol=BTC&window=1w
 GET /strategy-lab/sweep?symbol=ETH&window=1w
 GET /strategy-lab/sweep?symbol=ALL&window=1w
 GET /strategy-lab/sweep?symbol=BTC&window=1w&mock=true&maxCombinations=50
+GET /strategy-lab/stored?symbol=BTC&window=1w
+GET /store/status
+GET /capture/runs
+POST /capture/run
 ```
 
 Supported query filters:
@@ -46,6 +53,8 @@ For `/signals/replay`, supported filters are:
 - `interval`: `1m`, `5m`, `15m`, or `1h`; default `1m`
 - `strategy`: `fair-value-v1` only
 - `mock`: `true` or `false`; deterministic mock mode is for CI/smoke only
+- `useStored`: `true` or `false`; when true, the endpoint checks the local research data store
+  first and returns the latest stored replay result if available
 
 For `/strategy-lab/sweep`, supported filters are:
 
@@ -60,6 +69,14 @@ For `/strategy-lab/sweep`, supported filters are:
 - `volatilityLookbackCandles`: comma-separated integers; default `20,50,100`
 - `minConfidence`: comma-separated numbers; default `0.2,0.4`
 - `feesBps` and `slippageBps`: comma-separated integers; defaults `0,50`
+
+For `/capture/run`, supported `job` values are `snapshot`, `once`, `binance`, `polymarket`,
+`fair-value`, `replay`, and `strategy-lab`. The default HTTP job is `snapshot`, which captures
+Binance candles, Polymarket markets, and fair-value signals. Use `job=once` or CLI
+`pnpm capture:once` for all capture jobs. In live default mode, replay and Strategy Lab jobs are
+bounded fail-closed summaries unless `EPT_CAPTURE_FULL_LIVE_REPLAY=true` and
+`EPT_CAPTURE_FULL_LIVE_STRATEGY_LAB=true` are explicitly set. Capture is local research capture over
+public/read-only data only.
 
 Unsupported filters return a typed `ept-api-v1` error with:
 
@@ -304,6 +321,37 @@ metrics must not be used to select the same window's parameter.
 Top candidates are research candidates only. They cannot have null win rate, insufficient
 actionable count, negative theoretical PnL, high overfit risk, or low walk-forward consistency.
 They are not production strategies and must not be interpreted as a guaranteed or executable edge.
+
+## Research Data Store and Capture
+
+RC-22 adds a local research data store for durable public/read-only research samples. The default
+path is `.var/ept-research.sqlite` when Node's built-in SQLite is available; JSONL is the fallback.
+Local database files are ignored by git.
+
+The stored tables are:
+
+- `underlying_candles`: Binance Spot public BTCUSDT/ETHUSDT candles by interval.
+- `market_snapshots`: Polymarket Gamma/CLOB public market odds snapshots.
+- `fair_value_signals`: fair-value v1 marker snapshots, including `REJECTED` rows.
+- `replay_results`: replay metrics by symbol/window/strategy.
+- `strategy_lab_results`: Strategy Lab summary rows by symbol/window/strategy.
+- `capture_runs`: job status, counts, warnings, and errors.
+
+`/store/status` reports counts, latest timestamps, recent `1d`/`3d`/`1w`/`1m` coverage counts, and
+the latest capture run. `/capture/runs` returns recent capture health records.
+
+`POST /capture/run` defaults to lightweight `snapshot` capture. It can also trigger the full
+`job=once` capture or one job. In live mode, replay capture writes fail-closed `winRate=null`
+summaries unless `EPT_CAPTURE_FULL_LIVE_REPLAY=true` is set, and Strategy Lab capture writes warning
+rows without top candidates unless `EPT_CAPTURE_FULL_LIVE_STRATEGY_LAB=true` is set. These jobs are
+research data capture jobs, not bots. They never use private/authenticated endpoints and never
+place, cancel, or manage orders. If live Polymarket has no available market, the job records success
+or partial health with warnings and zero records instead of fabricating a market.
+
+`/signals/replay/stored` and `/strategy-lab/stored` return the latest local result for the selected
+symbol/window. If no stored row exists, they return `NO_STORED_REPLAY_RESULT` or
+`NO_STORED_STRATEGY_LAB_RESULT`. Stored results preserve their original `sourceType`; mock rows are
+not relabeled as live.
 
 ## Rule Semantics
 

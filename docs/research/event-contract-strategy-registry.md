@@ -1,7 +1,8 @@
 # Event-Contract Strategy Registry
 
-Status: RC-21 research-only registry plus replay metrics and Strategy Lab validation. These candidates are not production
-signals, not trade advice, and not claims of profit.
+Status: RC-22 research-only registry plus replay metrics, Strategy Lab validation, and local
+research data-store capture. These candidates are not production signals, not trade advice, and not
+claims of profit.
 
 RC-18 adds real Polymarket active market odds as required research context. Registry candidates must
 consume those odds only after data sufficiency checks: active market status, binary outcomes, CLOB
@@ -25,6 +26,11 @@ expansion. Strategy Lab candidates must remain research-only and must be rejecte
 when they have null win rate, too few actionable samples, negative theoretical PnL, high overfit
 risk, or low walk-forward consistency. In-sample train windows may choose parameters; out-of-sample
 test windows may only validate them.
+
+RC-22 still does not add a new strategy. It adds durable local public research samples and capture
+health so fair-value v1 replay and Strategy Lab are not wholly dependent on one live API request.
+Stored metrics are provenance-labeled research artifacts. They cannot promote top candidates into
+production settings and cannot fill missing live samples with mock data.
 
 All online, Twitter/X, chat, or community strategy ideas must enter this registry first. They cannot directly drive live signals. Any backtest must record fees, slippage, spread, liquidity, data range, sample count, and anti-look-ahead checks.
 
@@ -113,3 +119,7 @@ All online, Twitter/X, chat, or community strategy ideas must enter this registr
 - Do not use the same full historical window for both parameter selection and validation.
 - Keep Strategy Lab top candidates as research candidates only, not production settings.
 - Penalize low sample, high pending rate, low coverage, drawdown, and train/test degradation.
+- Store public research samples with explicit `sourceType` and never relabel mock or fixture rows as
+  live.
+- Treat missing stored replay/Strategy Lab rows as warnings, not as permission to fabricate
+  completed samples.

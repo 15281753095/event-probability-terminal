@@ -8,9 +8,9 @@ This repository is in Phase 1 foundation work. It has a minimal local end-to-end
 
 - `services/market-ingestor`: Polymarket public-read adapter boundary, fixture-first by default.
 - `packages/shared-types`: shared contracts for `EventMarket`, `OrderBookSnapshot`, `MarketDetailResponse`, and placeholder scanner/pricing objects.
-- `packages/research-signals`: deterministic technical-indicator, confluence, Binance Spot public realtime parser, research-only backtest scaffold, fair-value eligibility/probability helpers, replay metrics, Strategy Lab parameter sweep/walk-forward validation, and research-signal engine with Binance Spot public live ticker/candles by default, Coinbase Exchange fallback, and explicit fixture/mock dev mode.
-- `apps/api-gateway`: Fastify read-only API for live market data, fixture-backed markets/scanner metadata, contract-backed market detail, research signals, Event Signal Console, signal replay, Strategy Lab, and pricing placeholders.
-- `apps/web`: Next.js live BTC/ETH prediction terminal, signal console, replay dashboard, Strategy Lab dashboard, hidden legacy scanner route, and Market Detail evidence views that read from the API gateway.
+- `packages/research-signals`: deterministic technical-indicator, confluence, Binance Spot public realtime parser, research-only backtest scaffold, fair-value eligibility/probability helpers, replay metrics, Strategy Lab parameter sweep/walk-forward validation, local research data-store/capture jobs, and research-signal engine with Binance Spot public live ticker/candles by default, Coinbase Exchange fallback, and explicit fixture/mock dev mode.
+- `apps/api-gateway`: Fastify read-only API for live market data, fixture-backed markets/scanner metadata, contract-backed market detail, research signals, Event Signal Console, signal replay, Strategy Lab, local capture/status endpoints, and pricing placeholders.
+- `apps/web`: Next.js live BTC/ETH prediction terminal, signal console, replay dashboard, Strategy Lab dashboard, Research Data Store status page, hidden legacy scanner route, and Market Detail evidence views that read from the API gateway.
 - `services/pricing-engine`: Python placeholder contract for fair-value output shape.
 
 The current homepage is live-first. It uses Binance Spot public `BTCUSDT`/`ETHUSDT` ticker,
@@ -47,6 +47,9 @@ Supported research scope:
   `minEdgeBps`, `maxSpread`, volatility lookback, interval, confidence, fee, and slippage
   assumptions. It separates in-sample train windows from out-of-sample test windows and produces
   research candidates only.
+- Research Data Store: local public/read-only capture of Binance candles, Polymarket odds
+  snapshots, fair-value signal snapshots, replay metrics, Strategy Lab summaries, and capture
+  health. Stored rows preserve `sourceType=live|mock|fixture`.
 - Market contract: binary outcome markets only. The shared contract preserves upstream outcome labels, including fixture-backed `Yes`/`No` and observed `Up`/`Down`; it does not support multi-outcome markets.
 
 Explicit exclusions:
@@ -143,6 +146,7 @@ http://localhost:3000/market-data/live?symbol=BTC&provider=binance&interval=15m
 http://localhost:3000/signals/console?symbol=BTC&horizon=5m&provider=binance
 http://localhost:3000/signals/replay
 http://localhost:3000/strategy-lab
+http://localhost:3000/data-store
 http://localhost:3000/?symbol=BTC&horizon=5m&sourceMode=fixture
 http://localhost:3000/scanner
 ```
@@ -205,6 +209,11 @@ curl "http://localhost:4000/strategy-lab/sweep?symbol=BTC&window=1w&maxCombinati
 curl "http://localhost:4000/strategy-lab/sweep?symbol=ETH&window=1w&maxCombinations=20"
 curl "http://localhost:4000/strategy-lab/sweep?symbol=ALL&window=1w&maxCombinations=20"
 curl "http://localhost:4000/strategy-lab/sweep?symbol=BTC&window=1w&mock=true&maxCombinations=50"
+curl http://localhost:4000/store/status
+curl http://localhost:4000/capture/runs
+curl -X POST http://localhost:4000/capture/run
+curl "http://localhost:4000/signals/replay/stored?symbol=BTC&window=1w"
+curl "http://localhost:4000/strategy-lab/stored?symbol=BTC&window=1w"
 curl http://localhost:4000/signals/research
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=live"
@@ -237,6 +246,34 @@ is the default. `sourceMode=live` uses Binance Spot public candles with timeout,
 incomplete-candle filtering, freshness checks, and fail-closed `NO_SIGNAL` behavior.
 Directions are limited to `LONG`, `SHORT`, and `NO_SIGNAL`; they are explicitly research-only and
 `isTradeAdvice: false`.
+
+Research store CLI:
+
+```bash
+pnpm capture:once
+pnpm capture:snapshot
+pnpm capture:binance
+pnpm capture:polymarket
+pnpm capture:fair-value
+pnpm capture:replay
+pnpm capture:strategy-lab
+pnpm store:status
+```
+
+Mock capture for CI/smoke:
+
+```bash
+EPT_LIVE_MARKET_DATA_MOCK=true pnpm capture:once
+EPT_LIVE_MARKET_DATA_MOCK=true pnpm store:status
+```
+
+The default local store path is `.var/ept-research.sqlite` with JSONL fallback. Local store files
+are ignored by git. Capture is public/read-only research capture only; it does not use wallets,
+keys, account data, balances, positions, orders, cancellations, or execution APIs. Live
+`capture:once` keeps live replay and Strategy Lab bounded by default by writing fail-closed
+summary rows with `winRate=null` or no top candidates when full live capture is disabled. Set
+`EPT_CAPTURE_FULL_LIVE_REPLAY=true` and `EPT_CAPTURE_FULL_LIVE_STRATEGY_LAB=true` only for
+deliberately long full live replay/sweep runs. Mock capture remains deterministic full capture.
 
 `/market-data/live` returns Binance Spot public ticker and candle fields for `BTC` or `ETH` by
 default, with `provider=coinbase` available as fallback. It supports `interval=1m|5m|15m|1h`,

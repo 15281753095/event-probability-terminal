@@ -109,6 +109,11 @@ curl "http://localhost:4000/strategy-lab/sweep?symbol=BTC&window=1w&maxCombinati
 curl "http://localhost:4000/strategy-lab/sweep?symbol=ETH&window=1w&maxCombinations=20"
 curl "http://localhost:4000/strategy-lab/sweep?symbol=ALL&window=1w&maxCombinations=20"
 curl "http://localhost:4000/strategy-lab/sweep?symbol=BTC&window=1w&mock=true&maxCombinations=50"
+curl http://localhost:4000/store/status
+curl http://localhost:4000/capture/runs
+curl -X POST http://localhost:4000/capture/run
+curl "http://localhost:4000/signals/replay/stored?symbol=BTC&window=1w"
+curl "http://localhost:4000/strategy-lab/stored?symbol=BTC&window=1w"
 curl http://localhost:4000/signals/research
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=live"
@@ -196,6 +201,41 @@ warnings and no top candidates when public samples are too thin. The endpoint ca
 result `isResearchOnly=true`. It does not add private/authenticated endpoints, wallet/key handling,
 account data, or execution workflows.
 
+RC-22 adds the local Research Data Store. The default database is `.var/ept-research.sqlite`
+through Node's built-in SQLite when available, with JSONL fallback. The files under `.var/` are
+local state and must not be committed.
+
+Manual capture commands:
+
+```bash
+pnpm capture:once
+pnpm capture:snapshot
+pnpm capture:binance
+pnpm capture:polymarket
+pnpm capture:fair-value
+pnpm capture:replay
+pnpm capture:strategy-lab
+pnpm store:status
+```
+
+Mock capture for smoke/CI:
+
+```bash
+EPT_LIVE_MARKET_DATA_MOCK=true pnpm capture:once
+EPT_LIVE_MARKET_DATA_MOCK=true pnpm store:status
+```
+
+`POST /capture/run` defaults to lightweight snapshot capture. `pnpm capture:once` runs all capture
+jobs. In live mode, replay and Strategy Lab capture are bounded by default: replay writes
+fail-closed summary rows with `winRate=null`, and Strategy Lab writes warning rows with no fabricated
+top candidates. Set `EPT_CAPTURE_FULL_LIVE_REPLAY=true` and
+`EPT_CAPTURE_FULL_LIVE_STRATEGY_LAB=true` only when a deliberately long full live replay/sweep is
+required. Capture writes only public/read-only research data: Binance candles, Polymarket odds
+snapshots, fair-value markers, replay metrics, Strategy Lab summaries, and capture health. It does
+not use wallets, private keys, API keys, account data, balances, positions, orders, cancellation, or
+execution APIs. If live public data is sparse, capture records warnings or zero records; it must not
+fake live samples.
+
 ## Start Web
 
 Start the API gateway first so the terminal can load live market data.
@@ -226,6 +266,8 @@ Current pages:
 - `/strategy-lab`: Strategy Lab dashboard with research-only parameter filters, top research
   candidates, parameter sweep results, walk-forward validation, overfit risk, low-sample warnings,
   score breakdowns, and rejected parameter sets.
+- `/data-store`: Research Data Store status, capture runs, data coverage, latest timestamps, and
+  manual capture command guidance.
 - `/markets/polymarket`: read-only Polymarket active market odds with BTC/ETH realtime cards,
   Yes/No prices, implied probabilities, spread/liquidity diagnostics, binding status, and research
   eligibility.
