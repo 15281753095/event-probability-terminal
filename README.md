@@ -8,7 +8,7 @@ This repository is in Phase 1 foundation work. It has a minimal local end-to-end
 
 - `services/market-ingestor`: Polymarket public-read adapter boundary, fixture-first by default.
 - `packages/shared-types`: shared contracts for `EventMarket`, `OrderBookSnapshot`, `MarketDetailResponse`, and placeholder scanner/pricing objects.
-- `packages/research-signals`: deterministic technical-indicator, confluence, Binance Spot public realtime parser, research-only backtest scaffold, and research-signal engine with Binance Spot public live ticker/candles by default, Coinbase Exchange fallback, and explicit fixture dev mode.
+- `packages/research-signals`: deterministic technical-indicator, confluence, Binance Spot public realtime parser, research-only backtest scaffold, fair-value eligibility/probability helpers, and research-signal engine with Binance Spot public live ticker/candles by default, Coinbase Exchange fallback, and explicit fixture/mock dev mode.
 - `apps/api-gateway`: Fastify read-only API for live market data, fixture-backed markets/scanner metadata, contract-backed market detail, research signals, Event Signal Console, and pricing placeholders.
 - `apps/web`: Next.js RC-13 minimal live BTC/ETH 5m/10m prediction terminal, hidden legacy scanner route, and Market Detail RC-3 evidence views that read from the API gateway.
 - `services/pricing-engine`: Python placeholder contract for fair-value output shape.
@@ -38,6 +38,8 @@ Supported research scope:
 - Strategy research: registry and offline backtest scaffold only; not production-enabled and not a profitability claim.
 - Polymarket market odds: read-only active BTC/ETH market discovery, Yes/No outcome prices, CLOB
   token IDs, midpoint/spread/orderbook diagnostics, and Binance underlying binding.
+- Fair-value chart markers: research-only probability/edge annotations for eligible BTC/ETH
+  terminal price-threshold Polymarket markets. Ineligible markets fail closed with rejected reasons.
 - Market contract: binary outcome markets only. The shared contract preserves upstream outcome labels, including fixture-backed `Yes`/`No` and observed `Up`/`Down`; it does not support multi-outcome markets.
 
 Explicit exclusions:
@@ -49,6 +51,8 @@ Explicit exclusions:
 - No Polymarket authenticated trading endpoint, wallet, private key, API key, secret, passphrase,
   order placement, cancellation, balance, or position integration.
 - No signal output that is a buy/sell instruction, order, leverage, position size, or real trading entry.
+- No fair-value calculation for ambiguous, vague, path-dependent, high-spread, unknown-liquidity,
+  or unclear-resolution markets.
 - No runtime Up/Down payoff extraction and no non-placeholder Up/Down fair probabilities.
 - No multi-outcome market model.
 - No inferred external API fields, schemas, authentication, signatures, or endpoint behavior.
@@ -175,6 +179,9 @@ curl "http://localhost:4000/market-data/live?symbol=BTC&provider=coinbase"
 curl -N "http://localhost:4000/market-data/realtime?symbol=BTC&provider=binance"
 curl -N "http://localhost:4000/market-data/realtime?symbol=ETH&provider=binance"
 curl "http://localhost:4000/markets/polymarket/active?symbol=ALL"
+curl "http://localhost:4000/signals/fair-value?symbol=BTC"
+curl "http://localhost:4000/signals/fair-value?symbol=ETH"
+curl "http://localhost:4000/signals/fair-value?symbol=ALL"
 curl http://localhost:4000/signals/research
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=live"
@@ -224,6 +231,12 @@ midpoint, price, and spread diagnostics when available. Missing resolution evide
 IDs/outcomes, or ambiguous BTC/ETH binding marks a row data-insufficient; it is not converted into
 a production signal.
 
+`/signals/fair-value` returns research-only fair-value snapshots, chart markers, and rejected
+markets for BTC/ETH. It uses Binance public candles/current price plus Polymarket public odds only
+after a strict eligibility gate accepts a terminal price-threshold market. Live mode must not
+fabricate a signal when no market is eligible. Mock markers are deterministic smoke artifacts and
+are labeled `DEV MOCK`.
+
 `/signals/console` returns one `EventSignalConsoleResponse` for BTC/ETH 5m/10m and defaults to
 `sourceMode=live`. It includes the current research signal, active research profile, confluence
 scores, risk filters, event window, observation candidate, recent live candles, recent-only markers
@@ -242,10 +255,10 @@ return trade instructions, leverage, position size, order fields, or a real perf
   - compact confluence, risk/no-trade, and observation summaries
   - collapsed Advanced drawer for fixture dev mode, old scanner link, diagnostics, and warnings
 - `/scanner`: legacy Markets Scanner RC-2, moved out of the homepage first screen
-- `/market-data/live`: Binance Spot public ticker, realtime BTC/ETH cards, and real candle terminal
-  with BTC/ETH, provider, and `1m`/`5m`/`15m`/`1h` controls
+- `/market-data/live`: Binance Spot public ticker, realtime BTC/ETH cards, real candle terminal,
+  and compact fair-value research signal summary with BTC/ETH, provider, and `1m`/`5m`/`15m`/`1h` controls
 - `/signals/console`: live-default research signal console with realtime BTC/ETH cards,
-  experimental model labels, research-only strategy status, and no trading action
+  experimental model labels, fair-value chart markers, research-only strategy status, and no trading action
 - `/markets/polymarket`: read-only BTC/ETH Polymarket active market odds with Yes/No prices,
   implied probabilities, CLOB token IDs, spread/liquidity diagnostics, binding status, and research
   eligibility
@@ -255,8 +268,9 @@ return trade instructions, leverage, position size, order fields, or a real perf
   - API-backed research readiness, token trace, source trace, related fixture markets
   - explicit placeholder pricing panel and open evidence gaps
 
-No replay workflow, paper trading UI, or trading control exists. The RC-15 candlestick chart uses
-real candles in live mode and does not load full historical signal markers.
+No replay workflow, paper trading UI, or trading control exists. The candlestick chart uses real
+candles in live mode and RC-19 fair-value markers are research annotations, not execution
+instructions.
 
 ## Local Workbench FAQ
 

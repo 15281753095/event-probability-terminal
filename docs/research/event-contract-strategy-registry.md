@@ -7,6 +7,12 @@ consume those odds only after data sufficiency checks: active market status, bin
 token IDs, event end time, resolution source/rule evidence, spread, liquidity, fees, and slippage.
 The odds binding does not make any registry candidate production-ready.
 
+RC-19 adds the first fair-value chart-marker candidate. It is research-only and limited to eligible
+BTC/ETH terminal price-threshold markets. The eligibility gate is mandatory: ambiguous BTC+ETH
+markets, missing threshold, missing Yes/No tokens, missing odds, excessive spread, unknown
+liquidity, unclear resolution rules, expired markets, and path-dependent/vague `hit` markets are
+rejected before any probability or edge is computed.
+
 All online, Twitter/X, chat, or community strategy ideas must enter this registry first. They cannot directly drive live signals. Any backtest must record fees, slippage, spread, liquidity, data range, sample count, and anti-look-ahead checks.
 
 ## Candidate Categories
@@ -14,10 +20,11 @@ All online, Twitter/X, chat, or community strategy ideas must enter this registr
 ### Cross-venue arbitrage / price discrepancy
 - Hypothesis: prediction-market prices may diverge from underlying venue-implied probabilities.
 - Required data: event contract quote, underlying price, settlement rule, fees, spread, liquidity.
-- Signal placeholder: `contract_mid - fair_probability_proxy`.
+- Signal placeholder: `realized_vol_terminal_probability_v1 - market_probability`, after buffers.
 - Backtest requirement: synchronized timestamps and executable bid/ask assumptions.
 - Known risks: stale quotes, non-executable size, settlement mismatch.
-- Why not production-ready: fair probability and execution assumptions are unvalidated.
+- Why not production-ready: fair probability, settlement extraction, and execution assumptions are
+  unvalidated.
 
 ### Order book imbalance
 - Hypothesis: bid/ask depth imbalance may precede short-window repricing.
@@ -83,3 +90,6 @@ All online, Twitter/X, chat, or community strategy ideas must enter this registr
 - Reject insufficient data.
 - Warn on small samples.
 - Never mark high win rate with insufficient samples as viable.
+- Never use resolution-after-entry data or future candles to create a marker.
+- Never compute edge for a market that failed eligibility.
+- Show method, assumptions, warnings, and limits with every fair-value marker.

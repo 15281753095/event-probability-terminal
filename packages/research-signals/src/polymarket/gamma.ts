@@ -2,7 +2,7 @@ import type { BoundEventMarket, EventMarketCandidate, PolymarketActiveMarketsRes
 import type { FetchLike } from "../ohlcv/types.js";
 import { buildEventMarketOdds } from "./clob-public.js";
 import { bindMarketToUnderlying, inferSymbols, mapGammaMarketToCandidate } from "./market-mapper.js";
-import { loadMockPolymarketActiveMarkets } from "./mock-fixture.js";
+import { loadMockFairValueMarkets, loadMockPolymarketActiveMarkets } from "./mock-fixture.js";
 import type { FindCryptoEventMarketsInput, FindCryptoEventMarketsResult, GammaMarketRecord, PolymarketSymbolFilter } from "./types.js";
 
 export const POLYMARKET_GAMMA_PUBLIC_BASE_URL = "https://gamma-api.polymarket.com";
@@ -136,7 +136,9 @@ function buildMockResponse(
   checkedAt: string,
   realtimeUnderlyingPrice?: Partial<Record<SignalSymbol, number | null>>
 ): PolymarketActiveMarketsResponse {
-  const fixture = loadMockPolymarketActiveMarkets();
+  const fixture = process.env.EPT_FAIR_VALUE_MOCK === "true"
+    ? loadMockFairValueMarkets()
+    : loadMockPolymarketActiveMarkets();
   const candidates = process.env.EPT_POLYMARKET_MOCK_EMPTY === "true" ? [] : filterCryptoCandidates(fixture.markets, symbol);
   const markets = candidates.map((candidate) => {
     const [yes, no] = candidate.outcomePrices;

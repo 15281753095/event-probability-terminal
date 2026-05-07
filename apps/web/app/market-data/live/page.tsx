@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { DataSourceType, LiveMarketDataResponse, LiveMarketDataSource, OhlcvInterval, SignalSymbol } from "@ept/shared-types";
+import type { DataSourceType, FairValueSignalResponse, LiveMarketDataResponse, LiveMarketDataSource, OhlcvInterval, SignalSymbol } from "@ept/shared-types";
 import { apiErrorMessage } from "../../api-client";
 import { ConsoleCandlestickChart } from "../../ConsoleCandlestickChart";
 import { RealTimePriceCard } from "../../RealTimePriceCard";
@@ -25,13 +25,21 @@ type LiveMarketLoadState = {
   error?: string;
 };
 
+type FairValueLoadState = {
+  fairValue?: FairValueSignalResponse;
+  fairValueError?: string;
+};
+
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 const symbols: SignalSymbol[] = ["BTC", "ETH"];
 const intervals: OhlcvInterval[] = ["1m", "5m", "15m", "1h"];
 
 export default async function LiveMarketDataPage({ searchParams }: { searchParams?: SearchParams }) {
   const filters = parseFilters((await searchParams) ?? {});
-  const { marketData, error } = await loadLiveMarketData(filters);
+  const [{ marketData, error }, { fairValue, fairValueError }] = await Promise.all([
+    loadLiveMarketData(filters),
+    loadFairValueSummary(filters.symbol)
+  ]);
   const sourceType: DataSourceType = marketData?.sourceType ?? "live";
   const unavailable = !marketData || marketData.failClosedReasons.length > 0 || marketData.candleCount === 0 || marketData.latestPrice === null;
   const badge =
@@ -124,6 +132,27 @@ export default async function LiveMarketDataPage({ searchParams }: { searchParam
               </div>
             </section>
 
+            <section className="border border-slate-800 bg-[#0b111d] p-4" data-testid="live-fair-value-summary">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold text-slate-100">Current Research Signal</h2>
+                <span className="border border-amber-400/50 bg-amber-400/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-100">
+                  Research Only
+                </span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Metric label="Latest marker" value={displayFairValueMarker(fairValue)} />
+                <Metric label="Source type" value={fairValue?.sourceType === "mock" ? "DEV MOCK" : fairValue?.sourceType ?? "unavailable"} />
+                <Metric label="Snapshots" value={`${fairValue?.snapshots.length ?? 0}`} />
+                <Metric label="Rejected" value={`${fairValue?.rejectedMarkets.length ?? 0}`} />
+              </div>
+              {fairValueError ? <ErrorBanner message={fairValueError} /> : null}
+              {fairValue?.markers.at(-1) ? (
+                <p className="mt-3 text-xs leading-5 text-slate-400">
+                  {fairValue.markers.at(-1)?.reason}
+                </p>
+              ) : null}
+            </section>
+
             <section className="border border-slate-800 bg-[#0b111d] p-4" data-testid="provider-health-card">
               <h2 className="text-sm font-semibold text-slate-100">Provider Health</h2>
               <div className="mt-3 grid gap-2 text-xs text-slate-300">
@@ -185,6 +214,20 @@ async function loadLiveMarketData(filters: LiveMarketPageFilters): Promise<LiveM
     return { marketData: (await response.json()) as LiveMarketDataResponse };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Live market data API request failed." };
+  }
+}
+
+async function loadFairValueSummary(symbol: SignalSymbol): Promise<FairValueLoadState> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/signals/fair-value?symbol=${symbol}`, {
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      return { fairValueError: await apiErrorMessage(response) };
+    }
+    return { fairValue: (await response.json()) as FairValueSignalResponse };
+  } catch (error) {
+    return { fairValueError: error instanceof Error ? error.message : "Fair value signals API request failed." };
   }
 }
 
@@ -369,6 +412,14 @@ function formatUsd(value: number | null | undefined, symbol: SignalSymbol) {
     minimumFractionDigits: symbol === "BTC" ? 2 : 2,
     maximumFractionDigits: symbol === "BTC" ? 2 : 2
   }).format(value);
+}
+
+function displayFairValueMarker(value: FairValueSignalResponse | undefined): string {
+  const marker = value?.markers.at(-1);
+  if (!marker) {
+    return "Unavailable";
+  }
+  return marker.side === "LONG_YES" ? "Long YES" : marker.side === "LONG_NO" ? "Long NO" : marker.side === "REJECTED" ? "Rejected" : "No signal";
 }
 
 function formatAge(seconds: number | null) {

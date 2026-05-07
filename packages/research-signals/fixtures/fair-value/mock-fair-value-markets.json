@@ -1,0 +1,72 @@
+{
+  "metadata": {
+    "fixtureId": "rc19-mock-fair-value-markets",
+    "sourceType": "mock",
+    "checkedAt": "2026-12-31T23:54:00.000Z",
+    "purpose": "Deterministic research-only fair-value marker smoke fixture."
+  },
+  "markets": [
+    {
+      "id": "fv-btc-above-64200-demo",
+      "eventId": "evt-fv-btc-demo",
+      "marketId": "fv-btc-above-64200-demo",
+      "question": "Will Bitcoin be above $64,200 on December 31, 2026?",
+      "slug": "bitcoin-above-64200-december-31-2026",
+      "description": "DEV MOCK terminal BTCUSDT price event with explicit threshold and expiry.",
+      "active": true,
+      "closed": false,
+      "endDate": "2026-12-31T23:59:00.000Z",
+      "startDate": "2026-12-31T23:54:00.000Z",
+      "volume": 12000,
+      "liquidity": 3000,
+      "outcomes": ["Yes", "No"],
+      "outcomePrices": [0.35, 0.65],
+      "clobTokenIds": ["200000000000000000000000000000000000000001", "200000000000000000000000000000000000000002"],
+      "conditionId": "0xfvbtc01",
+      "questionId": "fv-btc-above-64200-demo",
+      "resolutionSource": "DEV MOCK explicit terminal rule: resolve Yes if BTCUSDT is above 64200 at 2026-12-31T23:59:00.000Z.",
+      "rawSource": "mock"
+    },
+    {
+      "id": "fv-btc-vague-demo",
+      "eventId": "evt-fv-btc-vague",
+      "marketId": "fv-btc-vague-demo",
+      "question": "Will Bitcoin have a major breakout soon?",
+      "slug": "bitcoin-major-breakout-soon",
+      "description": "DEV MOCK rejected BTC market with no explicit price threshold.",
+      "active": true,
+      "closed": false,
+      "endDate": "2026-12-31T23:59:00.000Z",
+      "volume": 6000,
+      "liquidity": 1500,
+      "outcomes": ["Yes", "No"],
+      "outcomePrices": [0.5, 0.5],
+      "clobTokenIds": ["200000000000000000000000000000000000000003", "200000000000000000000000000000000000000004"],
+      "conditionId": "0xfvbtc02",
+      "questionId": "fv-btc-vague-demo",
+      "resolutionSource": "DEV MOCK vague rule intentionally rejected.",
+      "rawSource": "mock"
+    },
+    {
+      "id": "fv-eth-above-3190-demo",
+      "eventId": "evt-fv-eth-demo",
+      "marketId": "fv-eth-above-3190-demo",
+      "question": "Will Ethereum be above $3,190 on December 31, 2026?",
+      "slug": "ethereum-above-3190-december-31-2026",
+      "description": "DEV MOCK terminal ETHUSDT price event with explicit threshold and expiry.",
+      "active": true,
+      "closed": false,
+      "endDate": "2026-12-31T23:59:00.000Z",
+      "startDate": "2026-12-31T23:54:00.000Z",
+      "volume": 9000,
+      "liquidity": 2200,
+      "outcomes": ["Yes", "No"],
+      "outcomePrices": [0.55, 0.45],
+      "clobTokenIds": ["200000000000000000000000000000000000000005", "200000000000000000000000000000000000000006"],
+      "conditionId": "0xfveth01",
+      "questionId": "fv-eth-above-3190-demo",
+      "resolutionSource": "DEV MOCK explicit terminal rule: resolve Yes if ETHUSDT is above 3190 at 2026-12-31T23:59:00.000Z.",
+      "rawSource": "mock"
+    }
+  ]
+}

@@ -32,7 +32,8 @@ export default defineConfig({
       env: {
         ...process.env,
         POLYMARKET_USE_FIXTURES: "true",
-        EPT_LIVE_MARKET_DATA_MOCK: "true"
+        EPT_LIVE_MARKET_DATA_MOCK: "true",
+        EPT_FAIR_VALUE_MOCK: "true"
       } as Record<string, string>,
       reuseExistingServer: false,
       timeout: 120_000,

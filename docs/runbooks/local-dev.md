@@ -96,6 +96,9 @@ curl -N "http://localhost:4000/market-data/realtime?symbol=ETH&provider=binance"
 curl "http://localhost:4000/markets/polymarket/active?symbol=BTC"
 curl "http://localhost:4000/markets/polymarket/active?symbol=ETH"
 curl "http://localhost:4000/markets/polymarket/active?symbol=ALL"
+curl "http://localhost:4000/signals/fair-value?symbol=BTC"
+curl "http://localhost:4000/signals/fair-value?symbol=ETH"
+curl "http://localhost:4000/signals/fair-value?symbol=ALL"
 curl http://localhost:4000/signals/research
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=live"
@@ -149,6 +152,19 @@ Gamma public discovery and CLOB public orderbook/midpoint/spread diagnostics. Mo
 Polymarket. The endpoint must not expose wallet, key, account, order, cancellation, balance, or
 position fields.
 
+RC-19 adds `/signals/fair-value` for research-only fair-value snapshots and K-line chart markers.
+It combines Binance public candles/current price with Polymarket public odds only after a strict
+eligibility gate accepts a BTC/ETH terminal threshold market. Live mode must return empty
+`snapshots` when no market is eligible. Mock/smoke mode can use
+`packages/research-signals/fixtures/fair-value/mock-fair-value-markets.json` by setting:
+
+```bash
+EPT_LIVE_MARKET_DATA_MOCK=true EPT_FAIR_VALUE_MOCK=true make dev-api
+```
+
+Mock fair-value markers are deterministic UI/CI artifacts and must appear as `DEV MOCK`; they are
+not live signals.
+
 ## Start Web
 
 Start the API gateway first so the terminal can load live market data.
@@ -169,10 +185,11 @@ Current pages:
   realtime BTC/ETH price cards, latest public ticker price, freshness, live candlestick chart, compact prediction card,
   confluence/risk/observation summaries, manual refresh, and collapsed Advanced drawer.
 - `/market-data/live`: live Binance/Coinbase BTC/ETH ticker and real candle terminal with
-  realtime BTC/ETH price cards, provider, `1m`, `5m`, `15m`, and `1h` interval controls plus data provenance and provider
-  health diagnostics.
+  realtime BTC/ETH price cards, provider, `1m`, `5m`, `15m`, and `1h` interval controls plus data provenance, provider
+  health diagnostics, and a compact current research signal summary.
 - `/signals/console`: live-default research signal console with underlying candle provenance,
-  realtime BTC/ETH price cards, provider health diagnostics, experimental model labeling, research-only strategy status, and no trading action.
+  realtime BTC/ETH price cards, provider health diagnostics, experimental model labeling,
+  fair-value research markers, research-only strategy status, and no trading action.
 - `/markets/polymarket`: read-only Polymarket active market odds with BTC/ETH realtime cards,
   Yes/No prices, implied probabilities, spread/liquidity diagnostics, binding status, and research
   eligibility.
@@ -192,6 +209,7 @@ http://localhost:3000/
 http://localhost:3000/?symbol=ETH&horizon=10m
 http://localhost:3000/market-data/live?symbol=ETH&provider=binance&interval=15m
 http://localhost:3000/signals/console?symbol=BTC&horizon=5m&provider=binance
+http://localhost:3000/signals/console?symbol=BTC&horizon=5m&provider=binance&refresh=1
 http://localhost:3000/markets/polymarket
 http://localhost:3000/?symbol=BTC&horizon=5m&sourceMode=fixture
 http://localhost:3000/scanner
@@ -295,7 +313,8 @@ Current smoke coverage is intentionally small:
   The old scanner must not appear on the homepage.
 - `/market-data/live` must render BTC/ETH and `1m`/`5m`/`15m`/`1h` controls, chart, and provenance.
 - `/signals/console` must render the live-default signal console with experimental model and no
-  trading action labels.
+  trading action labels, fair-value research signal section, chart marker summary, and DEV MOCK
+  marker when smoke mocks are enabled.
 - `/scanner` must render the legacy fixture-backed scanner route.
 - `/markets/polymarket%3Amkt-btc-1h-demo` must render Market Detail RC-3 with outcomes, research
   readiness, token trace, source trace, related fixture markets, provenance, placeholder pricing,
@@ -318,6 +337,8 @@ npx --yes pnpm@10.0.0 check
 - TODO: PostgreSQL has no schema and is not used by the current app flow.
 - TODO: Redis is not used by the current app flow.
 - TODO: Scanner fair probability, confidence, and edge are placeholders.
+- TODO: RC-19 fair-value v1 is a research-only chart-marker model for eligible BTC/ETH terminal
+  threshold markets only; it is not production pricing and must reject unclear markets.
 - TODO: `/signals/research` remains fixture-default; `/signals/console` and the homepage are
   live-first research outputs, not trade advice.
 - TODO: Binance/Coinbase live ticker/candles have no cache layer; use explicit local manual

@@ -64,6 +64,23 @@ export {
   inferSymbols,
   mapGammaMarketToCandidate
 } from "./polymarket/market-mapper.js";
+export {
+  buildFairValueSignalResponse,
+  evaluateFairValueMarket
+} from "./fair-value/edge.js";
+export { evaluateMarketEligibility } from "./fair-value/market-eligibility.js";
+export {
+  FAIR_VALUE_ASSUMPTIONS,
+  FAIR_VALUE_METHOD,
+  estimateTerminalAboveProbability
+} from "./fair-value/probability.js";
+export type {
+  BuildFairValueSignalResponseInput,
+  FairValueEvaluation,
+  FairValueInput,
+  TerminalProbabilityInput,
+  TerminalProbabilityResult
+} from "./fair-value/types.js";
 export type {
   FindCryptoEventMarketsInput,
   FindCryptoEventMarketsResult,

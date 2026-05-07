@@ -10,6 +10,7 @@ import {
   type ApiErrorResponse,
   type Candle,
   type EventSignalConsoleResponse,
+  type FairValueSignalResponse,
   type LiveMarketDataSource,
   type LiveMarketDataResponse,
   type OHLCVFetchResult,
@@ -641,6 +642,68 @@ describe("research signals API", () => {
       assert.equal(response.statusCode, 200);
       const payload = response.json<PolymarketActiveMarketsResponse>();
       assert.equal(payload.markets.length, 0);
+      assert.ok(payload.warnings.some((warning) => warning.includes("No active BTC/ETH Polymarket markets found")));
+    } finally {
+      await server.close();
+      restoreEnv("EPT_POLYMARKET_MOCK", previousMarketMock);
+      restoreEnv("EPT_POLYMARKET_MOCK_EMPTY", previousEmpty);
+      restoreEnv("EPT_LIVE_MARKET_DATA_MOCK", previousLiveMock);
+    }
+  });
+
+  it("returns deterministic mock fair-value snapshots and markers without private or execution fields", async () => {
+    const previousFairValueMock = process.env.EPT_FAIR_VALUE_MOCK;
+    const previousMarketMock = process.env.EPT_POLYMARKET_MOCK;
+    const previousLiveMock = process.env.EPT_LIVE_MARKET_DATA_MOCK;
+    process.env.EPT_FAIR_VALUE_MOCK = "true";
+    process.env.EPT_POLYMARKET_MOCK = "true";
+    process.env.EPT_LIVE_MARKET_DATA_MOCK = "true";
+    const server = buildServer({ logger: false, now: () => fixedGeneratedAt });
+    try {
+      const response = await server.inject({
+        method: "GET",
+        url: "/signals/fair-value?symbol=BTC"
+      });
+
+      assert.equal(response.statusCode, 200);
+      const payload = response.json<FairValueSignalResponse>();
+      assert.equal(payload.symbol, "BTC");
+      assert.equal(payload.sourceType, "mock");
+      assert.equal(payload.isResearchOnly, true);
+      assert.ok(payload.snapshots.length >= 1);
+      assert.ok(payload.markers.length >= 1);
+      assert.ok(payload.rejectedMarkets.length >= 1);
+      assert.ok(payload.snapshots[0]?.modelProbabilityYes !== null);
+      assert.ok(payload.snapshots[0]?.marketProbabilityYes !== null);
+      assert.equal(payload.markers.every((marker) => marker.isResearchOnly), true);
+      assert.equal(/privateKey|apiKey|secret|passphrase|order|cancel|balance|position/i.test(response.body), false);
+    } finally {
+      await server.close();
+      restoreEnv("EPT_FAIR_VALUE_MOCK", previousFairValueMock);
+      restoreEnv("EPT_POLYMARKET_MOCK", previousMarketMock);
+      restoreEnv("EPT_LIVE_MARKET_DATA_MOCK", previousLiveMock);
+    }
+  });
+
+  it("returns no fake fair-value snapshots when mock discovery is empty", async () => {
+    const previousMarketMock = process.env.EPT_POLYMARKET_MOCK;
+    const previousEmpty = process.env.EPT_POLYMARKET_MOCK_EMPTY;
+    const previousLiveMock = process.env.EPT_LIVE_MARKET_DATA_MOCK;
+    process.env.EPT_POLYMARKET_MOCK = "true";
+    process.env.EPT_POLYMARKET_MOCK_EMPTY = "true";
+    process.env.EPT_LIVE_MARKET_DATA_MOCK = "true";
+    const server = buildServer({ logger: false, now: () => fixedGeneratedAt });
+    try {
+      const response = await server.inject({
+        method: "GET",
+        url: "/signals/fair-value?symbol=BTC"
+      });
+
+      assert.equal(response.statusCode, 200);
+      const payload = response.json<FairValueSignalResponse>();
+      assert.equal(payload.snapshots.length, 0);
+      assert.equal(payload.markers.length, 0);
+      assert.equal(payload.rejectedMarkets.length, 0);
       assert.ok(payload.warnings.some((warning) => warning.includes("No active BTC/ETH Polymarket markets found")));
     } finally {
       await server.close();
