@@ -8,9 +8,9 @@ This repository is in Phase 1 foundation work. It has a minimal local end-to-end
 
 - `services/market-ingestor`: Polymarket public-read adapter boundary, fixture-first by default.
 - `packages/shared-types`: shared contracts for `EventMarket`, `OrderBookSnapshot`, `MarketDetailResponse`, and placeholder scanner/pricing objects.
-- `packages/research-signals`: deterministic technical-indicator, confluence, Binance Spot public realtime parser, research-only backtest scaffold, fair-value eligibility/probability helpers, and research-signal engine with Binance Spot public live ticker/candles by default, Coinbase Exchange fallback, and explicit fixture/mock dev mode.
-- `apps/api-gateway`: Fastify read-only API for live market data, fixture-backed markets/scanner metadata, contract-backed market detail, research signals, Event Signal Console, and pricing placeholders.
-- `apps/web`: Next.js RC-13 minimal live BTC/ETH 5m/10m prediction terminal, hidden legacy scanner route, and Market Detail RC-3 evidence views that read from the API gateway.
+- `packages/research-signals`: deterministic technical-indicator, confluence, Binance Spot public realtime parser, research-only backtest scaffold, fair-value eligibility/probability helpers, replay metrics, and research-signal engine with Binance Spot public live ticker/candles by default, Coinbase Exchange fallback, and explicit fixture/mock dev mode.
+- `apps/api-gateway`: Fastify read-only API for live market data, fixture-backed markets/scanner metadata, contract-backed market detail, research signals, Event Signal Console, signal replay, and pricing placeholders.
+- `apps/web`: Next.js live BTC/ETH prediction terminal, signal console, replay dashboard, hidden legacy scanner route, and Market Detail evidence views that read from the API gateway.
 - `services/pricing-engine`: Python placeholder contract for fair-value output shape.
 
 The current homepage is live-first. It uses Binance Spot public `BTCUSDT`/`ETHUSDT` ticker,
@@ -40,6 +40,9 @@ Supported research scope:
   token IDs, midpoint/spread/orderbook diagnostics, and Binance underlying binding.
 - Fair-value chart markers: research-only probability/edge annotations for eligible BTC/ETH
   terminal price-threshold Polymarket markets. Ineligible markets fail closed with rejected reasons.
+- Signal replay and win-rate metrics: research-only fair-value v1 replay for `1d`, `3d`, `1w`, and
+  `1m` windows. Win rate only counts resolved `WIN`/`LOSS` samples; pending, unresolved,
+  rejected, and no-signal rows are reported separately.
 - Market contract: binary outcome markets only. The shared contract preserves upstream outcome labels, including fixture-backed `Yes`/`No` and observed `Up`/`Down`; it does not support multi-outcome markets.
 
 Explicit exclusions:
@@ -47,10 +50,12 @@ Explicit exclusions:
 - No real-money order placement, cancellation, settlement, wallet funding, withdrawal, or trading automation.
 - No private/authenticated Polymarket adapter.
 - No Predict.fun or Binance Wallet adapter.
-- No real pricing model, paper broker, replay engine, production strategy activation, or news-signal business implementation.
+- No real pricing model, paper broker, production strategy activation, or news-signal business implementation.
 - No Polymarket authenticated trading endpoint, wallet, private key, API key, secret, passphrase,
   order placement, cancellation, balance, or position integration.
 - No signal output that is a buy/sell instruction, order, leverage, position size, or real trading entry.
+- No fabricated live replay statistics and no pending/unresolved/rejected/no-signal rows in the
+  realized win-rate denominator.
 - No fair-value calculation for ambiguous, vague, path-dependent, high-spread, unknown-liquidity,
   or unclear-resolution markets.
 - No runtime Up/Down payoff extraction and no non-placeholder Up/Down fair probabilities.
@@ -130,6 +135,7 @@ http://localhost:3000/
 http://localhost:3000/?symbol=ETH&horizon=10m
 http://localhost:3000/market-data/live?symbol=BTC&provider=binance&interval=15m
 http://localhost:3000/signals/console?symbol=BTC&horizon=5m&provider=binance
+http://localhost:3000/signals/replay
 http://localhost:3000/?symbol=BTC&horizon=5m&sourceMode=fixture
 http://localhost:3000/scanner
 ```
@@ -182,6 +188,12 @@ curl "http://localhost:4000/markets/polymarket/active?symbol=ALL"
 curl "http://localhost:4000/signals/fair-value?symbol=BTC"
 curl "http://localhost:4000/signals/fair-value?symbol=ETH"
 curl "http://localhost:4000/signals/fair-value?symbol=ALL"
+curl "http://localhost:4000/signals/replay?symbol=BTC&window=1d"
+curl "http://localhost:4000/signals/replay?symbol=BTC&window=3d"
+curl "http://localhost:4000/signals/replay?symbol=BTC&window=1w"
+curl "http://localhost:4000/signals/replay?symbol=ETH&window=1w"
+curl "http://localhost:4000/signals/replay?symbol=ALL&window=1w"
+curl "http://localhost:4000/signals/replay?symbol=BTC&window=1w&mock=true"
 curl http://localhost:4000/signals/research
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=live"
@@ -237,6 +249,12 @@ after a strict eligibility gate accepts a terminal price-threshold market. Live 
 fabricate a signal when no market is eligible. Mock markers are deterministic smoke artifacts and
 are labeled `DEV MOCK`.
 
+`/signals/replay` returns research-only fair-value v1 replay metrics for `BTC`, `ETH`, or `ALL`.
+It supports `window=1d|3d|1w|1m`, `interval=1m|5m|15m|1h`, `strategy=fair-value-v1`, and
+`mock=true|false`. Live replay uses public historical data only and returns warnings with
+`winRate: null` when completed resolved samples are unavailable. `theoreticalPnl` is hypothetical
+and not actual trading performance.
+
 `/signals/console` returns one `EventSignalConsoleResponse` for BTC/ETH 5m/10m and defaults to
 `sourceMode=live`. It includes the current research signal, active research profile, confluence
 scores, risk filters, event window, observation candidate, recent live candles, recent-only markers
@@ -259,6 +277,8 @@ return trade instructions, leverage, position size, order fields, or a real perf
   and compact fair-value research signal summary with BTC/ETH, provider, and `1m`/`5m`/`15m`/`1h` controls
 - `/signals/console`: live-default research signal console with realtime BTC/ETH cards,
   experimental model labels, fair-value chart markers, research-only strategy status, and no trading action
+- `/signals/replay`: Signal Replay & Win Rate Dashboard with BTC/ETH/ALL, `1d`/`3d`/`1w`/`1m`,
+  interval filters, win-rate metrics, marker timeline, result table, and no auto execution
 - `/markets/polymarket`: read-only BTC/ETH Polymarket active market odds with Yes/No prices,
   implied probabilities, CLOB token IDs, spread/liquidity diagnostics, binding status, and research
   eligibility
@@ -268,9 +288,9 @@ return trade instructions, leverage, position size, order fields, or a real perf
   - API-backed research readiness, token trace, source trace, related fixture markets
   - explicit placeholder pricing panel and open evidence gaps
 
-No replay workflow, paper trading UI, or trading control exists. The candlestick chart uses real
-candles in live mode and RC-19 fair-value markers are research annotations, not execution
-instructions.
+No paper trading UI or trading control exists. The candlestick chart uses real candles in live mode,
+RC-19 fair-value markers are research annotations, and RC-20 replay metrics are historical research
+diagnostics, not execution instructions.
 
 ## Local Workbench FAQ
 
@@ -278,6 +298,8 @@ instructions.
   entry, leverage, position size, order placement, wallet, or private/authenticated controls.
 - Signal markers are capped to recent markers from `/signals/console` and are not a replay of all
   historical signals.
+- Use `/signals/replay` for historical fair-value v1 marker replay. Treat low sample size,
+  all-pending, and unresolved states as limits, not as performance evidence.
 - Observation Preview is collapsed by default. Open it only when needed; it is a small-sample
   directional check, not a backtest, predictive guarantee, or real trading performance.
 - Manual refresh is display fetching only. This app does not high-frequency poll REST
@@ -314,9 +336,10 @@ make smoke
 ```
 
 The smoke suite starts the API gateway and web app with deterministic mocked provider packets, then
-checks that the homepage, `/market-data/live`, and `/signals/console` mark those packets as
-`DEV MOCK`, plus the moved `/scanner` route and one deterministic Market Detail URL. It does not
-call live vendors, compute real pricing, or test trading behavior.
+checks that the homepage, `/market-data/live`, `/signals/console`, and `/signals/replay` mark or
+handle mock packets correctly, plus the moved `/scanner` route and one deterministic Market Detail
+URL. It does not call live vendors, compute real pricing, fabricate replay performance, or test
+trading behavior.
 
 API contract snapshots are part of `make test`. They lock stable fixture-backed projections for
 `/scanner/top`, `/markets/:id/detail`, `/signals/research`, and `/signals/console` under
@@ -355,6 +378,8 @@ should be reviewed as public local API contract changes, not incidental formatti
 - RC-13 real data first terminal decision: `docs/adr/0017-rc13-real-data-first-terminal.md`
 - RC-14 real data integrity decision: `docs/adr/0018-rc14-real-data-integrity.md`
 - RC-15 Binance public kline terminal decision: `docs/adr/0019-rc15-binance-public-kline-terminal.md`
+- RC-19 fair value markers decision: `docs/adr/0023-rc19-fair-value-chart-markers.md`
+- RC-20 signal replay decision: `docs/adr/0024-rc20-signal-replay-win-rate-dashboard.md`
 - Source registry: `docs/source_registry.md`
 - Collaboration rules: `AGENTS.md`
 

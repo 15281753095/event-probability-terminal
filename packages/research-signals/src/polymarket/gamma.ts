@@ -26,6 +26,37 @@ export async function fetchActivePolymarketMarkets(
   return filterCryptoCandidates(candidates, options.symbol ?? "ALL").slice(0, limit);
 }
 
+export type ClosedPolymarketMarket = {
+  candidate: EventMarketCandidate;
+  resolvedOutcome?: "YES" | "NO" | undefined;
+  resolutionNotes: string[];
+};
+
+export async function fetchClosedPolymarketMarkets(
+  options: FindCryptoEventMarketsInput & { startTime?: string | undefined; endTime?: string | undefined } = {}
+): Promise<ClosedPolymarketMarket[]> {
+  const limit = options.limit ?? 100;
+  const payload = await fetchGammaMarkets({
+    ...options,
+    searchParams: {
+      active: "false",
+      closed: "true",
+      limit: String(Math.min(100, limit * 3))
+    }
+  });
+  const mapped = payload.flatMap((market) => {
+    const candidate = mapGammaMarketToCandidate({ market }).candidate;
+    if (!candidate) {
+      return [];
+    }
+    return [{
+      candidate,
+      ...extractResolvedOutcome(market)
+    }];
+  });
+  return filterClosedCryptoCandidates(mapped, options.symbol ?? "ALL", options.startTime, options.endTime).slice(0, limit);
+}
+
 export async function searchPolymarketMarkets(
   query: string,
   options: FindCryptoEventMarketsInput = {}
@@ -251,6 +282,36 @@ function filterCryptoCandidates(candidates: EventMarketCandidate[], symbol: Poly
   });
 }
 
+function filterClosedCryptoCandidates(
+  candidates: ClosedPolymarketMarket[],
+  symbol: PolymarketSymbolFilter,
+  startTime?: string | undefined,
+  endTime?: string | undefined
+): ClosedPolymarketMarket[] {
+  const startMs = startTime ? Date.parse(startTime) : null;
+  const endMs = endTime ? Date.parse(endTime) : null;
+  return candidates.filter((item) => {
+    const symbols = inferSymbols(item.candidate);
+    if (symbol !== "ALL" && !(symbols.length === 1 && symbols[0] === symbol)) {
+      return false;
+    }
+    if (symbol === "ALL" && symbols.length === 0) {
+      return false;
+    }
+    const marketEndMs = item.candidate.endDate ? Date.parse(item.candidate.endDate) : null;
+    if (!marketEndMs || !Number.isFinite(marketEndMs)) {
+      return false;
+    }
+    if (startMs !== null && Number.isFinite(startMs) && marketEndMs < startMs) {
+      return false;
+    }
+    if (endMs !== null && Number.isFinite(endMs) && marketEndMs > endMs) {
+      return false;
+    }
+    return true;
+  });
+}
+
 function isActiveOpen(candidate: EventMarketCandidate): boolean {
   return candidate.active && !candidate.closed && candidate.archived !== true;
 }
@@ -292,4 +353,32 @@ function providerHealth(input: {
 
 function isRecord(value: unknown): value is GammaMarketRecord {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function extractResolvedOutcome(market: GammaMarketRecord): Pick<ClosedPolymarketMarket, "resolvedOutcome" | "resolutionNotes"> {
+  const notes: string[] = [];
+  const raw = [
+    market.resolvedOutcome,
+    market.winningOutcome,
+    market.outcome,
+    market.result,
+    market.resolution,
+    market.winner
+  ].find((value) => typeof value === "string" && value.trim());
+  const normalized = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  if (normalized === "yes") {
+    return {
+      resolvedOutcome: "YES",
+      resolutionNotes: ["Gamma closed market exposed an explicit YES resolved outcome."]
+    };
+  }
+  if (normalized === "no") {
+    return {
+      resolvedOutcome: "NO",
+      resolutionNotes: ["Gamma closed market exposed an explicit NO resolved outcome."]
+    };
+  }
+  notes.push("Gamma closed market did not expose a confirmed YES/NO outcome field; threshold reconstruction may be required.");
+  notes.push("TODO: Confirm any additional Gamma resolution schema before using it as settled truth.");
+  return { resolutionNotes: notes };
 }

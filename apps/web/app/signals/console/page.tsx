@@ -106,6 +106,12 @@ export default async function SignalsConsolePage({ searchParams }: { searchParam
               <HeaderMetric label="Generated" value={formatTime(console?.meta.generatedAt ?? null)} />
               <Link
                 className="inline-flex min-h-10 items-center border border-cyan-400/60 bg-cyan-400/10 px-3 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/15"
+                href={`/signals/replay?symbol=${filters.symbol}`}
+              >
+                Signal Replay · Win Rate Dashboard
+              </Link>
+              <Link
+                className="inline-flex min-h-10 items-center border border-cyan-400/60 bg-cyan-400/10 px-3 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/15"
                 href={signalsHref(filters, { refresh: String(Date.now()) })}
               >
                 Refresh

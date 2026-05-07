@@ -113,6 +113,32 @@ test("signals console defaults to live mode and marks experimental output", asyn
   await expect(page.getByText(/BUY NOW|SELL NOW|TRADE NOW|ENTRY|LEVERAGE|POSITION SIZE/i)).toHaveCount(0);
 });
 
+test("signal replay dashboard shows deterministic mock replay metrics", async ({ page }) => {
+  await page.goto("/signals/replay");
+
+  await expect(page.getByTestId("signal-replay-page")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Signal Replay & Win Rate Dashboard" })).toBeVisible();
+  await expect(page.getByText("Research Only", { exact: true })).toBeVisible();
+  await expect(page.getByText("Not Trading Advice", { exact: true })).toBeVisible();
+  await expect(page.getByText("No Auto Execution", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("replay-window-filter")).toContainText("1d");
+  await expect(page.getByTestId("replay-window-filter")).toContainText("3d");
+  await expect(page.getByTestId("replay-window-filter")).toContainText("1w");
+  await expect(page.getByTestId("replay-window-filter")).toContainText("1m");
+  await expect(page.getByTestId("replay-symbol-filter")).toContainText("BTC");
+  await expect(page.getByTestId("replay-symbol-filter")).toContainText("ETH");
+  await expect(page.getByTestId("replay-symbol-filter")).toContainText("ALL");
+  await expect(page.getByTestId("replay-metrics-cards")).toContainText("Win Rate");
+  await expect(page.getByTestId("replay-metrics-cards")).toContainText("Sample Count");
+  await expect(page.getByTestId("replay-metrics-cards")).toContainText("Pending");
+  await expect(page.getByTestId("replay-metrics-cards")).toContainText("Rejected");
+  await expect(page.getByTestId("replay-metrics-cards")).toContainText("NO_SIGNAL");
+  await expect(page.getByTestId("replay-marker-summary")).toContainText(/WIN|LOSS|PENDING|REJECTED/);
+  await expect(page.getByTestId("replay-marker-table")).toBeVisible();
+  await expect(page.getByTestId("replay-marker-table")).toContainText("mock-btc");
+  await expect(page.getByText(/BUY NOW|SELL NOW|TRADE NOW/i)).toHaveCount(0);
+});
+
 test("polymarket active markets page shows read-only mock odds", async ({ page }) => {
   await page.goto("/markets/polymarket");
 

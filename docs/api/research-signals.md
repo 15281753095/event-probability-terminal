@@ -1,7 +1,7 @@
 # Research Signals API
 
-Status: implemented through RC-19 as fixture/default research signals plus a live/mock
-fair-value chart-marker slice.
+Status: implemented through RC-20 as fixture/default research signals, live/mock fair-value
+chart markers, and research-only signal replay metrics.
 
 This API publishes BTC/ETH 5m and 10m research signals. Fixture mode remains the default for this
 list endpoint. Live mode must be explicitly requested and now defaults to Binance Spot public
@@ -20,6 +20,11 @@ GET /signals/research?symbol=BTC&horizon=5m&sourceMode=live
 GET /signals/fair-value?symbol=BTC
 GET /signals/fair-value?symbol=ETH
 GET /signals/fair-value?symbol=ALL
+GET /signals/replay?symbol=BTC&window=1w
+GET /signals/replay?symbol=ETH&window=1w
+GET /signals/replay?symbol=ALL&window=1w
+GET /signals/replay?symbol=BTC&window=1d&interval=5m&strategy=fair-value-v1
+GET /signals/replay?symbol=BTC&window=1w&mock=true
 ```
 
 Supported query filters:
@@ -29,6 +34,14 @@ Supported query filters:
 - `sourceMode`: `fixture` or `live`
 
 For `/signals/fair-value`, supported `symbol` values are `BTC`, `ETH`, and `ALL`.
+
+For `/signals/replay`, supported filters are:
+
+- `symbol`: `BTC`, `ETH`, or `ALL`; default `BTC`
+- `window`: `1d`, `3d`, `1w`, or `1m`; default `1w`
+- `interval`: `1m`, `5m`, `15m`, or `1h`; default `1m`
+- `strategy`: `fair-value-v1` only
+- `mock`: `true` or `false`; deterministic mock mode is for CI/smoke only
 
 Unsupported filters return a typed `ept-api-v1` error with:
 
@@ -199,6 +212,46 @@ events such as "Will bitcoin hit $1m before GTA VI?" are out of scope.
 When live discovery has no eligible market, `/signals/fair-value` must return empty `snapshots`
 and no fabricated live marker. Deterministic mock fair-value fixtures are allowed only for UI/CI and
 must be labeled `DEV MOCK`.
+
+RC-20 adds `/signals/replay`. The endpoint replays fair-value v1 over historical windows and
+returns `SignalReplayResponse`:
+
+- `symbol`
+- `window`
+- `checkedAt`
+- `sourceType`
+- `providerHealth`
+- `metrics`
+- `signals`
+- `results`
+- `markers`
+- `warnings`
+- `isResearchOnly: true`
+
+Replay uses Binance Spot public historical klines with `startTime` and `endTime`, paginating within
+Binance's documented `limit` boundary. It can query Polymarket Gamma closed markets and CLOB public
+`prices-history`, but historical Polymarket prices after `signalTime` are not allowed to influence
+signal generation.
+
+Outcome status is one of `WIN`, `LOSS`, `PENDING`, `UNRESOLVED`, `REJECTED`, or `NO_SIGNAL`.
+Realized win rate is computed only as:
+
+```text
+winRate = winCount / (winCount + lossCount)
+```
+
+`PENDING`, `UNRESOLVED`, `REJECTED`, and `NO_SIGNAL` are excluded from the win-rate denominator.
+They are still counted in separate metrics such as pending count, rejection rate, and coverage
+rate. If `actionableCount == 0` or there are no completed `WIN`/`LOSS` samples, `winRate` is
+`null`, not `0%` or `100%`.
+
+`theoreticalPnl` is explicitly hypothetical. It is not a real trade return, does not prove fill
+quality, and does not observe fees, balances, positions, order books at historical depth, or
+execution. If `sampleCount < 20`, replay returns `LOW_SAMPLE_SIZE`.
+
+Live replay must never fabricate completed samples. If Polymarket closed-market outcome evidence or
+Binance threshold reconstruction is unclear, results are `UNRESOLVED`. If only active markets are
+available, results are `PENDING` and realized win rate remains `null`.
 
 `NO_SIGNAL` remains a model output. It is not by itself a provider failure. Provider failure is
 expressed through `providerHealth.status`, `providerHealth.failClosedReasons`, and data-quality

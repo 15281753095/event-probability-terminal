@@ -1,6 +1,7 @@
 # Event-Contract Strategy Registry
 
-Status: RC-17 research-only registry. These candidates are not production signals, not trade advice, and not claims of profit.
+Status: RC-20 research-only registry plus replay metrics. These candidates are not production
+signals, not trade advice, and not claims of profit.
 
 RC-18 adds real Polymarket active market odds as required research context. Registry candidates must
 consume those odds only after data sufficiency checks: active market status, binary outcomes, CLOB
@@ -12,6 +13,11 @@ BTC/ETH terminal price-threshold markets. The eligibility gate is mandatory: amb
 markets, missing threshold, missing Yes/No tokens, missing odds, excessive spread, unknown
 liquidity, unclear resolution rules, expired markets, and path-dependent/vague `hit` markets are
 rejected before any probability or edge is computed.
+
+RC-20 does not add a new strategy. It adds replay, outcome labeling, and win-rate metrics for the
+existing fair-value v1 marker candidate. Replay metrics must keep `PENDING`, `UNRESOLVED`,
+`REJECTED`, and `NO_SIGNAL` outside the realized win-rate denominator. A high win rate with low
+sample count remains non-actionable and must show `LOW_SAMPLE_SIZE`.
 
 All online, Twitter/X, chat, or community strategy ideas must enter this registry first. They cannot directly drive live signals. Any backtest must record fees, slippage, spread, liquidity, data range, sample count, and anti-look-ahead checks.
 
@@ -93,3 +99,7 @@ All online, Twitter/X, chat, or community strategy ideas must enter this registr
 - Never use resolution-after-entry data or future candles to create a marker.
 - Never compute edge for a market that failed eligibility.
 - Show method, assumptions, warnings, and limits with every fair-value marker.
+- In replay, generate signals from pre-signal candles only.
+- Use resolution/expiry data only for outcome labeling.
+- Treat theoretical replay PnL as hypothetical, not real trading performance.
+- Do not add another strategy until fair-value v1 replay results are interpretable and auditable.

@@ -1,7 +1,8 @@
 # Event Signal Console API
 
-Status: RC-19 read-only research console with provider health and fair-value chart markers. It
-defaults to live Binance Spot public ticker/candles and keeps fixture/mock data explicitly labeled.
+Status: RC-20 read-only research console with provider health, fair-value chart markers, and a
+separate signal replay/win-rate dashboard. It defaults to live Binance Spot public ticker/candles
+and keeps fixture/mock data explicitly labeled.
 
 This API returns one BTC/ETH short-horizon research console payload. It is not a trading API, not
 investment advice, and not an execution system. The RC-19 fair-value marker surface is a
@@ -28,6 +29,9 @@ GET /markets/polymarket/active?symbol=ALL
 GET /signals/fair-value?symbol=BTC
 GET /signals/fair-value?symbol=ETH
 GET /signals/fair-value?symbol=ALL
+GET /signals/replay?symbol=BTC&window=1w
+GET /signals/replay?symbol=ETH&window=1w
+GET /signals/replay?symbol=ALL&window=1w
 ```
 
 Supported query filters:
@@ -43,6 +47,10 @@ Supported query filters:
 - `/market-data/realtime provider`: `binance` only; API Gateway uses Binance Spot public WebSocket internally
 - `/markets/polymarket/active symbol`: `BTC`, `ETH`, or `ALL`; default `ALL`
 - `/signals/fair-value symbol`: `BTC`, `ETH`, or `ALL`; default `BTC`
+- `/signals/replay symbol`: `BTC`, `ETH`, or `ALL`; default `BTC`
+- `/signals/replay window`: `1d`, `3d`, `1w`, or `1m`; default `1w`
+- `/signals/replay interval`: `1m`, `5m`, `15m`, or `1h`; default `1m`
+- `/signals/replay strategy`: `fair-value-v1` only
 
 Unsupported filters return a typed `ept-api-v1` error with:
 
@@ -175,6 +183,20 @@ path-dependent `hit/reach/trade above` markets are rejected before any edge is c
 If there is no eligible live market, the endpoint returns empty `snapshots` and explicit rejected
 reasons or warnings. It must not invent a live marker. Mock markers are for UI/CI only and must be
 shown as `DEV MOCK`.
+
+`GET /signals/replay` returns research-only replay and win-rate diagnostics for fair-value v1:
+
+- `metrics.sampleCount` counts completed `WIN`/`LOSS` samples only
+- `metrics.winRate` is `winCount / (winCount + lossCount)`
+- pending, unresolved, rejected, and no-signal rows are excluded from the win-rate denominator
+- `coverageRate` and `rejectionRate` use the total evaluated replay rows
+- `theoreticalPnl` is hypothetical and not realized trading performance
+- low completed sample count returns `LOW_SAMPLE_SIZE`
+
+The web page at `/signals/replay` shows Research Only, Not Trading Advice, No Auto Execution,
+window/symbol/interval filters, metrics cards, marker timeline, result table, and empty-state
+warnings such as No completed samples, All signals pending, No eligible markets, and Low sample
+size warning. The page must not present replay results as instructions or as guaranteed profit.
 
 Binance Spot public interval mapping:
 
