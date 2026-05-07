@@ -201,6 +201,9 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
                   <Link className="border border-cyan-400/50 bg-cyan-400/10 px-3 py-2 font-semibold text-cyan-100" href="/signals/replay">
                     Signal Replay · Win Rate Dashboard
                   </Link>
+                  <Link className="border border-cyan-400/50 bg-cyan-400/10 px-3 py-2 font-semibold text-cyan-100" href="/strategy-lab">
+                    Strategy Lab · Parameter Sweep · Walk-Forward Validation
+                  </Link>
                 </div>
                 <Diagnostics console={console} marketData={marketData} consoleError={consoleState.error} marketDataError={liveState.error} />
               </div>

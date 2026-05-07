@@ -162,6 +162,25 @@ export {
   parseReplayWindowId,
   resolveReplayWindow
 } from "./replay/window.js";
+export {
+  DEFAULT_STRATEGY_LAB_MAX_COMBINATIONS,
+  STRATEGY_LAB_MAX_COMBINATIONS_LIMIT,
+  buildFairValueV1ParameterGrid,
+  normalizeMaxCombinations
+} from "./strategy-lab/parameter-grid.js";
+export {
+  buildScoreBreakdown,
+  estimateSweepOverfitRisk,
+  rankStrategyParameterResults,
+  rejectionReasonsForResult,
+  warningsForMetrics
+} from "./strategy-lab/ranking.js";
+export {
+  aggregateReplayMetrics,
+  runParameterSweep,
+  runReplayForParameter
+} from "./strategy-lab/sweep-runner.js";
+export { runWalkForwardValidation } from "./strategy-lab/walk-forward.js";
 export type {
   BuildReplayResultInput,
   LabelReplayOutcomeInput,
@@ -182,3 +201,20 @@ export type {
   SignalMarker,
   SignalReplayResponse
 } from "./replay/types.js";
+export type {
+  BuildStrategyLabReportInput,
+  ParameterGridBuildResult,
+  ParameterGridOptions,
+  ParameterSweepRequest,
+  ParameterSweepResult,
+  RunParameterSweepInput,
+  RunParameterSweepOutput,
+  RunSignalReplayOutput,
+  RunWalkForwardValidationInput,
+  RunWalkForwardValidationOutput,
+  StrategyLabReport,
+  StrategyParameterOverfitRisk,
+  StrategyParameterSet,
+  WalkForwardResult,
+  WalkForwardWindow
+} from "./strategy-lab/types.js";

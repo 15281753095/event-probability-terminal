@@ -1,0 +1,33 @@
+{
+  "fixtureId": "rc21-mock-walk-forward-btc-1w",
+  "sourceType": "mock",
+  "symbol": "BTC",
+  "window": "1w",
+  "strategyId": "fair-value-v1",
+  "checkedAt": "2026-05-06T00:00:00.000Z",
+  "isResearchOnly": true,
+  "windows": [
+    {
+      "id": "wf-1",
+      "trainStart": "2026-04-29T00:00:00.000Z",
+      "trainEnd": "2026-05-02T12:00:00.000Z",
+      "testStart": "2026-05-02T12:00:00.000Z",
+      "testEnd": "2026-05-04T06:00:00.000Z"
+    },
+    {
+      "id": "wf-2",
+      "trainStart": "2026-04-30T18:00:00.000Z",
+      "trainEnd": "2026-05-04T06:00:00.000Z",
+      "testStart": "2026-05-04T06:00:00.000Z",
+      "testEnd": "2026-05-06T00:00:00.000Z"
+    }
+  ],
+  "expectedWarnings": [
+    "LOW_SAMPLE_SIZE",
+    "LOW_WALK_FORWARD_SAMPLE"
+  ],
+  "notes": [
+    "Train windows choose parameters before test windows are evaluated.",
+    "Out-of-sample metrics are not used to re-select parameters within the same window."
+  ]
+}

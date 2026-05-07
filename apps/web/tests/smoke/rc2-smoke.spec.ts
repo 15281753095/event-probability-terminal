@@ -139,6 +139,23 @@ test("signal replay dashboard shows deterministic mock replay metrics", async ({
   await expect(page.getByText(/BUY NOW|SELL NOW|TRADE NOW/i)).toHaveCount(0);
 });
 
+test("strategy lab shows mock parameter sweep and walk-forward validation", async ({ page }) => {
+  await page.goto("/strategy-lab?mock=true&mode=mock&maxCombinations=50");
+
+  await expect(page.getByTestId("strategy-lab-page")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Strategy Lab" })).toBeVisible();
+  await expect(page.getByText("Research Only", { exact: true })).toBeVisible();
+  await expect(page.getByText("Not Trading Advice", { exact: true })).toBeVisible();
+  await expect(page.getByText("No Auto Execution", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("top-research-candidates")).toContainText("Top Research Candidates");
+  await expect(page.getByTestId("parameter-sweep-results")).toContainText("Parameter Sweep Results");
+  await expect(page.getByTestId("walk-forward-validation")).toContainText("Walk-Forward Validation");
+  await expect(page.getByTestId("strategy-lab-summary")).toContainText("Overfit Risk");
+  await expect(page.getByTestId("strategy-lab-warnings")).toContainText("Low Sample Warnings");
+  await expect(page.getByTestId("parameter-table").first()).toContainText(/edge|spread|vol/);
+  await expect(page.getByText(/BUY NOW|SELL NOW|TRADE NOW/i)).toHaveCount(0);
+});
+
 test("polymarket active markets page shows read-only mock odds", async ({ page }) => {
   await page.goto("/markets/polymarket");
 

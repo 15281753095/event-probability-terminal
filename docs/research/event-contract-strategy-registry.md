@@ -1,6 +1,6 @@
 # Event-Contract Strategy Registry
 
-Status: RC-20 research-only registry plus replay metrics. These candidates are not production
+Status: RC-21 research-only registry plus replay metrics and Strategy Lab validation. These candidates are not production
 signals, not trade advice, and not claims of profit.
 
 RC-18 adds real Polymarket active market odds as required research context. Registry candidates must
@@ -18,6 +18,13 @@ RC-20 does not add a new strategy. It adds replay, outcome labeling, and win-rat
 existing fair-value v1 marker candidate. Replay metrics must keep `PENDING`, `UNRESOLVED`,
 `REJECTED`, and `NO_SIGNAL` outside the realized win-rate denominator. A high win rate with low
 sample count remains non-actionable and must show `LOW_SAMPLE_SIZE`.
+
+RC-21 still does not add a new strategy. It adds Strategy Lab parameter sweep and walk-forward
+validation for `fair-value-v1` so parameter candidates can be compared before any further strategy
+expansion. Strategy Lab candidates must remain research-only and must be rejected as top candidates
+when they have null win rate, too few actionable samples, negative theoretical PnL, high overfit
+risk, or low walk-forward consistency. In-sample train windows may choose parameters; out-of-sample
+test windows may only validate them.
 
 All online, Twitter/X, chat, or community strategy ideas must enter this registry first. They cannot directly drive live signals. Any backtest must record fees, slippage, spread, liquidity, data range, sample count, and anti-look-ahead checks.
 
@@ -103,3 +110,6 @@ All online, Twitter/X, chat, or community strategy ideas must enter this registr
 - Use resolution/expiry data only for outcome labeling.
 - Treat theoretical replay PnL as hypothetical, not real trading performance.
 - Do not add another strategy until fair-value v1 replay results are interpretable and auditable.
+- Do not use the same full historical window for both parameter selection and validation.
+- Keep Strategy Lab top candidates as research candidates only, not production settings.
+- Penalize low sample, high pending rate, low coverage, drawdown, and train/test degradation.

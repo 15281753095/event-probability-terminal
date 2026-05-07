@@ -18,6 +18,8 @@ export function buildFairValueSignalResponse(
   const slippageBps = input.slippageBps ?? 0;
   const minEdgeBps = input.minEdgeBps ?? 250;
   const maxSpread = input.maxSpread ?? 0.08;
+  const volatilityLookbackCandles = input.volatilityLookbackCandles;
+  const minConfidence = input.minConfidence;
   const minLiquidityStatus = input.minLiquidityStatus ?? "ok";
   const evaluations: FairValueEvaluation[] = [];
   const rejectedMarkets: FairValueRejectedMarket[] = [];
@@ -37,6 +39,8 @@ export function buildFairValueSignalResponse(
       slippageBps,
       minEdgeBps,
       maxSpread,
+      volatilityLookbackCandles,
+      minConfidence,
       minLiquidityStatus
     });
     if (evaluation.eligibility.eligible && evaluation.snapshot.rejectReasons.length === 0) {
@@ -142,7 +146,7 @@ export function evaluateFairValueMarket(input: FairValueInput): FairValueEvaluat
   const probability = estimateTerminalAboveProbability({
     currentPrice: input.currentPrice ?? Number.NaN,
     thresholdPrice,
-    candles: input.candles,
+    candles: lookbackCandles(input.candles, input.volatilityLookbackCandles),
     horizonSeconds: input.horizonSeconds,
     now: input.now
   });
@@ -184,7 +188,9 @@ export function evaluateFairValueMarket(input: FairValueInput): FairValueEvaluat
     rejectReasons,
     edgeYes,
     edgeNo,
-    minEdge: input.minEdgeBps / 10_000
+    minEdge: input.minEdgeBps / 10_000,
+    confidence,
+    minConfidence: input.minConfidence
   });
   return {
     snapshot,
@@ -198,9 +204,14 @@ function sideFromEdges(input: {
   edgeYes: number | null;
   edgeNo: number | null;
   minEdge: number;
+  confidence: number;
+  minConfidence?: number | undefined;
 }): FairValueSignalSide {
   if (input.rejectReasons.length) {
     return "REJECTED";
+  }
+  if (input.minConfidence !== undefined && input.confidence < input.minConfidence) {
+    return "NO_SIGNAL";
   }
   if (input.edgeYes !== null && input.edgeYes >= input.minEdge) {
     return "LONG_YES";
@@ -272,6 +283,14 @@ function formatEdge(value: number | null): string {
 function firstNumber(...values: Array<number | null | undefined>): number | null {
   const value = values.find((item) => item !== null && item !== undefined && Number.isFinite(item));
   return value === undefined ? null : value;
+}
+
+function lookbackCandles<T>(candles: T[], lookback: number | undefined): T[] {
+  if (lookback === undefined) {
+    return candles;
+  }
+  const normalized = Math.floor(lookback);
+  return normalized > 0 ? candles.slice(-normalized) : [];
 }
 
 function unique(values: string[]): string[] {

@@ -102,7 +102,8 @@ export async function runSignalReplay(input: RunSignalReplayInput): Promise<Sign
           market,
           signalTime: window.endTime,
           candles: replayCandles,
-          now: checkedAt
+          now: checkedAt,
+          parameters: input.fairValueParameters
         }));
       }
     }
@@ -115,6 +116,7 @@ export async function runSignalReplay(input: RunSignalReplayInput): Promise<Sign
         signalWindowEnd: window.endTime,
         intervalMs: intervalMsForReplay(interval),
         checkedAt,
+        parameters: input.fairValueParameters,
         fetcher: input.fetcher,
         clobBaseUrl: input.clobBaseUrl,
         timeoutMs: input.timeoutMs
@@ -154,13 +156,14 @@ export async function runSignalReplay(input: RunSignalReplayInput): Promise<Sign
 }
 
 function runMockSignalReplay(input: RunSignalReplayInput, checkedAt: string): SignalReplayResponse {
+  const interval = input.interval ?? "1m";
   const fixtures = symbolsFor(input.symbol).map(loadMockReplayFixture);
   const resolvedWindow = typeof input.window === "string"
     ? resolveReplayWindow(input.window, fixtures[0]?.checkedAt ?? checkedAt)
     : resolveReplayWindow(input.window);
   const results = fixtures.flatMap((fixture) =>
     fixture.results.filter((result) => inWindow(result.signal.signalTime, resolvedWindow.startTime, resolvedWindow.endTime))
-  );
+  ).map((result, index) => applyMockFairValueParameters(result, input.fairValueParameters, interval, index));
   const warnings = unique([
     "DEV ONLY deterministic mock replay fixture. Not live performance.",
     "Research only. Not trading advice. No auto execution.",
@@ -194,8 +197,9 @@ function buildReplayResultFromBoundMarket(input: {
   signalTime: string;
   candles: Candle[];
   now: string;
+  parameters?: RunSignalReplayInput["fairValueParameters"] | undefined;
 }): ReplayTradeLikeResult {
-  const signal = evaluateMarketToReplaySignal(input.market, input.signalTime, input.candles);
+  const signal = evaluateMarketToReplaySignal(input.market, input.signalTime, input.candles, input.parameters);
   const eligibility = evaluateMarketEligibility(input.market, { now: input.signalTime });
   const outcome = labelReplayOutcome({
     signal,
@@ -218,6 +222,7 @@ async function buildClosedMarketReplayResult(input: {
   signalWindowEnd: string;
   intervalMs: number;
   checkedAt: string;
+  parameters?: RunSignalReplayInput["fairValueParameters"] | undefined;
   fetcher?: RunSignalReplayInput["fetcher"];
   clobBaseUrl?: string | undefined;
   timeoutMs?: number | undefined;
@@ -255,7 +260,7 @@ async function buildClosedMarketReplayResult(input: {
       [inferSignalSymbol(candidate.question, candidate.slug)]: priceAtOrBefore(input.candles, signalTime)
     }
   });
-  const signal = evaluateMarketToReplaySignal(market, signalTime, input.candles);
+  const signal = evaluateMarketToReplaySignal(market, signalTime, input.candles, input.parameters);
   const eligibility = evaluateMarketEligibility(market, { now: signalTime });
   const outcome = labelReplayOutcome({
     signal,
@@ -286,7 +291,8 @@ async function buildClosedMarketReplayResult(input: {
 function evaluateMarketToReplaySignal(
   market: BoundEventMarket,
   signalTime: string,
-  candles: Candle[]
+  candles: Candle[],
+  parameters: RunSignalReplayInput["fairValueParameters"] = {}
 ): ReplaySignal {
   const preSignalCandles = candles
     .filter((candle) => Date.parse(candle.timestamp) <= Date.parse(signalTime))
@@ -304,10 +310,12 @@ function evaluateMarketToReplaySignal(
     odds: market.odds,
     now: signalTime,
     horizonSeconds,
-    feesBps: 0,
-    slippageBps: 25,
-    minEdgeBps: 250,
-    maxSpread: 0.08,
+    feesBps: parameters.feesBps ?? 0,
+    slippageBps: parameters.slippageBps ?? 25,
+    minEdgeBps: parameters.minEdgeBps ?? 250,
+    maxSpread: parameters.maxSpread ?? 0.08,
+    volatilityLookbackCandles: parameters.volatilityLookbackCandles,
+    minConfidence: parameters.minConfidence,
     minLiquidityStatus: "ok"
   });
   const edge = evaluation.marker.side === "LONG_YES"
@@ -371,6 +379,121 @@ function loadMockReplayFixture(symbol: SignalSymbol): MockReplayFixture {
   return JSON.parse(readFileSync(fileURLToPath(fixtureUrl), "utf8")) as MockReplayFixture;
 }
 
+function applyMockFairValueParameters(
+  result: ReplayTradeLikeResult,
+  parameters: RunSignalReplayInput["fairValueParameters"],
+  interval: RunSignalReplayInput["interval"],
+  index: number
+): ReplayTradeLikeResult {
+  if (!parameters) {
+    return result;
+  }
+  const isActionable = result.signal.side === "LONG_YES" || result.signal.side === "LONG_NO";
+  const maxSpread = parameters.maxSpread ?? 0.08;
+  const mockSpread = mockSpreadForResult(index);
+  if (mockSpread > maxSpread) {
+    return nonActionableMockResult(
+      result,
+      "REJECTED",
+      `Mock spread ${mockSpread.toFixed(4)} exceeds maxSpread ${maxSpread.toFixed(4)} for parameter research.`
+    );
+  }
+  if (!isActionable) {
+    return result;
+  }
+  const minConfidence = parameters.minConfidence ?? 0;
+  if (result.signal.confidence < minConfidence) {
+    return nonActionableMockResult(
+      result,
+      "NO_SIGNAL",
+      `Mock confidence ${result.signal.confidence.toFixed(2)} is below minConfidence ${minConfidence.toFixed(2)}.`
+    );
+  }
+
+  const costBuffer = ((parameters.feesBps ?? 0) + (parameters.slippageBps ?? 0)) / 10_000;
+  const adjustedEdge = round((result.signal.edge ?? 0) + mockParameterEdgeAdjustment(parameters.volatilityLookbackCandles, interval, index) - costBuffer);
+  const minEdge = (parameters.minEdgeBps ?? 250) / 10_000;
+  if (adjustedEdge < minEdge) {
+    return nonActionableMockResult(
+      {
+        ...result,
+        signal: {
+          ...result.signal,
+          edge: adjustedEdge,
+          reason: `Mock adjusted edge ${formatRatio(adjustedEdge)} is below minEdge ${formatRatio(minEdge)}.`
+        }
+      },
+      "NO_SIGNAL",
+      `Mock adjusted edge ${formatRatio(adjustedEdge)} is below minEdge ${formatRatio(minEdge)}.`
+    );
+  }
+
+  return {
+    ...result,
+    signal: {
+      ...result.signal,
+      id: `${result.signal.id}:edge${parameters.minEdgeBps ?? 250}:spread${maxSpread}:vol${parameters.volatilityLookbackCandles ?? "default"}`,
+      edge: adjustedEdge,
+      reason: `${result.signal.reason} Parameter-adjusted mock edge ${formatRatio(adjustedEdge)}.`
+    },
+    theoreticalPnl: result.theoreticalPnl === null ? null : round(result.theoreticalPnl - costBuffer),
+    feesAssumption: `${parameters.feesBps ?? 0} bps fee assumption for mock replay.`,
+    slippageAssumption: `${parameters.slippageBps ?? 0} bps slippage assumption for mock replay.`,
+    countedInWinRate: result.countedInWinRate
+  };
+}
+
+function nonActionableMockResult(
+  result: ReplayTradeLikeResult,
+  side: "NO_SIGNAL" | "REJECTED",
+  reason: string
+): ReplayTradeLikeResult {
+  return {
+    ...result,
+    signal: {
+      ...result.signal,
+      id: `${result.signal.id}:${side.toLowerCase()}`,
+      side,
+      edge: null,
+      confidence: side === "REJECTED" ? 0 : result.signal.confidence,
+      reason,
+      rejectReasons: side === "REJECTED" ? unique([...result.signal.rejectReasons, reason]) : result.signal.rejectReasons
+    },
+    outcome: {
+      signalId: `${result.signal.id}:${side.toLowerCase()}`,
+      marketId: result.signal.marketId,
+      status: side,
+      outcomeSource: result.outcome.outcomeSource,
+      notes: [reason]
+    },
+    theoreticalEntryPrice: null,
+    theoreticalExitValue: null,
+    theoreticalPnl: null,
+    countedInWinRate: false
+  };
+}
+
+function mockSpreadForResult(index: number): number {
+  const spreads = [0.04, 0.07, 0.11, 0.05, 0.09, 0.13, 0.06, 0.12, 0.08, 0.10];
+  return spreads[index % spreads.length] ?? 0.08;
+}
+
+function mockParameterEdgeAdjustment(
+  volatilityLookbackCandles: number | undefined,
+  interval: RunSignalReplayInput["interval"],
+  index: number
+): number {
+  const lookback = volatilityLookbackCandles ?? 50;
+  const intervalAdjustment = interval === "15m" ? -0.005 : interval === "1h" ? -0.02 : 0;
+  if (lookback <= 20) {
+    return (index < 3 ? 0.02 : -0.025) + intervalAdjustment;
+  }
+  if (lookback >= 100) {
+    return (index < 3 ? -0.012 : 0.012) + intervalAdjustment;
+  }
+  return intervalAdjustment;
+}
+
 function symbolsFor(symbol: SignalSymbol | "ALL"): SignalSymbol[] {
   return symbol === "ALL" ? ["BTC", "ETH"] : [symbol];
 }
@@ -427,6 +550,10 @@ function inferSignalSymbol(question: string, slug: string): SignalSymbol {
 function inWindow(value: string, startTime: string, endTime: string): boolean {
   const time = Date.parse(value);
   return Number.isFinite(time) && time >= Date.parse(startTime) && time <= Date.parse(endTime);
+}
+
+function formatRatio(value: number): string {
+  return `${(value * 100).toFixed(2)}%`;
 }
 
 function unique(values: string[]): string[] {

@@ -8,9 +8,9 @@ This repository is in Phase 1 foundation work. It has a minimal local end-to-end
 
 - `services/market-ingestor`: Polymarket public-read adapter boundary, fixture-first by default.
 - `packages/shared-types`: shared contracts for `EventMarket`, `OrderBookSnapshot`, `MarketDetailResponse`, and placeholder scanner/pricing objects.
-- `packages/research-signals`: deterministic technical-indicator, confluence, Binance Spot public realtime parser, research-only backtest scaffold, fair-value eligibility/probability helpers, replay metrics, and research-signal engine with Binance Spot public live ticker/candles by default, Coinbase Exchange fallback, and explicit fixture/mock dev mode.
-- `apps/api-gateway`: Fastify read-only API for live market data, fixture-backed markets/scanner metadata, contract-backed market detail, research signals, Event Signal Console, signal replay, and pricing placeholders.
-- `apps/web`: Next.js live BTC/ETH prediction terminal, signal console, replay dashboard, hidden legacy scanner route, and Market Detail evidence views that read from the API gateway.
+- `packages/research-signals`: deterministic technical-indicator, confluence, Binance Spot public realtime parser, research-only backtest scaffold, fair-value eligibility/probability helpers, replay metrics, Strategy Lab parameter sweep/walk-forward validation, and research-signal engine with Binance Spot public live ticker/candles by default, Coinbase Exchange fallback, and explicit fixture/mock dev mode.
+- `apps/api-gateway`: Fastify read-only API for live market data, fixture-backed markets/scanner metadata, contract-backed market detail, research signals, Event Signal Console, signal replay, Strategy Lab, and pricing placeholders.
+- `apps/web`: Next.js live BTC/ETH prediction terminal, signal console, replay dashboard, Strategy Lab dashboard, hidden legacy scanner route, and Market Detail evidence views that read from the API gateway.
 - `services/pricing-engine`: Python placeholder contract for fair-value output shape.
 
 The current homepage is live-first. It uses Binance Spot public `BTCUSDT`/`ETHUSDT` ticker,
@@ -43,6 +43,10 @@ Supported research scope:
 - Signal replay and win-rate metrics: research-only fair-value v1 replay for `1d`, `3d`, `1w`, and
   `1m` windows. Win rate only counts resolved `WIN`/`LOSS` samples; pending, unresolved,
   rejected, and no-signal rows are reported separately.
+- Strategy Lab: research-only fair-value v1 parameter sweep and walk-forward validation for
+  `minEdgeBps`, `maxSpread`, volatility lookback, interval, confidence, fee, and slippage
+  assumptions. It separates in-sample train windows from out-of-sample test windows and produces
+  research candidates only.
 - Market contract: binary outcome markets only. The shared contract preserves upstream outcome labels, including fixture-backed `Yes`/`No` and observed `Up`/`Down`; it does not support multi-outcome markets.
 
 Explicit exclusions:
@@ -56,6 +60,8 @@ Explicit exclusions:
 - No signal output that is a buy/sell instruction, order, leverage, position size, or real trading entry.
 - No fabricated live replay statistics and no pending/unresolved/rejected/no-signal rows in the
   realized win-rate denominator.
+- No use of the same full historical window for both parameter selection and validation, and no
+  promotion of Strategy Lab top candidates to production strategies.
 - No fair-value calculation for ambiguous, vague, path-dependent, high-spread, unknown-liquidity,
   or unclear-resolution markets.
 - No runtime Up/Down payoff extraction and no non-placeholder Up/Down fair probabilities.
@@ -136,6 +142,7 @@ http://localhost:3000/?symbol=ETH&horizon=10m
 http://localhost:3000/market-data/live?symbol=BTC&provider=binance&interval=15m
 http://localhost:3000/signals/console?symbol=BTC&horizon=5m&provider=binance
 http://localhost:3000/signals/replay
+http://localhost:3000/strategy-lab
 http://localhost:3000/?symbol=BTC&horizon=5m&sourceMode=fixture
 http://localhost:3000/scanner
 ```
@@ -194,6 +201,10 @@ curl "http://localhost:4000/signals/replay?symbol=BTC&window=1w"
 curl "http://localhost:4000/signals/replay?symbol=ETH&window=1w"
 curl "http://localhost:4000/signals/replay?symbol=ALL&window=1w"
 curl "http://localhost:4000/signals/replay?symbol=BTC&window=1w&mock=true"
+curl "http://localhost:4000/strategy-lab/sweep?symbol=BTC&window=1w&maxCombinations=20"
+curl "http://localhost:4000/strategy-lab/sweep?symbol=ETH&window=1w&maxCombinations=20"
+curl "http://localhost:4000/strategy-lab/sweep?symbol=ALL&window=1w&maxCombinations=20"
+curl "http://localhost:4000/strategy-lab/sweep?symbol=BTC&window=1w&mock=true&maxCombinations=50"
 curl http://localhost:4000/signals/research
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=live"
@@ -255,6 +266,12 @@ It supports `window=1d|3d|1w|1m`, `interval=1m|5m|15m|1h`, `strategy=fair-value-
 `winRate: null` when completed resolved samples are unavailable. `theoreticalPnl` is hypothetical
 and not actual trading performance.
 
+`/strategy-lab/sweep` returns research-only fair-value v1 parameter sweep and walk-forward
+validation. It supports `symbol=BTC|ETH|ALL`, `window=1d|3d|1w|1m`, `mode=mock|live`,
+`mock=true|false`, bounded parameter lists, and `maxCombinations` capped at 100. It reports
+in-sample/out-of-sample metrics, overfit risk, score breakdowns, top research candidates, and
+rejected parameter sets. Top candidates are not production strategies.
+
 `/signals/console` returns one `EventSignalConsoleResponse` for BTC/ETH 5m/10m and defaults to
 `sourceMode=live`. It includes the current research signal, active research profile, confluence
 scores, risk filters, event window, observation candidate, recent live candles, recent-only markers
@@ -279,6 +296,9 @@ return trade instructions, leverage, position size, order fields, or a real perf
   experimental model labels, fair-value chart markers, research-only strategy status, and no trading action
 - `/signals/replay`: Signal Replay & Win Rate Dashboard with BTC/ETH/ALL, `1d`/`3d`/`1w`/`1m`,
   interval filters, win-rate metrics, marker timeline, result table, and no auto execution
+- `/strategy-lab`: Strategy Lab dashboard with parameter filters, top research candidates,
+  parameter sweep results, walk-forward validation, overfit risk, low-sample warnings, score
+  breakdowns, and rejected parameter sets
 - `/markets/polymarket`: read-only BTC/ETH Polymarket active market odds with Yes/No prices,
   implied probabilities, CLOB token IDs, spread/liquidity diagnostics, binding status, and research
   eligibility
@@ -300,6 +320,9 @@ diagnostics, not execution instructions.
   historical signals.
 - Use `/signals/replay` for historical fair-value v1 marker replay. Treat low sample size,
   all-pending, and unresolved states as limits, not as performance evidence.
+- Use `/strategy-lab` for fair-value v1 parameter research. Treat top candidates as research-only
+  inputs for further review, especially when walk-forward degradation, low sample, or overfit risk
+  appears.
 - Observation Preview is collapsed by default. Open it only when needed; it is a small-sample
   directional check, not a backtest, predictive guarantee, or real trading performance.
 - Manual refresh is display fetching only. This app does not high-frequency poll REST
@@ -336,10 +359,10 @@ make smoke
 ```
 
 The smoke suite starts the API gateway and web app with deterministic mocked provider packets, then
-checks that the homepage, `/market-data/live`, `/signals/console`, and `/signals/replay` mark or
-handle mock packets correctly, plus the moved `/scanner` route and one deterministic Market Detail
-URL. It does not call live vendors, compute real pricing, fabricate replay performance, or test
-trading behavior.
+checks that the homepage, `/market-data/live`, `/signals/console`, `/signals/replay`, and
+`/strategy-lab` mark or handle mock packets correctly, plus the moved `/scanner` route and one
+deterministic Market Detail URL. It does not call live vendors, compute real pricing, fabricate
+replay performance, or test trading behavior.
 
 API contract snapshots are part of `make test`. They lock stable fixture-backed projections for
 `/scanner/top`, `/markets/:id/detail`, `/signals/research`, and `/signals/console` under
@@ -380,6 +403,7 @@ should be reviewed as public local API contract changes, not incidental formatti
 - RC-15 Binance public kline terminal decision: `docs/adr/0019-rc15-binance-public-kline-terminal.md`
 - RC-19 fair value markers decision: `docs/adr/0023-rc19-fair-value-chart-markers.md`
 - RC-20 signal replay decision: `docs/adr/0024-rc20-signal-replay-win-rate-dashboard.md`
+- RC-21 Strategy Lab decision: `docs/adr/0025-rc21-strategy-lab-walk-forward.md`
 - Source registry: `docs/source_registry.md`
 - Collaboration rules: `AGENTS.md`
 

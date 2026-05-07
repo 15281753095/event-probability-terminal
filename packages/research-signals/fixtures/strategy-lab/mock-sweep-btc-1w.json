@@ -1,0 +1,27 @@
+{
+  "fixtureId": "rc21-mock-sweep-btc-1w",
+  "sourceType": "mock",
+  "symbol": "BTC",
+  "window": "1w",
+  "strategyId": "fair-value-v1",
+  "checkedAt": "2026-05-06T00:00:00.000Z",
+  "isResearchOnly": true,
+  "notes": [
+    "Deterministic Strategy Lab fixture derived from RC-20 mock replay samples.",
+    "This fixture is not live performance and is not production trading approval."
+  ],
+  "parameterSetIds": [
+    "fair-value-v1:i5m:edge200:spread0.15:vol100:conf0.20:fee0:slip0",
+    "fair-value-v1:i5m:edge500:spread0.10:vol50:conf0.20:fee0:slip0",
+    "fair-value-v1:i15m:edge200:spread0.15:vol20:conf0.20:fee0:slip0",
+    "fair-value-v1:i5m:edge800:spread0.05:vol50:conf0.40:fee50:slip50",
+    "fair-value-v1:i15m:edge500:spread0.05:vol20:conf0.40:fee50:slip50",
+    "fair-value-v1:i5m:edge200:spread0.15:vol20:conf0.20:fee0:slip0"
+  ],
+  "expectedCases": {
+    "topCandidate": "fair-value-v1:i5m:edge200:spread0.15:vol100:conf0.20:fee0:slip0",
+    "lowSampleRejected": "fair-value-v1:i5m:edge800:spread0.05:vol50:conf0.40:fee50:slip50",
+    "highOverfitRejected": "fair-value-v1:i15m:edge200:spread0.15:vol20:conf0.20:fee0:slip0",
+    "negativePnlRejected": "fair-value-v1:i15m:edge500:spread0.05:vol20:conf0.40:fee50:slip50"
+  }
+}

@@ -14,10 +14,15 @@ import {
   listLiveResearchSignals,
   listResearchSignals,
   parseReplayWindowId,
+  buildFairValueV1ParameterGrid,
+  rankStrategyParameterResults,
+  runParameterSweep,
   runSignalReplay,
+  runWalkForwardValidation,
   type LiveMarketDataFetchRequest,
   type LiveMarketDataFetcher,
   type OHLCVFetcher,
+  type ParameterGridOptions,
   type RunSignalReplayInput,
   type RealtimeWebSocketFactory
 } from "@ept/research-signals";
@@ -51,6 +56,7 @@ import type {
   SignalProfileName,
   SignalSymbol,
   SourceProvenance,
+  StrategyLabReport,
   TradeCandidate
 } from "@ept/shared-types";
 import { buildMarketDetailResponse } from "./market-detail.js";
@@ -671,6 +677,129 @@ export function buildServer(options: BuildServerOptions = {}) {
     })) satisfies SignalReplayResponse;
   });
 
+  server.get<{
+    Querystring: {
+      symbol?: string;
+      window?: string;
+      maxCombinations?: string;
+      intervals?: string;
+      minEdgeBps?: string;
+      maxSpread?: string;
+      volatilityLookbackCandles?: string;
+      minConfidence?: string;
+      feesBps?: string;
+      slippageBps?: string;
+      mode?: string;
+      mock?: string;
+    }
+  }>("/strategy-lab/sweep", async (request, reply) => {
+    const generatedAt = now();
+    const symbol = parsePolymarketSymbolFilter(request.query.symbol);
+    const window = parseReplayWindowId(request.query.window ?? "1w");
+    const mockFlag = parseBooleanQuery(request.query.mock);
+    const mode = parseStrategyLabMode(request.query.mode, mockFlag);
+
+    if (request.query.symbol && !symbol) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Strategy Lab currently supports symbol=BTC, symbol=ETH, or symbol=ALL only.",
+          generatedAt
+        })
+      );
+    }
+    if (request.query.window && (!window || window === "custom")) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Strategy Lab currently supports window=1d, 3d, 1w, or 1m.",
+          generatedAt
+        })
+      );
+    }
+    if (!mode) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Strategy Lab currently supports mode=mock or mode=live.",
+          generatedAt
+        })
+      );
+    }
+
+    const resolvedWindow = window && window !== "custom" ? window : "1w";
+    const maxCombinations = parseOptionalInteger(request.query.maxCombinations);
+    const gridOptions: ParameterGridOptions = {
+      ...(parseIntervals(request.query.intervals) ? { intervals: parseIntervals(request.query.intervals) } : {}),
+      ...(parseNumberList(request.query.minEdgeBps) ? { minEdgeBps: parseNumberList(request.query.minEdgeBps) } : {}),
+      ...(parseNumberList(request.query.maxSpread) ? { maxSpread: parseNumberList(request.query.maxSpread) } : {}),
+      ...(parseNumberList(request.query.volatilityLookbackCandles) ? { volatilityLookbackCandles: parseNumberList(request.query.volatilityLookbackCandles) } : {}),
+      ...(parseNumberList(request.query.minConfidence) ? { minConfidence: parseNumberList(request.query.minConfidence) } : {}),
+      ...(parseNumberList(request.query.feesBps) ? { feesBps: parseNumberList(request.query.feesBps) } : {}),
+      ...(parseNumberList(request.query.slippageBps) ? { slippageBps: parseNumberList(request.query.slippageBps) } : {}),
+      ...(maxCombinations !== undefined ? { maxCombinations } : {})
+    };
+    const grid = buildFairValueV1ParameterGrid(gridOptions);
+    const sweep = await runParameterSweep({
+      symbol: symbol ?? "BTC",
+      window: resolvedWindow,
+      strategyId: "fair-value-v1",
+      parameterGrid: grid.parameterGrid,
+      maxCombinations: grid.maxCombinations,
+      useMock: mode === "mock",
+      now
+    });
+    const walkForward = await runWalkForwardValidation({
+      symbol: symbol ?? "BTC",
+      totalWindow: resolvedWindow,
+      strategyId: "fair-value-v1",
+      candidateParameterSets: sweep.topCandidates.length
+        ? sweep.topCandidates.slice(0, 6).map((result) => result.parameterSet)
+        : mode === "mock"
+          ? sweep.parameterResults.slice(0, 6).map((result) => result.parameterSet)
+          : [],
+      useMock: mode === "mock",
+      now
+    });
+    const finalRanking = rankStrategyParameterResults({
+      results: sweep.parameterResults,
+      walkForwardResults: walkForward.walkForwardResults
+    });
+    const report: StrategyLabReport = {
+      symbol: symbol ?? "BTC",
+      window: resolvedWindow,
+      strategyId: "fair-value-v1",
+      parameterResults: finalRanking.parameterResults,
+      topCandidates: finalRanking.topCandidates,
+      walkForwardResults: walkForward.walkForwardResults,
+      rejectedParameterSets: finalRanking.rejectedParameterSets,
+      warnings: unique([
+        "Research only. Not trading advice. No auto execution.",
+        "Top candidates are research candidates, not production trading strategies.",
+        ...grid.warnings,
+        ...grid.rejectedValues.map((value) => `Rejected invalid parameter value: ${value}`),
+        ...sweep.warnings,
+        ...walkForward.warnings
+      ]),
+      sourceType: mode === "mock" ? "mock" : "live",
+      isResearchOnly: true,
+      checkedAt: generatedAt
+    };
+
+    return {
+      report,
+      parameterResults: report.parameterResults,
+      topCandidates: report.topCandidates,
+      walkForwardResults: report.walkForwardResults,
+      rejectedParameterSets: report.rejectedParameterSets,
+      warnings: report.warnings,
+      isResearchOnly: true
+    };
+  });
+
   server.get<{ Querystring: { symbol?: string; horizon?: string; sourceMode?: string; includeBacktest?: string; includeObservationPreview?: string; profile?: string; provider?: string } }>("/signals/console", async (request, reply) => {
     const generatedAt = now();
     const symbol = parseSignalSymbol(request.query.symbol) ?? "BTC";
@@ -775,6 +904,46 @@ function parseBooleanQuery(value?: string): boolean | undefined {
     return false;
   }
   return undefined;
+}
+
+function parseStrategyLabMode(value: string | undefined, mockFlag: boolean | undefined): "mock" | "live" | undefined {
+  if (value === "mock" || mockFlag === true) {
+    return "mock";
+  }
+  if (value === "live" || value === undefined || mockFlag === false) {
+    return "live";
+  }
+  return undefined;
+}
+
+function parseIntervals(value?: string): OhlcvInterval[] | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const intervals = value.split(",").map((item) => parseOhlcvInterval(item.trim())).filter((item): item is OhlcvInterval => Boolean(item));
+  return intervals.length ? intervals : [];
+}
+
+function parseNumberList(value?: string): number[] | undefined {
+  if (!value) {
+    return undefined;
+  }
+  return value
+    .split(",")
+    .map((item) => Number(item.trim()))
+    .filter((item) => Number.isFinite(item));
+}
+
+function parseOptionalInteger(value?: string): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.floor(parsed) : undefined;
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values.filter(Boolean))];
 }
 
 async function loadUnderlyingPrices(

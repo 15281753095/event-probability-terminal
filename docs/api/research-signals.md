@@ -1,7 +1,7 @@
 # Research Signals API
 
-Status: implemented through RC-20 as fixture/default research signals, live/mock fair-value
-chart markers, and research-only signal replay metrics.
+Status: implemented through RC-21 as fixture/default research signals, live/mock fair-value
+chart markers, research-only signal replay metrics, and Strategy Lab parameter validation.
 
 This API publishes BTC/ETH 5m and 10m research signals. Fixture mode remains the default for this
 list endpoint. Live mode must be explicitly requested and now defaults to Binance Spot public
@@ -25,6 +25,10 @@ GET /signals/replay?symbol=ETH&window=1w
 GET /signals/replay?symbol=ALL&window=1w
 GET /signals/replay?symbol=BTC&window=1d&interval=5m&strategy=fair-value-v1
 GET /signals/replay?symbol=BTC&window=1w&mock=true
+GET /strategy-lab/sweep?symbol=BTC&window=1w
+GET /strategy-lab/sweep?symbol=ETH&window=1w
+GET /strategy-lab/sweep?symbol=ALL&window=1w
+GET /strategy-lab/sweep?symbol=BTC&window=1w&mock=true&maxCombinations=50
 ```
 
 Supported query filters:
@@ -42,6 +46,20 @@ For `/signals/replay`, supported filters are:
 - `interval`: `1m`, `5m`, `15m`, or `1h`; default `1m`
 - `strategy`: `fair-value-v1` only
 - `mock`: `true` or `false`; deterministic mock mode is for CI/smoke only
+
+For `/strategy-lab/sweep`, supported filters are:
+
+- `symbol`: `BTC`, `ETH`, or `ALL`; default `BTC`
+- `window`: `1d`, `3d`, `1w`, or `1m`; default `1w`
+- `mode`: `mock` or `live`; default `live`
+- `mock`: `true` or `false`; overrides mode for deterministic CI/smoke use
+- `maxCombinations`: default `50`, capped at `100`
+- `intervals`: comma-separated subset of `1m,5m,15m,1h`; default grid uses `5m,15m`
+- `minEdgeBps`: comma-separated numbers; default `200,500,800`
+- `maxSpread`: comma-separated numbers; default `0.05,0.10,0.15`
+- `volatilityLookbackCandles`: comma-separated integers; default `20,50,100`
+- `minConfidence`: comma-separated numbers; default `0.2,0.4`
+- `feesBps` and `slippageBps`: comma-separated integers; defaults `0,50`
 
 Unsupported filters return a typed `ept-api-v1` error with:
 
@@ -257,6 +275,36 @@ available, results are `PENDING` and realized win rate remains `null`.
 expressed through `providerHealth.status`, `providerHealth.failClosedReasons`, and data-quality
 fields.
 
+## Strategy Lab
+
+RC-21 adds `/strategy-lab/sweep` for fair-value v1 parameter research. The response contains:
+
+- `report: StrategyLabReport`
+- `parameterResults`
+- `topCandidates`
+- `walkForwardResults`
+- `rejectedParameterSets`
+- `warnings`
+- `isResearchOnly: true`
+
+`StrategyParameterSet` includes strategy id, interval, `minEdgeBps`, `maxSpread`,
+`volatilityLookbackCandles`, `minConfidence`, `minSampleCount`, `feesBps`, `slippageBps`, notes,
+and `isResearchOnly: true`.
+
+`ParameterSweepResult` wraps RC-20 `ReplayMetrics` plus rank, score, score breakdown, warnings,
+rejection reasons, overfit risk, source type, and `isResearchOnly: true`. Ranking is not based only
+on win rate. It rewards win rate, theoretical PnL, and coverage, then penalizes drawdown, low
+sample, high pending rate, null win rate, and overfit risk.
+
+`WalkForwardResult` reports rolling train/test windows, aggregate train metrics, aggregate test
+metrics, degradation, passed/failed windows, consistency score, overfit risk, warnings, and
+`isResearchOnly: true`. Train windows choose parameters before test windows are evaluated. Test
+metrics must not be used to select the same window's parameter.
+
+Top candidates are research candidates only. They cannot have null win rate, insufficient
+actionable count, negative theoretical PnL, high overfit risk, or low walk-forward consistency.
+They are not production strategies and must not be interpreted as a guaranteed or executable edge.
+
 ## Rule Semantics
 
 `LONG` means the weighted research rules lean upward.
@@ -302,7 +350,7 @@ by default.
 - No wallet integration.
 - No Predict.fun adapter, Binance Wallet adapter, Binance account connection, or signed Binance endpoint.
 - No paper broker.
-- No replay engine.
+- No production replay engine, paper broker, or execution simulator.
 - No production pricing model.
 - No CI dependency on external network data.
 - No default live polling; `sourceMode=live` is explicit local/manual use only.
