@@ -654,6 +654,110 @@ export interface SignalReplayResponse {
   isResearchOnly: true;
 }
 
+export type StrategyLabStrategyId = "fair-value-v1";
+
+export type StrategyLabMode = "mock" | "live";
+
+export type StrategyParameterOverfitRisk = "low" | "medium" | "high" | "unknown";
+
+export interface StrategyParameterSet {
+  id: string;
+  strategyId: StrategyLabStrategyId;
+  interval: OhlcvInterval;
+  minEdgeBps: number;
+  maxSpread: number;
+  volatilityLookbackCandles: number;
+  minConfidence: number;
+  minSampleCount: number;
+  feesBps: number;
+  slippageBps: number;
+  notes: string[];
+  isResearchOnly: true;
+}
+
+export interface ParameterSweepRequest {
+  symbol: SignalSymbol | "ALL";
+  window: Exclude<ReplayWindowId, "custom">;
+  strategyId: StrategyLabStrategyId;
+  parameterGrid: StrategyParameterSet[];
+  mode: StrategyLabMode;
+  maxCombinations: number;
+  checkedAt: string;
+}
+
+export interface StrategyScoreBreakdown {
+  winRateComponent: number;
+  pnlComponent: number;
+  coverageComponent: number;
+  drawdownPenalty: number;
+  lowSamplePenalty: number;
+  pendingPenalty: number;
+  overfitPenalty: number;
+  total: number;
+}
+
+export interface ParameterSweepResult {
+  parameterSet: StrategyParameterSet;
+  metrics: ReplayMetrics;
+  rank: number;
+  score: number;
+  scoreBreakdown: StrategyScoreBreakdown;
+  warnings: string[];
+  rejectionReasons: string[];
+  overfitRisk: StrategyParameterOverfitRisk;
+  sourceType: DataSourceType;
+  isResearchOnly: true;
+}
+
+export interface WalkForwardWindow {
+  id: string;
+  trainStart: string;
+  trainEnd: string;
+  testStart: string;
+  testEnd: string;
+  trainSampleCount: number;
+  testSampleCount: number;
+}
+
+export interface WalkForwardDegradation {
+  winRateDelta: number | null;
+  pnlDelta: number | null;
+  maxDrawdownDelta: number | null;
+  coverageDelta: number | null;
+}
+
+export interface WalkForwardStability {
+  passedWindows: number;
+  failedWindows: number;
+  consistencyScore: number;
+}
+
+export interface WalkForwardResult {
+  parameterSet: StrategyParameterSet;
+  windows: WalkForwardWindow[];
+  aggregateTrainMetrics: ReplayMetrics;
+  aggregateTestMetrics: ReplayMetrics;
+  degradation: WalkForwardDegradation;
+  stability: WalkForwardStability;
+  overfitRisk: StrategyParameterOverfitRisk;
+  warnings: string[];
+  isResearchOnly: true;
+}
+
+export interface StrategyLabReport {
+  symbol: SignalSymbol | "ALL";
+  window: Exclude<ReplayWindowId, "custom">;
+  strategyId: StrategyLabStrategyId;
+  parameterResults: ParameterSweepResult[];
+  topCandidates: ParameterSweepResult[];
+  walkForwardResults: WalkForwardResult[];
+  rejectedParameterSets: ParameterSweepResult[];
+  warnings: string[];
+  sourceType: DataSourceType;
+  isResearchOnly: true;
+  checkedAt: string;
+}
+
 export type BaselineResearchDirection = "UP" | "DOWN" | "NO_SIGNAL";
 
 export interface BaselineSignalResult {

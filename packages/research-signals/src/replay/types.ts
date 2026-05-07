@@ -16,7 +16,8 @@ import type {
   ReplayWindowId,
   SignalMarker,
   SignalReplayResponse,
-  SignalSymbol
+  SignalSymbol,
+  StrategyParameterSet
 } from "@ept/shared-types";
 import type { FetchLike } from "../ohlcv/types.js";
 
@@ -29,6 +30,10 @@ export type RunSignalReplayInput = {
   window: ReplayWindowId | ReplayWindow;
   interval?: OhlcvInterval | undefined;
   strategyId?: ReplayStrategyId | undefined;
+  fairValueParameters?: Partial<Pick<
+    StrategyParameterSet,
+    "minEdgeBps" | "maxSpread" | "volatilityLookbackCandles" | "minConfidence" | "feesBps" | "slippageBps"
+  >> | undefined;
   useMock?: boolean | undefined;
   now?: () => string;
   fetcher?: FetchLike | undefined;

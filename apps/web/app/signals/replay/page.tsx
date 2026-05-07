@@ -76,6 +76,12 @@ export default async function SignalReplayPage({ searchParams }: { searchParams?
               <HeaderMetric label="Checked" value={formatTime(data?.checkedAt ?? null)} />
               <Link
                 className="inline-flex min-h-10 items-center border border-cyan-400/60 bg-cyan-400/10 px-3 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/15"
+                href={`/strategy-lab?symbol=${filters.symbol}&window=${filters.window}&mock=true&mode=mock`}
+              >
+                Open Strategy Lab
+              </Link>
+              <Link
+                className="inline-flex min-h-10 items-center border border-cyan-400/60 bg-cyan-400/10 px-3 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/15"
                 href={replayHref(filters, { refresh: String(Date.now()) })}
               >
                 Refresh
@@ -138,6 +144,9 @@ export default async function SignalReplayPage({ searchParams }: { searchParams?
               </Link>
               <Link className="border border-slate-700 bg-slate-950 px-3 py-2 text-slate-300" href="/">
                 Back to terminal
+              </Link>
+              <Link className="border border-slate-700 bg-slate-950 px-3 py-2 text-slate-300" href="/strategy-lab?mock=true&mode=mock">
+                Open Strategy Lab
               </Link>
             </nav>
           </aside>

@@ -19,7 +19,8 @@ import {
   type PolymarketActiveMarketsResponse,
   type RealtimePriceSsePayload,
   type ResearchSignalsResponse,
-  type SignalReplayResponse
+  type SignalReplayResponse,
+  type StrategyLabReport
 } from "@ept/shared-types";
 import { buildServer } from "../src/server.js";
 
@@ -829,6 +830,59 @@ describe("research signals API", () => {
       assert.equal(payload.metrics.sampleCount, 0);
       assert.equal(payload.metrics.winRate, null);
       assert.ok(payload.warnings.includes("NO_COMPLETED_REPLAY_SAMPLES"));
+      assert.equal(/privateKey|apiKey|secret|passphrase|order|cancel|balance|position/i.test(response.body), false);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("returns deterministic mock strategy lab report without private or execution fields", async () => {
+    const server = buildServer({ logger: false, now: () => "2026-05-06T00:00:00.000Z" });
+    try {
+      const response = await server.inject({
+        method: "GET",
+        url: "/strategy-lab/sweep?symbol=BTC&window=1w&mock=true&maxCombinations=50"
+      });
+
+      assert.equal(response.statusCode, 200);
+      const payload = response.json<{
+        report: StrategyLabReport;
+        parameterResults: StrategyLabReport["parameterResults"];
+        topCandidates: StrategyLabReport["topCandidates"];
+        walkForwardResults: StrategyLabReport["walkForwardResults"];
+        rejectedParameterSets: StrategyLabReport["rejectedParameterSets"];
+        warnings: string[];
+        isResearchOnly: true;
+      }>();
+      assert.equal(payload.report.symbol, "BTC");
+      assert.equal(payload.report.window, "1w");
+      assert.equal(payload.report.strategyId, "fair-value-v1");
+      assert.equal(payload.report.sourceType, "mock");
+      assert.equal(payload.report.isResearchOnly, true);
+      assert.ok(payload.parameterResults.length > 0);
+      assert.ok(payload.topCandidates.length > 0);
+      assert.ok(payload.walkForwardResults.length > 0);
+      assert.ok(payload.rejectedParameterSets.length > 0);
+      assert.ok(payload.topCandidates.every((result) => result.isResearchOnly));
+      assert.ok(payload.topCandidates.every((result) => result.metrics.winRate !== null));
+      assert.equal(/privateKey|apiKey|secret|passphrase|order|cancel|balance|position/i.test(response.body), false);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("caps strategy lab maxCombinations", async () => {
+    const server = buildServer({ logger: false, now: () => "2026-05-06T00:00:00.000Z" });
+    try {
+      const response = await server.inject({
+        method: "GET",
+        url: "/strategy-lab/sweep?symbol=BTC&window=1w&mock=true&maxCombinations=500"
+      });
+
+      assert.equal(response.statusCode, 200);
+      const payload = response.json<{ report: StrategyLabReport }>();
+      assert.ok(payload.report.parameterResults.length <= 100);
+      assert.ok(payload.report.warnings.some((warning) => warning.includes("capped at 100")));
       assert.equal(/privateKey|apiKey|secret|passphrase|order|cancel|balance|position/i.test(response.body), false);
     } finally {
       await server.close();

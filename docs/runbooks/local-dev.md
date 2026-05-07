@@ -105,6 +105,10 @@ curl "http://localhost:4000/signals/replay?symbol=BTC&window=1w"
 curl "http://localhost:4000/signals/replay?symbol=ETH&window=1w"
 curl "http://localhost:4000/signals/replay?symbol=ALL&window=1w"
 curl "http://localhost:4000/signals/replay?symbol=BTC&window=1w&mock=true"
+curl "http://localhost:4000/strategy-lab/sweep?symbol=BTC&window=1w&maxCombinations=20"
+curl "http://localhost:4000/strategy-lab/sweep?symbol=ETH&window=1w&maxCombinations=20"
+curl "http://localhost:4000/strategy-lab/sweep?symbol=ALL&window=1w&maxCombinations=20"
+curl "http://localhost:4000/strategy-lab/sweep?symbol=BTC&window=1w&mock=true&maxCombinations=50"
 curl http://localhost:4000/signals/research
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m"
 curl "http://localhost:4000/signals/research?symbol=BTC&horizon=5m&sourceMode=live"
@@ -185,6 +189,13 @@ curl "http://localhost:4000/signals/replay?symbol=BTC&window=1w&mock=true"
 Replay never places, cancels, or recommends trades. `theoreticalPnl` is a research assumption, not
 actual performance.
 
+RC-21 adds `/strategy-lab/sweep` for fair-value v1 parameter sweep and walk-forward validation.
+API default mode is live public research mode; smoke must pass `mock=true`. Live mode may return
+warnings and no top candidates when public samples are too thin. The endpoint caps
+`maxCombinations` at 100, separates train/test windows for walk-forward validation, and marks every
+result `isResearchOnly=true`. It does not add private/authenticated endpoints, wallet/key handling,
+account data, or execution workflows.
+
 ## Start Web
 
 Start the API gateway first so the terminal can load live market data.
@@ -212,6 +223,9 @@ Current pages:
   fair-value research markers, research-only strategy status, and no trading action.
 - `/signals/replay`: Signal Replay & Win Rate Dashboard with BTC/ETH/ALL, `1d`/`3d`/`1w`/`1m`,
   interval filters, replay metrics, marker timeline, result table, and research-only warnings.
+- `/strategy-lab`: Strategy Lab dashboard with research-only parameter filters, top research
+  candidates, parameter sweep results, walk-forward validation, overfit risk, low-sample warnings,
+  score breakdowns, and rejected parameter sets.
 - `/markets/polymarket`: read-only Polymarket active market odds with BTC/ETH realtime cards,
   Yes/No prices, implied probabilities, spread/liquidity diagnostics, binding status, and research
   eligibility.
@@ -339,6 +353,9 @@ Current smoke coverage is intentionally small:
 - `/signals/console` must render the live-default signal console with experimental model and no
   trading action labels, fair-value research signal section, chart marker summary, and DEV MOCK
   marker when smoke mocks are enabled.
+- `/strategy-lab?mock=true&mode=mock&maxCombinations=50` must render Strategy Lab, research-only
+  warnings, top candidates, parameter sweep results, walk-forward validation, and overfit risk
+  without live vendor dependencies.
 - `/scanner` must render the legacy fixture-backed scanner route.
 - `/markets/polymarket%3Amkt-btc-1h-demo` must render Market Detail RC-3 with outcomes, research
   readiness, token trace, source trace, related fixture markets, provenance, placeholder pricing,
@@ -370,7 +387,7 @@ npx --yes pnpm@10.0.0 check
 - TODO: Event Signal Console Observation Preview is small-sample and on-demand only; it is not a
   predictive guarantee, backtest, or real trading performance.
 - TODO: Pricing-engine v1 data freshness and calibration requirements are not implemented.
-- TODO: No paper broker, replay, or real pricing model implementation.
+- TODO: No paper broker, production replay engine, or real pricing model implementation.
 
 ## Common Local Issues
 

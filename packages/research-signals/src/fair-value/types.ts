@@ -23,6 +23,8 @@ export type FairValueInput = {
   slippageBps: number;
   minEdgeBps: number;
   maxSpread: number;
+  volatilityLookbackCandles?: number | undefined;
+  minConfidence?: number | undefined;
   minLiquidityStatus: PolymarketLiquidityStatus;
 };
 
@@ -63,6 +65,8 @@ export type BuildFairValueSignalResponseInput = {
   slippageBps?: number | undefined;
   minEdgeBps?: number | undefined;
   maxSpread?: number | undefined;
+  volatilityLookbackCandles?: number | undefined;
+  minConfidence?: number | undefined;
   minLiquidityStatus?: PolymarketLiquidityStatus | undefined;
   warnings?: string[] | undefined;
 };
