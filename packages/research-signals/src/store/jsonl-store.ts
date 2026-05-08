@@ -1,6 +1,6 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import type { SignalReplayResponse, StrategyLabReport } from "@ept/shared-types";
+import type { ShortWindowReplayResponse, SignalReplayResponse, StrategyLabReport } from "@ept/shared-types";
 import {
   COVERAGE_WINDOWS,
   DEFAULT_RESEARCH_STORE_PATH,
@@ -16,9 +16,12 @@ import type {
   MarketSnapshotRecord,
   ReplayResultRecord,
   ResearchDataStore,
+  ShortWindowReplayResultRecord,
+  ShortWindowSignalRecord,
   StoreStatus,
   StoreTableCounts,
   StrategyLabResultRecord,
+  StoredShortWindowReplayResult,
   StoredReplayResult,
   StoredSignalSymbol,
   StoredStrategyLabResult,
@@ -30,6 +33,8 @@ type JsonlTables = {
   underlyingCandles: UnderlyingCandleRecord[];
   fairValueSignals: FairValueSignalRecord[];
   replayResults: ReplayResultRecord[];
+  shortWindowSignals: ShortWindowSignalRecord[];
+  shortWindowReplayResults: ShortWindowReplayResultRecord[];
   strategyLabResults: StrategyLabResultRecord[];
   captureRuns: CaptureRunRecord[];
 };
@@ -48,6 +53,8 @@ class JsonlResearchStore implements ResearchDataStore {
     underlyingCandles: [],
     fairValueSignals: [],
     replayResults: [],
+    shortWindowSignals: [],
+    shortWindowReplayResults: [],
     strategyLabResults: [],
     captureRuns: []
   };
@@ -66,6 +73,8 @@ class JsonlResearchStore implements ResearchDataStore {
       underlyingCandles: this.loadTable<UnderlyingCandleRecord>("underlying_candles"),
       fairValueSignals: this.loadTable<FairValueSignalRecord>("fair_value_signals"),
       replayResults: this.loadTable<ReplayResultRecord>("replay_results"),
+      shortWindowSignals: this.loadTable<ShortWindowSignalRecord>("short_window_signals"),
+      shortWindowReplayResults: this.loadTable<ShortWindowReplayResultRecord>("short_window_replay_results"),
       strategyLabResults: this.loadTable<StrategyLabResultRecord>("strategy_lab_results"),
       captureRuns: this.loadTable<CaptureRunRecord>("capture_runs")
     };
@@ -171,6 +180,53 @@ class JsonlResearchStore implements ResearchDataStore {
     return { recordsInserted: 1, recordsUpdated: 0, recordsSkipped: 0 };
   }
 
+  async insertShortWindowSignals(records: ShortWindowSignalRecord[]): Promise<InsertSummary> {
+    await this.init();
+    let recordsInserted = 0;
+    let recordsSkipped = 0;
+    for (const record of records) {
+      assertStoreSource(undefined, record.sourceType);
+      const duplicate = this.tables.shortWindowSignals.some((item) =>
+        item.sourceType === record.sourceType &&
+        item.venue === record.venue &&
+        item.symbol === record.symbol &&
+        item.interval === record.interval &&
+        item.eventId === record.eventId &&
+        item.signalTime === record.signalTime &&
+        item.side === record.side
+      );
+      if (duplicate) {
+        recordsSkipped += 1;
+        continue;
+      }
+      const next = { ...record, id: this.tables.shortWindowSignals.length + 1, createdAt: record.createdAt ?? new Date().toISOString() };
+      this.tables.shortWindowSignals.push(next);
+      this.append("short_window_signals", next);
+      recordsInserted += 1;
+    }
+    return { recordsInserted, recordsUpdated: 0, recordsSkipped };
+  }
+
+  async insertShortWindowReplayResult(record: ShortWindowReplayResultRecord): Promise<InsertSummary> {
+    await this.init();
+    assertStoreSource(undefined, record.sourceType);
+    const duplicate = this.tables.shortWindowReplayResults.some((item) =>
+      item.sourceType === record.sourceType &&
+      item.venue === record.venue &&
+      item.symbol === record.symbol &&
+      item.interval === record.interval &&
+      item.window === record.window &&
+      item.checkedAt === record.checkedAt
+    );
+    if (duplicate) {
+      return { recordsInserted: 0, recordsUpdated: 0, recordsSkipped: 1 };
+    }
+    const next = { ...record, id: this.tables.shortWindowReplayResults.length + 1, createdAt: record.createdAt ?? new Date().toISOString() };
+    this.tables.shortWindowReplayResults.push(next);
+    this.append("short_window_replay_results", next);
+    return { recordsInserted: 1, recordsUpdated: 0, recordsSkipped: 0 };
+  }
+
   async insertStrategyLabResult(record: StrategyLabResultRecord): Promise<InsertSummary> {
     await this.init();
     assertStoreSource(undefined, record.sourceType);
@@ -208,6 +264,8 @@ class JsonlResearchStore implements ResearchDataStore {
       underlying_candles: this.tables.underlyingCandles.length,
       fair_value_signals: this.tables.fairValueSignals.length,
       replay_results: this.tables.replayResults.length,
+      short_window_signals: this.tables.shortWindowSignals.length,
+      short_window_replay_results: this.tables.shortWindowReplayResults.length,
       strategy_lab_results: this.tables.strategyLabResults.length,
       capture_runs: this.tables.captureRuns.length
     };
@@ -222,6 +280,8 @@ class JsonlResearchStore implements ResearchDataStore {
         latestCandleCloseAt: maxIso(this.tables.underlyingCandles.map((item) => item.closeTime)),
         latestFairValueSignalAt: maxIso(this.tables.fairValueSignals.map((item) => item.signalTime)),
         latestReplayMetricsAt: maxIso(this.tables.replayResults.map((item) => item.checkedAt)),
+        latestShortWindowSignalAt: maxIso(this.tables.shortWindowSignals.map((item) => item.signalTime)),
+        latestShortWindowReplayAt: maxIso(this.tables.shortWindowReplayResults.map((item) => item.checkedAt)),
         latestStrategyLabResultAt: maxIso(this.tables.strategyLabResults.map((item) => item.checkedAt)),
         latestCaptureRunAt: maxIso(this.tables.captureRuns.map((item) => item.finishedAt))
       },
@@ -234,6 +294,8 @@ class JsonlResearchStore implements ResearchDataStore {
           marketSnapshotCount: this.tables.marketSnapshots.filter((item) => item.checkedAt >= since).length,
           fairValueSignalCount: this.tables.fairValueSignals.filter((item) => item.signalTime >= since).length,
           replayResultCount: this.tables.replayResults.filter((item) => item.checkedAt >= since).length,
+          shortWindowSignalCount: this.tables.shortWindowSignals.filter((item) => item.signalTime >= since).length,
+          shortWindowReplayResultCount: this.tables.shortWindowReplayResults.filter((item) => item.checkedAt >= since).length,
           strategyLabResultCount: this.tables.strategyLabResults.filter((item) => item.checkedAt >= since).length
         };
       }),
@@ -261,6 +323,27 @@ class JsonlResearchStore implements ResearchDataStore {
       return null;
     }
     return { record, response: parsePayload<SignalReplayResponse>(record.payloadJson) };
+  }
+
+  async getLatestShortWindowReplayResult(input: {
+    symbol: ShortWindowReplayResultRecord["symbol"];
+    interval: ShortWindowReplayResultRecord["interval"];
+    window: ShortWindowReplayResultRecord["window"];
+    venue?: ShortWindowReplayResultRecord["venue"] | undefined;
+  }): Promise<StoredShortWindowReplayResult | null> {
+    await this.init();
+    const record = [...this.tables.shortWindowReplayResults]
+      .filter((item) =>
+        item.symbol === input.symbol &&
+        item.interval === input.interval &&
+        item.window === input.window &&
+        (!input.venue || item.venue === input.venue)
+      )
+      .sort((a, b) => Date.parse(b.checkedAt) - Date.parse(a.checkedAt))[0];
+    if (!record) {
+      return null;
+    }
+    return { record, response: parsePayload<ShortWindowReplayResponse>(record.payloadJson) };
   }
 
   async getLatestStrategyLabResult(input: {

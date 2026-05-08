@@ -1,8 +1,8 @@
 # Research Signals API
 
-Status: implemented through RC-22 as fixture/default research signals, live/mock fair-value chart
-markers, research-only signal replay metrics, Strategy Lab parameter validation, and local research
-data-store capture.
+Status: implemented through RC-23 as fixture/default research signals, live/mock fair-value chart
+markers, research-only signal replay metrics, Strategy Lab parameter validation, local research
+data-store capture, and short-window BTC/ETH event-contract signal support.
 
 This API publishes BTC/ETH 5m and 10m research signals. Fixture mode remains the default for this
 list endpoint. Live mode must be explicitly requested and now defaults to Binance Spot public
@@ -28,6 +28,10 @@ GET /signals/replay?symbol=BTC&window=1d&interval=5m&strategy=fair-value-v1
 GET /signals/replay?symbol=BTC&window=1w&mock=true
 GET /signals/replay?symbol=BTC&window=1w&useStored=true
 GET /signals/replay/stored?symbol=BTC&window=1w
+GET /short-window/current?symbol=BTC&interval=5m&venue=proxy-generic
+GET /short-window/current?symbol=ETH&interval=10m&venue=proxy-generic
+GET /short-window/replay?symbol=BTC&interval=5m&window=1d&venue=proxy-generic
+GET /short-window/replay?symbol=ETH&interval=10m&window=1w&venue=proxy-generic
 GET /strategy-lab/sweep?symbol=BTC&window=1w
 GET /strategy-lab/sweep?symbol=ETH&window=1w
 GET /strategy-lab/sweep?symbol=ALL&window=1w
@@ -55,6 +59,21 @@ For `/signals/replay`, supported filters are:
 - `mock`: `true` or `false`; deterministic mock mode is for CI/smoke only
 - `useStored`: `true` or `false`; when true, the endpoint checks the local research data store
   first and returns the latest stored replay result if available
+
+For `/short-window/current` and `/short-window/replay`, supported filters are:
+
+- `symbol`: `BTC` or `ETH`; default `BTC`
+- `interval`: `5m`, `10m`, or `15m`; default `5m`
+- `venue`: `proxy-generic`, `binance-wallet-prediction`, `hibit`, or `mock`; default
+  `proxy-generic`
+- `window` on replay: `1d`, `3d`, `1w`, or `1m`; default `1d`
+- `mock`: `true` or `false`; deterministic mock mode is for CI/smoke only
+- `useStored` on replay: `true` checks the local store for a prior short-window replay payload
+
+`proxy-generic` is a proxy model over Binance Spot public data. It is not a verified Binance
+Wallet, HiBit, Coinbase, or Kalshi settlement rule. `binance-wallet-prediction` and `hibit` default
+to unknown-rule fail-closed behavior until reliable public documentation verifies exact settlement
+rules.
 
 For `/strategy-lab/sweep`, supported filters are:
 
@@ -291,6 +310,46 @@ available, results are `PENDING` and realized win rate remains `null`.
 `NO_SIGNAL` remains a model output. It is not by itself a provider failure. Provider failure is
 expressed through `providerHealth.status`, `providerHealth.failClosedReasons`, and data-quality
 fields.
+
+## Short-Window Event Contracts
+
+RC-23 adds `/short-window/current` and `/short-window/replay`.
+
+`/short-window/current` returns:
+
+- `event`: current event window with start/end time, countdown, phase, start reference, current
+  price, distance, rule, and `isResearchOnly=true`
+- `signal`: `LONG_UP`, `LONG_DOWN`, `WAIT`, or `REJECTED` with confidence, score, score
+  breakdown, reasons, reject reasons, phase, and `isResearchOnly=true`
+- `realtimePrice`: the underlying Binance Spot public market-data packet
+- `providerHealth`
+- `sourceType`
+- `rule`
+- `warnings`
+- `isResearchOnly=true`
+
+`/short-window/replay` returns:
+
+- `metrics`: total events, actionable count, wins/losses, wait/rejected/pending counts, win rate,
+  long-up/long-down win rates, average confidence, average distance, max drawdown, warnings, and
+  `isResearchOnly=true`
+- `signals`
+- `results`
+- `markers`
+- `warnings`
+- `proxyBacktest`
+- `sourceType`
+- `rule`
+- `isResearchOnly=true`
+
+Replay uses historical Binance Spot public klines or deterministic mock fixtures. For each event
+window, signal generation uses only candles available at signal time. `WAIT` and `REJECTED` are not
+included in the win-rate denominator. Unverified live rules must return `proxyBacktest=true` and
+warnings.
+
+RC-23 short-window output is manual decision support only. It does not use browser page data, wallet
+state, API keys, signed/private/account/order endpoints, balances, positions, fills, or automated
+execution.
 
 ## Strategy Lab
 

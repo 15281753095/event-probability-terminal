@@ -105,6 +105,11 @@ curl "http://localhost:4000/signals/replay?symbol=BTC&window=1w"
 curl "http://localhost:4000/signals/replay?symbol=ETH&window=1w"
 curl "http://localhost:4000/signals/replay?symbol=ALL&window=1w"
 curl "http://localhost:4000/signals/replay?symbol=BTC&window=1w&mock=true"
+curl "http://localhost:4000/short-window/current?symbol=BTC&interval=5m&venue=proxy-generic"
+curl "http://localhost:4000/short-window/current?symbol=ETH&interval=10m&venue=proxy-generic"
+curl "http://localhost:4000/short-window/replay?symbol=BTC&interval=5m&window=1d&venue=proxy-generic"
+curl "http://localhost:4000/short-window/replay?symbol=ETH&interval=10m&window=1d&venue=proxy-generic"
+curl "http://localhost:4000/short-window/replay?symbol=BTC&interval=5m&window=1d&venue=mock&mock=true"
 curl "http://localhost:4000/strategy-lab/sweep?symbol=BTC&window=1w&maxCombinations=20"
 curl "http://localhost:4000/strategy-lab/sweep?symbol=ETH&window=1w&maxCombinations=20"
 curl "http://localhost:4000/strategy-lab/sweep?symbol=ALL&window=1w&maxCombinations=20"
@@ -194,6 +199,22 @@ curl "http://localhost:4000/signals/replay?symbol=BTC&window=1w&mock=true"
 Replay never places, cancels, or recommends trades. `theoreticalPnl` is a research assumption, not
 actual performance.
 
+RC-23 adds `/short-window/current` and `/short-window/replay` for BTC/ETH 5m/10m/15m
+short-window event-contract signals. The default `venue=proxy-generic` uses Binance Spot public
+data as a proxy reference and must show an unverified-rule warning. `venue=binance-wallet-prediction`
+and `venue=hibit` fail closed to unknown-rule behavior until reliable public documentation confirms
+exact settlement rules. Mock mode is deterministic:
+
+```bash
+EPT_LIVE_MARKET_DATA_MOCK=true make dev-api
+curl "http://localhost:4000/short-window/current?symbol=BTC&interval=5m&venue=mock&mock=true"
+curl "http://localhost:4000/short-window/replay?symbol=BTC&interval=5m&window=1d&venue=mock&mock=true"
+```
+
+Short-window endpoints are research-only manual decision support. They use public market data or
+local store data only; they do not use browser pages as production data and do not use wallet,
+credential, account, balance, position, order, cancellation, or execution APIs.
+
 RC-21 adds `/strategy-lab/sweep` for fair-value v1 parameter sweep and walk-forward validation.
 API default mode is live public research mode; smoke must pass `mock=true`. Live mode may return
 warnings and no top candidates when public samples are too thin. The endpoint caps
@@ -263,6 +284,10 @@ Current pages:
   fair-value research markers, research-only strategy status, and no trading action.
 - `/signals/replay`: Signal Replay & Win Rate Dashboard with BTC/ETH/ALL, `1d`/`3d`/`1w`/`1m`,
   interval filters, replay metrics, marker timeline, result table, and research-only warnings.
+- `/short-window`: Short-Window Event Contract Terminal with BTC/ETH, `5m`/`10m`/`15m`,
+  Binance Wallet / HiBit / Proxy Generic venue controls, realtime price, countdown, window
+  reference, signal card, K-line markers, rule warning, historical proxy win-rate metrics, and
+  recent signal rows.
 - `/strategy-lab`: Strategy Lab dashboard with research-only parameter filters, top research
   candidates, parameter sweep results, walk-forward validation, overfit risk, low-sample warnings,
   score breakdowns, and rejected parameter sets.
@@ -290,6 +315,8 @@ http://localhost:3000/signals/console?symbol=BTC&horizon=5m&provider=binance
 http://localhost:3000/signals/console?symbol=BTC&horizon=5m&provider=binance&refresh=1
 http://localhost:3000/signals/replay
 http://localhost:3000/signals/replay?symbol=ALL&window=1w
+http://localhost:3000/short-window?symbol=BTC&interval=5m
+http://localhost:3000/short-window?symbol=ETH&interval=10m
 http://localhost:3000/markets/polymarket
 http://localhost:3000/?symbol=BTC&horizon=5m&sourceMode=fixture
 http://localhost:3000/scanner

@@ -105,6 +105,49 @@ CREATE TABLE IF NOT EXISTS replay_results (
 
 CREATE INDEX IF NOT EXISTS idx_replay_results_lookup ON replay_results(symbol, window, strategy_id, checked_at);
 
+CREATE TABLE IF NOT EXISTS short_window_signals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source_type TEXT NOT NULL,
+  venue TEXT NOT NULL,
+  symbol TEXT NOT NULL,
+  interval TEXT NOT NULL,
+  event_id TEXT NOT NULL,
+  signal_time TEXT NOT NULL,
+  side TEXT NOT NULL,
+  confidence REAL,
+  score REAL,
+  start_reference_price REAL,
+  current_price REAL,
+  result_status TEXT,
+  created_at TEXT NOT NULL,
+  UNIQUE(source_type, venue, symbol, interval, event_id, signal_time, side)
+);
+
+CREATE INDEX IF NOT EXISTS idx_short_window_signals_signal_time ON short_window_signals(signal_time);
+
+CREATE TABLE IF NOT EXISTS short_window_replay_results (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source_type TEXT NOT NULL,
+  venue TEXT NOT NULL,
+  symbol TEXT NOT NULL,
+  interval TEXT NOT NULL,
+  window TEXT NOT NULL,
+  total_events INTEGER NOT NULL,
+  actionable_count INTEGER NOT NULL,
+  win_count INTEGER NOT NULL,
+  loss_count INTEGER NOT NULL,
+  wait_count INTEGER NOT NULL,
+  rejected_count INTEGER NOT NULL,
+  win_rate REAL,
+  warnings_json TEXT NOT NULL,
+  checked_at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  payload_json TEXT,
+  UNIQUE(source_type, venue, symbol, interval, window, checked_at)
+);
+
+CREATE INDEX IF NOT EXISTS idx_short_window_replay_lookup ON short_window_replay_results(symbol, interval, window, venue, checked_at);
+
 CREATE TABLE IF NOT EXISTS strategy_lab_results (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   source_type TEXT NOT NULL,

@@ -93,6 +93,47 @@ export type {
   TerminalProbabilityInput,
   TerminalProbabilityResult
 } from "./fair-value/types.js";
+export {
+  buildCfRtiAverageRuleTemplate,
+  buildShortWindowRuleTemplate,
+  evaluateShortWindowRuleOutcome,
+  shortWindowIntervalMs
+} from "./short-window/rule-templates.js";
+export {
+  buildCurrentShortWindowEvent,
+  resolveShortWindowPhase,
+  resolveStartReferencePrice
+} from "./short-window/window-engine.js";
+export { generateShortWindowSignal } from "./short-window/signal-engine.js";
+export {
+  combineShortWindowProviderHealth,
+  replayCandles,
+  resolveShortWindowMetricsWindow,
+  runShortWindowReplay
+} from "./short-window/replay.js";
+export { computeShortWindowMetrics } from "./short-window/metrics.js";
+export type {
+  BuildCurrentShortWindowEventInput,
+  RuleOutcome,
+  RuleOutcomeInput,
+  RuleTemplateInput,
+  RunShortWindowReplayInput,
+  ShortWindowContractRule,
+  ShortWindowCurrentResponse,
+  ShortWindowEvent,
+  ShortWindowFixture,
+  ShortWindowInterval,
+  ShortWindowMarker,
+  ShortWindowMarketState,
+  ShortWindowMetrics,
+  ShortWindowMetricsWindow,
+  ShortWindowReplayResponse,
+  ShortWindowReplayResult,
+  ShortWindowRuleConfidence,
+  ShortWindowSignal,
+  ShortWindowSignalSide,
+  ShortWindowVenue
+} from "./short-window/types.js";
 export type {
   FindCryptoEventMarketsInput,
   FindCryptoEventMarketsResult,
@@ -226,6 +267,8 @@ export {
   isNodeSqliteAvailable,
   marketSnapshotFromBoundMarket,
   replayResultRecordFromResponse,
+  shortWindowReplayResultRecordFromResponse,
+  shortWindowSignalRecordsFromResponse,
   stableRawHash,
   strategyLabResultRecordFromReport,
   underlyingCandleFromCandle
@@ -240,9 +283,12 @@ export type {
   ReplayResultRecord,
   ResearchDataStore,
   ResearchStoreProvider,
+  ShortWindowReplayResultRecord,
+  ShortWindowSignalRecord,
   StoreStatus,
   StrategyLabResultRecord,
   StoredReplayResult,
+  StoredShortWindowReplayResult,
   StoredSignalSymbol,
   StoredStrategyLabResult,
   UnderlyingCandleRecord

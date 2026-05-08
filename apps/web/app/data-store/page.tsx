@@ -14,6 +14,8 @@ type StoreStatusPayload = {
     latestCandleCloseAt: string | null;
     latestFairValueSignalAt: string | null;
     latestReplayMetricsAt: string | null;
+    latestShortWindowSignalAt: string | null;
+    latestShortWindowReplayAt: string | null;
     latestStrategyLabResultAt: string | null;
     latestCaptureRunAt: string | null;
   };
@@ -91,6 +93,8 @@ export default async function ResearchDataStorePage() {
             <Metric label="market snapshots" value={formatNumber(status?.counts.market_snapshots)} />
             <Metric label="fair value signals" value={formatNumber(status?.counts.fair_value_signals)} />
             <Metric label="replay results" value={formatNumber(status?.counts.replay_results)} />
+            <Metric label="short-window signals" value={formatNumber(status?.counts.short_window_signals)} />
+            <Metric label="short-window replay" value={formatNumber(status?.counts.short_window_replay_results)} />
             <Metric label="strategy lab results" value={formatNumber(status?.counts.strategy_lab_results)} />
           </Panel>
           <Panel title="Latest timestamps">
@@ -112,6 +116,14 @@ export default async function ResearchDataStorePage() {
           <Panel title="Latest Replay Metrics">
             <Metric label="latest replay" value={formatTime(latest?.latestReplayMetricsAt ?? null)} />
             <Metric label="stored samples" value={formatNumber(status?.counts.replay_results)} />
+          </Panel>
+          <Panel title="Latest Short-Window Signal">
+            <Metric label="latest signal" value={formatTime(latest?.latestShortWindowSignalAt ?? null)} />
+            <Metric label="stored samples" value={formatNumber(status?.counts.short_window_signals)} />
+          </Panel>
+          <Panel title="Latest Short-Window Replay">
+            <Metric label="latest replay" value={formatTime(latest?.latestShortWindowReplayAt ?? null)} />
+            <Metric label="stored samples" value={formatNumber(status?.counts.short_window_replay_results)} />
           </Panel>
           <Panel title="Latest Strategy Lab Result">
             <Metric label="latest lab" value={formatTime(latest?.latestStrategyLabResultAt ?? null)} />

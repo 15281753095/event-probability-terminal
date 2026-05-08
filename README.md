@@ -1,6 +1,7 @@
 # Event Probability Terminal
 
-Read-only research terminal for BTC/ETH prediction-market event contracts, starting with Polymarket public market data.
+Read-only research terminal for BTC/ETH prediction-market event contracts, now including
+short-window BTC/ETH event-contract proxy signals.
 
 ## Current Status -test-2
 
@@ -8,9 +9,9 @@ This repository is in Phase 1 foundation work. It has a minimal local end-to-end
 
 - `services/market-ingestor`: Polymarket public-read adapter boundary, fixture-first by default.
 - `packages/shared-types`: shared contracts for `EventMarket`, `OrderBookSnapshot`, `MarketDetailResponse`, and placeholder scanner/pricing objects.
-- `packages/research-signals`: deterministic technical-indicator, confluence, Binance Spot public realtime parser, research-only backtest scaffold, fair-value eligibility/probability helpers, replay metrics, Strategy Lab parameter sweep/walk-forward validation, local research data-store/capture jobs, and research-signal engine with Binance Spot public live ticker/candles by default, Coinbase Exchange fallback, and explicit fixture/mock dev mode.
-- `apps/api-gateway`: Fastify read-only API for live market data, fixture-backed markets/scanner metadata, contract-backed market detail, research signals, Event Signal Console, signal replay, Strategy Lab, local capture/status endpoints, and pricing placeholders.
-- `apps/web`: Next.js live BTC/ETH prediction terminal, signal console, replay dashboard, Strategy Lab dashboard, Research Data Store status page, hidden legacy scanner route, and Market Detail evidence views that read from the API gateway.
+- `packages/research-signals`: deterministic technical-indicator, confluence, Binance Spot public realtime parser, research-only backtest scaffold, fair-value eligibility/probability helpers, replay metrics, Strategy Lab parameter sweep/walk-forward validation, short-window event-contract signal/replay logic, local research data-store/capture jobs, and research-signal engine with Binance Spot public live ticker/candles by default, Coinbase Exchange fallback, and explicit fixture/mock dev mode.
+- `apps/api-gateway`: Fastify read-only API for live market data, fixture-backed markets/scanner metadata, contract-backed market detail, research signals, Event Signal Console, signal replay, short-window event-contract signals, Strategy Lab, local capture/status endpoints, and pricing placeholders.
+- `apps/web`: Next.js live BTC/ETH prediction terminal, short-window terminal, signal console, replay dashboard, Strategy Lab dashboard, Research Data Store status page, hidden legacy scanner route, and Market Detail evidence views that read from the API gateway.
 - `services/pricing-engine`: Python placeholder contract for fair-value output shape.
 
 The current homepage is live-first. It uses Binance Spot public `BTCUSDT`/`ETHUSDT` ticker,
@@ -50,19 +51,25 @@ Supported research scope:
 - Research Data Store: local public/read-only capture of Binance candles, Polymarket odds
   snapshots, fair-value signal snapshots, replay metrics, Strategy Lab summaries, and capture
   health. Stored rows preserve `sourceType=live|mock|fixture`.
+- Short-window event-contract terminal: BTC/ETH `5m`/`10m`/`15m` current event windows, countdown,
+  start reference, current distance, `LONG_UP`/`LONG_DOWN`/`WAIT`/`REJECTED` research signals,
+  proxy replay metrics, K-line markers, rule warnings, and manual decision-support status. Binance
+  Spot public data is a proxy reference unless a venue settlement rule is verified.
 - Market contract: binary outcome markets only. The shared contract preserves upstream outcome labels, including fixture-backed `Yes`/`No` and observed `Up`/`Down`; it does not support multi-outcome markets.
 
 Explicit exclusions:
 
 - No real-money order placement, cancellation, settlement, wallet funding, withdrawal, or trading automation.
 - No private/authenticated Polymarket adapter.
-- No Predict.fun or Binance Wallet adapter.
+- No Predict.fun, Binance Wallet, or HiBit trading/private adapter.
 - No real pricing model, paper broker, production strategy activation, or news-signal business implementation.
 - No Polymarket authenticated trading endpoint, wallet, private key, API key, secret, passphrase,
   order placement, cancellation, balance, or position integration.
 - No signal output that is a buy/sell instruction, order, leverage, position size, or real trading entry.
 - No fabricated live replay statistics and no pending/unresolved/rejected/no-signal rows in the
   realized win-rate denominator.
+- No claim that Binance Wallet or HiBit short-window settlement rules are official unless a reliable
+  public source verifies the exact rule. Unverified rules must be shown as proxy/manual reference.
 - No use of the same full historical window for both parameter selection and validation, and no
   promotion of Strategy Lab top candidates to production strategies.
 - No fair-value calculation for ambiguous, vague, path-dependent, high-spread, unknown-liquidity,
@@ -145,6 +152,8 @@ http://localhost:3000/?symbol=ETH&horizon=10m
 http://localhost:3000/market-data/live?symbol=BTC&provider=binance&interval=15m
 http://localhost:3000/signals/console?symbol=BTC&horizon=5m&provider=binance
 http://localhost:3000/signals/replay
+http://localhost:3000/short-window?symbol=BTC&interval=5m
+http://localhost:3000/short-window?symbol=ETH&interval=10m
 http://localhost:3000/strategy-lab
 http://localhost:3000/data-store
 http://localhost:3000/?symbol=BTC&horizon=5m&sourceMode=fixture
@@ -205,6 +214,10 @@ curl "http://localhost:4000/signals/replay?symbol=BTC&window=1w"
 curl "http://localhost:4000/signals/replay?symbol=ETH&window=1w"
 curl "http://localhost:4000/signals/replay?symbol=ALL&window=1w"
 curl "http://localhost:4000/signals/replay?symbol=BTC&window=1w&mock=true"
+curl "http://localhost:4000/short-window/current?symbol=BTC&interval=5m&venue=proxy-generic"
+curl "http://localhost:4000/short-window/current?symbol=ETH&interval=10m&venue=proxy-generic"
+curl "http://localhost:4000/short-window/replay?symbol=BTC&interval=5m&window=1d&venue=proxy-generic"
+curl "http://localhost:4000/short-window/replay?symbol=ETH&interval=10m&window=1d&venue=proxy-generic"
 curl "http://localhost:4000/strategy-lab/sweep?symbol=BTC&window=1w&maxCombinations=20"
 curl "http://localhost:4000/strategy-lab/sweep?symbol=ETH&window=1w&maxCombinations=20"
 curl "http://localhost:4000/strategy-lab/sweep?symbol=ALL&window=1w&maxCombinations=20"
