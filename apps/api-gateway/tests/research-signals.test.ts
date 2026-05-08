@@ -26,6 +26,8 @@ import {
   type PolymarketActiveMarketsResponse,
   type RealtimePriceSsePayload,
   type ResearchSignalsResponse,
+  type ShortWindowCurrentResponse,
+  type ShortWindowReplayResponse,
   type SignalReplayResponse,
   type StrategyLabReport
 } from "@ept/shared-types";
@@ -395,6 +397,70 @@ describe("research signals API", () => {
     assert.equal(payload.candleCount, 0);
     assert.ok(payload.failClosedReasons.some((reason) => reason.includes("mock HTTP 503")));
     assert.equal(payload.isFixtureBacked, false);
+
+    await server.close();
+  });
+
+  it("returns /short-window/current mock event and signal without private execution fields", async () => {
+    const server = buildServer({ logger: false, now: () => fixedGeneratedAt });
+    const response = await server.inject({
+      method: "GET",
+      url: "/short-window/current?symbol=BTC&interval=5m&venue=mock&mock=true"
+    });
+
+    assert.equal(response.statusCode, 200);
+    const payload = response.json<ShortWindowCurrentResponse>();
+    assert.equal(payload.event.symbol, "BTC");
+    assert.equal(payload.event.interval, "5m");
+    assert.equal(payload.event.isResearchOnly, true);
+    assert.equal(payload.signal.isResearchOnly, true);
+    assert.ok(["LONG_UP", "LONG_DOWN", "WAIT", "REJECTED"].includes(payload.signal.side));
+    assert.equal(payload.rule.venue, "mock");
+    assert.equal(payload.sourceType, "mock");
+    assertNoPrivateTradingFields(response.body);
+    assertNoExecutionPhrases(response.body);
+
+    await server.close();
+  });
+
+  it("returns /short-window/replay mock metrics and markers without private execution fields", async () => {
+    const server = buildServer({ logger: false, now: () => fixedGeneratedAt });
+    const response = await server.inject({
+      method: "GET",
+      url: "/short-window/replay?symbol=BTC&interval=5m&venue=mock&window=1d&mock=true"
+    });
+
+    assert.equal(response.statusCode, 200);
+    const payload = response.json<ShortWindowReplayResponse>();
+    assert.equal(payload.sourceType, "mock");
+    assert.equal(payload.metrics.totalEvents, 6);
+    assert.equal(payload.metrics.winCount, 2);
+    assert.equal(payload.metrics.lossCount, 1);
+    assert.ok(payload.markers.length > 0);
+    assert.equal(payload.isResearchOnly, true);
+    assertNoPrivateTradingFields(response.body);
+    assertNoExecutionPhrases(response.body);
+
+    await server.close();
+  });
+
+  it("marks unverified short-window venue rules as rejected or warning-backed", async () => {
+    const server = buildServer({
+      logger: false,
+      now: () => fixedGeneratedAt,
+      liveMarketDataFetcher: async (request) => mockLiveMarketData(request)
+    });
+    const response = await server.inject({
+      method: "GET",
+      url: "/short-window/current?symbol=ETH&interval=10m&venue=hibit"
+    });
+
+    assert.equal(response.statusCode, 200);
+    const payload = response.json<ShortWindowCurrentResponse>();
+    assert.equal(payload.rule.ruleConfidence, "unknown");
+    assert.equal(payload.signal.side, "REJECTED");
+    assert.ok(payload.signal.rejectReasons.includes("UNVERIFIED_UNKNOWN_RULE"));
+    assertNoPrivateTradingFields(response.body);
 
     await server.close();
   });
@@ -1093,6 +1159,10 @@ function mockStrategyLabResult(): StrategyLabResultRecord {
 
 function assertNoPrivateTradingFields(body: string): void {
   assert.doesNotMatch(body, /privateKey|apiKey|secret|order|cancel|balance|position/i);
+}
+
+function assertNoExecutionPhrases(body: string): void {
+  assert.doesNotMatch(body, /BUY NOW|SELL NOW|TRADE NOW/i);
 }
 
 function mockLiveMarketData(

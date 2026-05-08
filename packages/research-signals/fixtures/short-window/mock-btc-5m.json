@@ -1,0 +1,43 @@
+{
+  "sourceType": "mock",
+  "venue": "mock",
+  "symbol": "BTC",
+  "interval": "5m",
+  "checkedAt": "2026-05-07T00:30:00.000Z",
+  "candles": [
+    { "timestamp": "2026-05-07T00:00:00.000Z", "open": 64000, "high": 64030, "low": 63990, "close": 64018, "volume": 110 },
+    { "timestamp": "2026-05-07T00:01:00.000Z", "open": 64018, "high": 64045, "low": 64010, "close": 64034, "volume": 112 },
+    { "timestamp": "2026-05-07T00:02:00.000Z", "open": 64034, "high": 64058, "low": 64022, "close": 64049, "volume": 114 },
+    { "timestamp": "2026-05-07T00:03:00.000Z", "open": 64049, "high": 64078, "low": 64040, "close": 64070, "volume": 118 },
+    { "timestamp": "2026-05-07T00:04:00.000Z", "open": 64070, "high": 64092, "low": 64062, "close": 64086, "volume": 120 },
+    { "timestamp": "2026-05-07T00:05:00.000Z", "open": 64086, "high": 64088, "low": 64040, "close": 64055, "volume": 121 },
+    { "timestamp": "2026-05-07T00:06:00.000Z", "open": 64055, "high": 64060, "low": 64005, "close": 64018, "volume": 124 },
+    { "timestamp": "2026-05-07T00:07:00.000Z", "open": 64018, "high": 64025, "low": 63970, "close": 63982, "volume": 128 },
+    { "timestamp": "2026-05-07T00:08:00.000Z", "open": 63982, "high": 63992, "low": 63942, "close": 63950, "volume": 130 },
+    { "timestamp": "2026-05-07T00:09:00.000Z", "open": 63950, "high": 63958, "low": 63910, "close": 63920, "volume": 132 },
+    { "timestamp": "2026-05-07T00:10:00.000Z", "open": 63920, "high": 63975, "low": 63915, "close": 63966, "volume": 125 },
+    { "timestamp": "2026-05-07T00:11:00.000Z", "open": 63966, "high": 64030, "low": 63960, "close": 64018, "volume": 126 },
+    { "timestamp": "2026-05-07T00:12:00.000Z", "open": 64018, "high": 64052, "low": 64010, "close": 64044, "volume": 127 },
+    { "timestamp": "2026-05-07T00:13:00.000Z", "open": 64044, "high": 64050, "low": 63988, "close": 64002, "volume": 136 },
+    { "timestamp": "2026-05-07T00:14:00.000Z", "open": 64002, "high": 64008, "low": 63955, "close": 63962, "volume": 138 },
+    { "timestamp": "2026-05-07T00:15:00.000Z", "open": 63962, "high": 63974, "low": 63950, "close": 63968, "volume": 111 },
+    { "timestamp": "2026-05-07T00:16:00.000Z", "open": 63968, "high": 63982, "low": 63960, "close": 63972, "volume": 109 },
+    { "timestamp": "2026-05-07T00:17:00.000Z", "open": 63972, "high": 63990, "low": 63962, "close": 63976, "volume": 108 },
+    { "timestamp": "2026-05-07T00:18:00.000Z", "open": 63976, "high": 63984, "low": 63958, "close": 63970, "volume": 106 },
+    { "timestamp": "2026-05-07T00:19:00.000Z", "open": 63970, "high": 63982, "low": 63960, "close": 63973, "volume": 105 },
+    { "timestamp": "2026-05-07T00:20:00.000Z", "open": 63973, "high": 63990, "low": 63950, "close": 63954, "volume": 116 },
+    { "timestamp": "2026-05-07T00:21:00.000Z", "open": 63954, "high": 63966, "low": 63920, "close": 63926, "volume": 117 },
+    { "timestamp": "2026-05-07T00:22:00.000Z", "open": 63926, "high": 63940, "low": 63890, "close": 63898, "volume": 118 },
+    { "timestamp": "2026-05-07T00:23:00.000Z", "open": 63898, "high": 63905, "low": 63872, "close": 63880, "volume": 120 },
+    { "timestamp": "2026-05-07T00:24:00.000Z", "open": 63880, "high": 63896, "low": 63870, "close": 63886, "volume": 121 },
+    { "timestamp": "2026-05-07T00:25:00.000Z", "open": 63886, "high": 63930, "low": 63882, "close": 63924, "volume": 122 }
+  ],
+  "scenarios": [
+    { "id": "btc-long-up-win", "signalTime": "2026-05-07T00:04:00.000Z", "side": "LONG_UP", "outcomeStatus": "WIN", "note": "LONG_UP win sample" },
+    { "id": "btc-long-down-win", "signalTime": "2026-05-07T00:09:00.000Z", "side": "LONG_DOWN", "outcomeStatus": "WIN", "note": "LONG_DOWN win sample" },
+    { "id": "btc-long-up-loss", "signalTime": "2026-05-07T00:14:00.000Z", "side": "LONG_UP", "outcomeStatus": "LOSS", "note": "Loss sample for calibration" },
+    { "id": "btc-wait", "signalTime": "2026-05-07T00:19:00.000Z", "side": "WAIT", "outcomeStatus": "WAIT", "note": "WAIT sample below threshold" },
+    { "id": "btc-rejected", "signalTime": "2026-05-07T00:24:00.000Z", "side": "REJECTED", "outcomeStatus": "REJECTED", "note": "REJECTED sample" },
+    { "id": "btc-no-entry-zone", "signalTime": "2026-05-07T00:24:50.000Z", "side": "WAIT", "outcomeStatus": "WAIT", "note": "no_entry_zone sample" }
+  ]
+}

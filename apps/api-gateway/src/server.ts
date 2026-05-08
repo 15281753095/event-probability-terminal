@@ -15,10 +15,14 @@ import {
   listResearchSignals,
   parseReplayWindowId,
   buildFairValueV1ParameterGrid,
+  buildCurrentShortWindowEvent,
   createResearchDataStore,
+  generateShortWindowSignal,
+  buildShortWindowRuleTemplate,
   rankStrategyParameterResults,
   runCaptureJobByName,
   runParameterSweep,
+  runShortWindowReplay,
   runSignalReplay,
   runWalkForwardValidation,
   type CaptureRunMode,
@@ -62,6 +66,10 @@ import type {
   SignalHorizon,
   SignalProfileName,
   SignalSymbol,
+  ShortWindowCurrentResponse,
+  ShortWindowInterval,
+  ShortWindowReplayResponse,
+  ShortWindowVenue,
   SourceProvenance,
   StrategyLabReport,
   TradeCandidate
@@ -503,6 +511,165 @@ export function buildServer(options: BuildServerOptions = {}) {
       reply.raw.end();
       close();
     }
+  });
+
+  server.get<{ Querystring: { symbol?: string; interval?: string; venue?: string; mock?: string } }>("/short-window/current", async (request, reply) => {
+    const generatedAt = now();
+    const symbol = parseSignalSymbol(request.query.symbol) ?? "BTC";
+    const interval = parseShortWindowInterval(request.query.interval) ?? "5m";
+    const venue = parseShortWindowVenue(request.query.venue) ?? "proxy-generic";
+    const mockMode = parseBooleanQuery(request.query.mock) === true || venue === "mock";
+    if (request.query.symbol && !parseSignalSymbol(request.query.symbol)) {
+      return reply.code(400).send(apiError({
+        status: "unsupported",
+        error: "out_of_scope",
+        message: "Short-window current currently supports symbol=BTC or symbol=ETH only.",
+        generatedAt
+      }));
+    }
+    if (request.query.interval && !parseShortWindowInterval(request.query.interval)) {
+      return reply.code(400).send(apiError({
+        status: "unsupported",
+        error: "out_of_scope",
+        message: "Short-window current currently supports interval=5m, 10m, or 15m.",
+        generatedAt
+      }));
+    }
+    if (request.query.venue && !parseShortWindowVenue(request.query.venue)) {
+      return reply.code(400).send(apiError({
+        status: "unsupported",
+        error: "out_of_scope",
+        message: "Short-window current currently supports venue=proxy-generic, binance-wallet-prediction, hibit, or mock.",
+        generatedAt
+      }));
+    }
+
+    const rule = buildShortWindowRuleTemplate({ venue: mockMode ? "mock" : venue, symbol, interval });
+    const marketData = await loadShortWindowMarketData({
+      symbol,
+      requestedAt: generatedAt,
+      liveMarketDataFetcher,
+      useMock: mockMode
+    });
+    const tick = marketData.latestPrice === null
+      ? undefined
+      : toShortWindowPriceTick({
+        symbol,
+        price: marketData.latestPrice,
+        bid: marketData.bid,
+        ask: marketData.ask,
+        sourceType: marketData.sourceType,
+        eventTime: marketData.tickerTime ?? generatedAt,
+        receivedAt: generatedAt,
+        latencyMs: marketData.providerHealth.latencyMs
+      });
+    const event = buildCurrentShortWindowEvent({
+      symbol,
+      interval,
+      venue: rule.venue,
+      now: generatedAt,
+      priceTicks: tick ? [tick] : [],
+      candles: marketData.candles,
+      rule
+    });
+    const signal = generateShortWindowSignal(event, {
+      candles: marketData.candles,
+      ...(tick ? { priceTick: tick } : {}),
+      bid: marketData.bid,
+      ask: marketData.ask,
+      latencyMs: marketData.providerHealth.latencyMs,
+      now: generatedAt
+    });
+    const warnings = unique([
+      "Research only. Not trading advice. Manual decision support only.",
+      "No automated execution and no private trading API fields are used.",
+      ...marketData.warnings,
+      ...marketData.failClosedReasons,
+      ...(!rule.isVerifiedRule ? ["Proxy / unverified settlement rule. Do not treat as an official venue settlement price."] : []),
+      ...rule.notes
+    ]);
+    return {
+      event,
+      signal,
+      realtimePrice: marketData,
+      providerHealth: marketData.providerHealth,
+      sourceType: marketData.sourceType === "mock" ? "mock" : "live",
+      rule,
+      warnings,
+      isResearchOnly: true
+    } satisfies ShortWindowCurrentResponse;
+  });
+
+  server.get<{ Querystring: { symbol?: string; interval?: string; venue?: string; window?: string; mock?: string; useStored?: string } }>("/short-window/replay", async (request, reply) => {
+    const generatedAt = now();
+    const symbol = parseSignalSymbol(request.query.symbol) ?? "BTC";
+    const interval = parseShortWindowInterval(request.query.interval) ?? "5m";
+    const venue = parseShortWindowVenue(request.query.venue) ?? "proxy-generic";
+    const window = parseShortWindowMetricsWindow(request.query.window) ?? "1d";
+    const mockMode = parseBooleanQuery(request.query.mock) === true || venue === "mock";
+    const useStored = parseBooleanQuery(request.query.useStored) === true;
+    if (request.query.symbol && !parseSignalSymbol(request.query.symbol)) {
+      return reply.code(400).send(apiError({
+        status: "unsupported",
+        error: "out_of_scope",
+        message: "Short-window replay currently supports symbol=BTC or symbol=ETH only.",
+        generatedAt
+      }));
+    }
+    if (request.query.interval && !parseShortWindowInterval(request.query.interval)) {
+      return reply.code(400).send(apiError({
+        status: "unsupported",
+        error: "out_of_scope",
+        message: "Short-window replay currently supports interval=5m, 10m, or 15m.",
+        generatedAt
+      }));
+    }
+    if (request.query.venue && !parseShortWindowVenue(request.query.venue)) {
+      return reply.code(400).send(apiError({
+        status: "unsupported",
+        error: "out_of_scope",
+        message: "Short-window replay currently supports venue=proxy-generic, binance-wallet-prediction, hibit, or mock.",
+        generatedAt
+      }));
+    }
+    if (request.query.window && !parseShortWindowMetricsWindow(request.query.window)) {
+      return reply.code(400).send(apiError({
+        status: "unsupported",
+        error: "out_of_scope",
+        message: "Short-window replay currently supports window=1d, 3d, 1w, or 1m.",
+        generatedAt
+      }));
+    }
+
+    if (useStored) {
+      await researchStore.init();
+      const stored = await researchStore.getLatestShortWindowReplayResult({
+        symbol,
+        interval,
+        window,
+        venue
+      });
+      if (stored?.response) {
+        return {
+          ...stored.response,
+          sourceType: "stored",
+          warnings: unique([...stored.response.warnings, "Loaded from local research data store."])
+        } satisfies ShortWindowReplayResponse;
+      }
+    }
+
+    return (await runShortWindowReplay({
+      symbol,
+      interval,
+      venue: mockMode ? "mock" : venue,
+      window,
+      useMock:
+        mockMode ||
+        process.env.EPT_SHORT_WINDOW_MOCK === "true" ||
+        process.env.EPT_LIVE_MARKET_DATA_MOCK === "true",
+      now,
+      timeoutMs: 5_000
+    })) satisfies ShortWindowReplayResponse;
   });
 
   server.get<{ Querystring: { symbol?: string; horizon?: string; sourceMode?: string; profile?: string } }>("/signals/research", async (request, reply) => {
@@ -1094,6 +1261,30 @@ function parseSignalSymbol(value?: string): SignalSymbol | undefined {
   return value === "BTC" || value === "ETH" ? value : undefined;
 }
 
+function parseShortWindowInterval(value?: string): ShortWindowInterval | undefined {
+  return value === "5m" || value === "10m" || value === "15m" ? value : undefined;
+}
+
+function parseShortWindowVenue(value?: string): ShortWindowVenue | undefined {
+  if (!value || value === "proxy" || value === "proxy-generic") {
+    return "proxy-generic";
+  }
+  if (value === "binance-wallet" || value === "binance-wallet-prediction") {
+    return "binance-wallet-prediction";
+  }
+  if (value === "hibit") {
+    return "hibit";
+  }
+  if (value === "mock") {
+    return "mock";
+  }
+  return undefined;
+}
+
+function parseShortWindowMetricsWindow(value?: string): "1d" | "3d" | "1w" | "1m" | undefined {
+  return value === "1d" || value === "3d" || value === "1w" || value === "1m" ? value : undefined;
+}
+
 function parsePolymarketSymbolFilter(value?: string): SignalSymbol | "ALL" | undefined {
   if (!value || value === "ALL") {
     return "ALL";
@@ -1349,6 +1540,60 @@ async function loadFairValueUnderlyingData(
     }
   }));
   return Object.fromEntries(entries) as Partial<Record<SignalSymbol, LiveMarketDataResponse>>;
+}
+
+async function loadShortWindowMarketData(input: {
+  symbol: SignalSymbol;
+  requestedAt: string;
+  liveMarketDataFetcher: LiveMarketDataFetcher;
+  useMock: boolean;
+}): Promise<LiveMarketDataResponse> {
+  const request: LiveMarketDataFetchRequest = {
+    symbol: input.symbol,
+    interval: "1m",
+    lookback: 180,
+    sourceMode: "live",
+    provider: "binance-spot-public",
+    requestedAt: input.requestedAt
+  };
+  try {
+    return input.useMock
+      ? addProviderHealth(await mockLiveMarketDataFetcher(request), request, { latencyMs: 1 })
+      : await input.liveMarketDataFetcher(request);
+  } catch (error) {
+    return addProviderHealth(emptyFailClosedBinanceMarketData(request, error instanceof Error
+      ? `Short-window live Binance public market data unavailable: ${error.message}`
+      : "Short-window live Binance public market data unavailable with an unknown error."
+    ), request, { latencyMs: null });
+  }
+}
+
+function toShortWindowPriceTick(input: {
+  symbol: SignalSymbol;
+  price: number;
+  bid: number | null;
+  ask: number | null;
+  sourceType: "live" | "mock" | "fixture";
+  eventTime: string;
+  receivedAt: string;
+  latencyMs: number | null;
+}): RealTimePriceTick {
+  const displaySymbol = realtimeDisplaySymbol(input.symbol);
+  return {
+    symbol: displaySymbol,
+    displaySymbol,
+    provider: input.sourceType === "mock" ? "mock" : "binance-spot-public",
+    sourceType: input.sourceType === "mock" ? "mock" : "live",
+    eventType: "trade",
+    price: input.price,
+    bidPrice: input.bid ?? undefined,
+    askPrice: input.ask ?? undefined,
+    eventTime: input.eventTime,
+    receivedAt: input.receivedAt,
+    latencyMs: input.latencyMs,
+    sequenceId: `short-window-${input.symbol}-${input.receivedAt}`,
+    rawProviderEventType: "rest-ticker"
+  };
 }
 
 function mapValues<T, U>(

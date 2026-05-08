@@ -34,7 +34,9 @@ export type ApiResponseKind =
   | "live_market_data"
   | "polymarket_active_markets"
   | "fair_value_signal"
-  | "signal_replay";
+  | "signal_replay"
+  | "short_window_current"
+  | "short_window_replay";
 
 export type ApiResponseStatus = "ok" | "not_found" | "unsupported" | "fail_closed";
 
@@ -651,6 +653,201 @@ export interface SignalReplayResponse {
   results: ReplayTradeLikeResult[];
   markers: SignalMarker[];
   warnings: string[];
+  isResearchOnly: true;
+}
+
+export type ShortWindowVenue =
+  | "binance-wallet-prediction"
+  | "hibit"
+  | "proxy-generic"
+  | "mock";
+
+export type ShortWindowInterval = "5m" | "10m" | "15m";
+
+export type ShortWindowRuleType =
+  | "END_PRICE_GTE_START_PRICE"
+  | "END_AVG_GTE_START_AVG"
+  | "UNKNOWN_MANUAL_REFERENCE";
+
+export type ShortWindowReferenceSource =
+  | "BINANCE_SPOT_PROXY"
+  | "BINANCE_MARK_PRICE_PROXY"
+  | "CF_RTI_PUBLIC_REFERENCE"
+  | "CHAINLINK_REFERENCE"
+  | "UNKNOWN";
+
+export type ShortWindowTieRule = "UP" | "DOWN" | "UNKNOWN";
+
+export type ShortWindowRuleConfidence = "high" | "medium" | "low" | "unknown";
+
+export interface ShortWindowContractRule {
+  id: string;
+  venue: ShortWindowVenue;
+  interval: ShortWindowInterval;
+  symbol: SignalSymbol;
+  underlyingSymbol: RealtimePriceSymbol;
+  ruleType: ShortWindowRuleType;
+  referenceSource: ShortWindowReferenceSource;
+  startAverageSeconds?: number | undefined;
+  endAverageSeconds?: number | undefined;
+  tieRule: ShortWindowTieRule;
+  isVerifiedRule: boolean;
+  ruleConfidence: ShortWindowRuleConfidence;
+  notes: string[];
+}
+
+export type ShortWindowEventStatus =
+  | "forming"
+  | "open"
+  | "decision_zone"
+  | "no_entry_zone"
+  | "closed";
+
+export interface ShortWindowEvent {
+  id: string;
+  venue: ShortWindowVenue;
+  symbol: SignalSymbol;
+  interval: ShortWindowInterval;
+  startTime: string;
+  endTime: string;
+  status: ShortWindowEventStatus;
+  startReferencePrice: number | null;
+  currentPrice: number | null;
+  distanceFromStart: number | null;
+  distanceBps: number | null;
+  secondsRemaining: number;
+  rule: ShortWindowContractRule;
+  sourceType: "live" | "mock" | "stored";
+  isResearchOnly: true;
+}
+
+export type ShortWindowSignalSide = "LONG_UP" | "LONG_DOWN" | "WAIT" | "REJECTED";
+
+export interface ShortWindowScoreBreakdown {
+  distanceBps: number | null;
+  momentumBps: number | null;
+  volatilityBps: number | null;
+  candleBodyBps: number | null;
+  spreadBps: number | null;
+  noiseThresholdBps: number;
+  directionalScore: number;
+  confidenceCap: number;
+  total: number;
+}
+
+export interface ShortWindowModelInputs {
+  candleCount: number;
+  latestCandleTime: string | null;
+  latestTickTime: string | null;
+  latencyMs: number | null;
+  bid: number | null;
+  ask: number | null;
+  spreadBps: number | null;
+  momentumLookbackCandles: number;
+  volatilityLookbackCandles: number;
+  ruleConfidence: ShortWindowRuleConfidence;
+  settlementRuleVerified: boolean;
+}
+
+export interface ShortWindowSignal {
+  id: string;
+  eventId: string;
+  symbol: SignalSymbol;
+  interval: ShortWindowInterval;
+  signalTime: string;
+  side: ShortWindowSignalSide;
+  confidence: number;
+  score: number;
+  currentPrice: number | null;
+  startReferencePrice: number | null;
+  distanceBps: number | null;
+  secondsRemaining: number;
+  reasons: string[];
+  rejectReasons: string[];
+  modelInputs: ShortWindowModelInputs & {
+    scoreBreakdown: ShortWindowScoreBreakdown;
+  };
+  phase: ShortWindowEventStatus;
+  isResearchOnly: true;
+}
+
+export type ShortWindowMetricsWindow = "1d" | "3d" | "1w" | "1m";
+
+export interface ShortWindowMetrics {
+  symbol: SignalSymbol;
+  interval: ShortWindowInterval;
+  window: ShortWindowMetricsWindow;
+  totalEvents: number;
+  actionableCount: number;
+  winCount: number;
+  lossCount: number;
+  waitCount: number;
+  rejectedCount: number;
+  pendingCount: number;
+  winRate: number | null;
+  longUpWinRate: number | null;
+  longDownWinRate: number | null;
+  avgConfidence: number | null;
+  avgDistanceBpsAtSignal: number | null;
+  maxDrawdown: number | null;
+  warnings: string[];
+  isResearchOnly: true;
+}
+
+export type ShortWindowReplayOutcomeStatus =
+  | "WIN"
+  | "LOSS"
+  | "WAIT"
+  | "REJECTED"
+  | "PENDING"
+  | "UNRESOLVED";
+
+export interface ShortWindowReplayResult {
+  event: ShortWindowEvent;
+  signal: ShortWindowSignal;
+  outcome: {
+    status: ShortWindowReplayOutcomeStatus;
+    resolvedSide: "UP" | "DOWN" | "TIE" | "UNKNOWN";
+    startReferencePrice: number | null;
+    endReferencePrice: number | null;
+    resolvedAt: string | null;
+    countedInWinRate: boolean;
+    notes: string[];
+  };
+  isResearchOnly: true;
+}
+
+export interface ShortWindowMarker {
+  id: string;
+  time: string;
+  price: number | null;
+  side: ShortWindowSignalSide;
+  label: string;
+  reason: string;
+  outcomeStatus?: ShortWindowReplayOutcomeStatus | undefined;
+  isResearchOnly: true;
+}
+
+export interface ShortWindowCurrentResponse {
+  event: ShortWindowEvent;
+  signal: ShortWindowSignal;
+  realtimePrice: LiveMarketDataResponse;
+  providerHealth: ProviderHealth;
+  sourceType: "live" | "mock" | "stored";
+  rule: ShortWindowContractRule;
+  warnings: string[];
+  isResearchOnly: true;
+}
+
+export interface ShortWindowReplayResponse {
+  metrics: ShortWindowMetrics;
+  signals: ShortWindowSignal[];
+  results: ShortWindowReplayResult[];
+  markers: ShortWindowMarker[];
+  warnings: string[];
+  proxyBacktest: boolean;
+  sourceType: "live" | "mock" | "stored";
+  rule: ShortWindowContractRule;
   isResearchOnly: true;
 }
 

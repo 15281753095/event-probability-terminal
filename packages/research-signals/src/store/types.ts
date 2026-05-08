@@ -4,6 +4,12 @@ import type {
   OhlcvInterval,
   PolymarketLiquidityStatus,
   ReplayWindowId,
+  ShortWindowInterval,
+  ShortWindowMetricsWindow,
+  ShortWindowReplayResponse,
+  ShortWindowReplayOutcomeStatus,
+  ShortWindowSignalSide,
+  ShortWindowVenue,
   SignalReplayResponse,
   SignalSymbol,
   StrategyLabReport,
@@ -108,6 +114,43 @@ export type ReplayResultRecord = {
   payloadJson?: string | null;
 };
 
+export type ShortWindowSignalRecord = {
+  id?: number;
+  sourceType: DataSourceType;
+  venue: ShortWindowVenue;
+  symbol: SignalSymbol;
+  interval: ShortWindowInterval;
+  eventId: string;
+  signalTime: string;
+  side: ShortWindowSignalSide;
+  confidence: number | null;
+  score: number | null;
+  startReferencePrice: number | null;
+  currentPrice: number | null;
+  resultStatus?: ShortWindowReplayOutcomeStatus | null | undefined;
+  createdAt?: string;
+};
+
+export type ShortWindowReplayResultRecord = {
+  id?: number;
+  sourceType: DataSourceType;
+  venue: ShortWindowVenue;
+  symbol: SignalSymbol;
+  interval: ShortWindowInterval;
+  window: ShortWindowMetricsWindow;
+  totalEvents: number;
+  actionableCount: number;
+  winCount: number;
+  lossCount: number;
+  waitCount: number;
+  rejectedCount: number;
+  winRate: number | null;
+  warningsJson: string;
+  checkedAt: string;
+  createdAt?: string;
+  payloadJson?: string | null;
+};
+
 export type StrategyLabResultRecord = {
   id?: number;
   sourceType: DataSourceType;
@@ -148,6 +191,8 @@ export type StoreTableName =
   | "underlying_candles"
   | "fair_value_signals"
   | "replay_results"
+  | "short_window_signals"
+  | "short_window_replay_results"
   | "strategy_lab_results"
   | "capture_runs";
 
@@ -158,6 +203,8 @@ export type StoreLatestTimestamps = {
   latestCandleCloseAt: string | null;
   latestFairValueSignalAt: string | null;
   latestReplayMetricsAt: string | null;
+  latestShortWindowSignalAt: string | null;
+  latestShortWindowReplayAt: string | null;
   latestStrategyLabResultAt: string | null;
   latestCaptureRunAt: string | null;
 };
@@ -169,6 +216,8 @@ export type CoverageWindowSummary = {
   marketSnapshotCount: number;
   fairValueSignalCount: number;
   replayResultCount: number;
+  shortWindowSignalCount: number;
+  shortWindowReplayResultCount: number;
   strategyLabResultCount: number;
 };
 
@@ -187,6 +236,11 @@ export type StoredReplayResult = {
   response: SignalReplayResponse | null;
 };
 
+export type StoredShortWindowReplayResult = {
+  record: ShortWindowReplayResultRecord;
+  response: ShortWindowReplayResponse | null;
+};
+
 export type StoredStrategyLabResult = {
   record: StrategyLabResultRecord;
   report: StrategyLabReport | null;
@@ -201,6 +255,8 @@ export type ResearchDataStore = {
   insertUnderlyingCandles(records: UnderlyingCandleRecord[]): Promise<InsertSummary>;
   insertFairValueSignals(records: FairValueSignalRecord[]): Promise<InsertSummary>;
   insertReplayResult(record: ReplayResultRecord): Promise<InsertSummary>;
+  insertShortWindowSignals(records: ShortWindowSignalRecord[]): Promise<InsertSummary>;
+  insertShortWindowReplayResult(record: ShortWindowReplayResultRecord): Promise<InsertSummary>;
   insertStrategyLabResult(record: StrategyLabResultRecord): Promise<InsertSummary>;
   recordCaptureRun(record: CaptureRunRecord): Promise<InsertSummary>;
   getStatus(input?: { asOf?: string }): Promise<StoreStatus>;
@@ -210,10 +266,15 @@ export type ResearchDataStore = {
     window: CoverageWindowId;
     strategyId?: StrategyLabStrategyId | undefined;
   }): Promise<StoredReplayResult | null>;
+  getLatestShortWindowReplayResult(input: {
+    symbol: SignalSymbol;
+    interval: ShortWindowInterval;
+    window: ShortWindowMetricsWindow;
+    venue?: ShortWindowVenue | undefined;
+  }): Promise<StoredShortWindowReplayResult | null>;
   getLatestStrategyLabResult(input: {
     symbol: StoredSignalSymbol;
     window: CoverageWindowId;
     strategyId?: StrategyLabStrategyId | undefined;
   }): Promise<StoredStrategyLabResult | null>;
 };
-

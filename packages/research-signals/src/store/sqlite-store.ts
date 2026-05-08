@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
-import type { SignalReplayResponse, StrategyLabReport } from "@ept/shared-types";
+import type { ShortWindowReplayResponse, SignalReplayResponse, StrategyLabReport } from "@ept/shared-types";
 import {
   COVERAGE_WINDOWS,
   DEFAULT_RESEARCH_STORE_PATH,
@@ -18,9 +18,12 @@ import type {
   MarketSnapshotRecord,
   ReplayResultRecord,
   ResearchDataStore,
+  ShortWindowReplayResultRecord,
+  ShortWindowSignalRecord,
   StoreStatus,
   StoreTableCounts,
   StrategyLabResultRecord,
+  StoredShortWindowReplayResult,
   StoredReplayResult,
   StoredSignalSymbol,
   StoredStrategyLabResult,
@@ -254,6 +257,92 @@ class SqliteResearchStore implements ResearchDataStore {
     return { recordsInserted: result.changes ?? 0, recordsUpdated: 0, recordsSkipped: result.changes ? 0 : 1 };
   }
 
+  async insertShortWindowSignals(records: ShortWindowSignalRecord[]): Promise<InsertSummary> {
+    const db = this.database();
+    let recordsInserted = 0;
+    let recordsSkipped = 0;
+    const exists = db.prepare(`
+      SELECT id FROM short_window_signals
+      WHERE source_type = ? AND venue = ? AND symbol = ? AND interval = ?
+        AND event_id = ? AND signal_time = ? AND side = ?
+      LIMIT 1
+    `);
+    const insert = db.prepare(`
+      INSERT OR IGNORE INTO short_window_signals (
+        source_type, venue, symbol, interval, event_id, signal_time, side,
+        confidence, score, start_reference_price, current_price, result_status,
+        created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const record of records) {
+      assertStoreSource(undefined, record.sourceType);
+      if (exists.get(record.sourceType, record.venue, record.symbol, record.interval, record.eventId, record.signalTime, record.side)) {
+        recordsSkipped += 1;
+        continue;
+      }
+      const createdAt = record.createdAt ?? new Date().toISOString();
+      const result = insert.run(
+        record.sourceType,
+        record.venue,
+        record.symbol,
+        record.interval,
+        record.eventId,
+        record.signalTime,
+        record.side,
+        nullable(record.confidence),
+        nullable(record.score),
+        nullable(record.startReferencePrice),
+        nullable(record.currentPrice),
+        nullable(record.resultStatus),
+        createdAt
+      );
+      recordsInserted += result.changes ?? 0;
+      if (!result.changes) {
+        recordsSkipped += 1;
+      }
+    }
+    return { recordsInserted, recordsUpdated: 0, recordsSkipped };
+  }
+
+  async insertShortWindowReplayResult(record: ShortWindowReplayResultRecord): Promise<InsertSummary> {
+    const db = this.database();
+    assertStoreSource(undefined, record.sourceType);
+    const exists = db.prepare(`
+      SELECT id FROM short_window_replay_results
+      WHERE source_type = ? AND venue = ? AND symbol = ? AND interval = ? AND window = ? AND checked_at = ?
+      LIMIT 1
+    `);
+    if (exists.get(record.sourceType, record.venue, record.symbol, record.interval, record.window, record.checkedAt)) {
+      return { recordsInserted: 0, recordsUpdated: 0, recordsSkipped: 1 };
+    }
+    const createdAt = record.createdAt ?? new Date().toISOString();
+    const result = db.prepare(`
+      INSERT OR IGNORE INTO short_window_replay_results (
+        source_type, venue, symbol, interval, window, total_events, actionable_count,
+        win_count, loss_count, wait_count, rejected_count, win_rate, warnings_json,
+        checked_at, created_at, payload_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      record.sourceType,
+      record.venue,
+      record.symbol,
+      record.interval,
+      record.window,
+      record.totalEvents,
+      record.actionableCount,
+      record.winCount,
+      record.lossCount,
+      record.waitCount,
+      record.rejectedCount,
+      nullable(record.winRate),
+      record.warningsJson,
+      record.checkedAt,
+      createdAt,
+      nullable(record.payloadJson)
+    );
+    return { recordsInserted: result.changes ?? 0, recordsUpdated: 0, recordsSkipped: result.changes ? 0 : 1 };
+  }
+
   async insertStrategyLabResult(record: StrategyLabResultRecord): Promise<InsertSummary> {
     const db = this.database();
     assertStoreSource(undefined, record.sourceType);
@@ -325,6 +414,8 @@ class SqliteResearchStore implements ResearchDataStore {
       underlying_candles: this.scalarNumber("SELECT COUNT(*) AS value FROM underlying_candles"),
       fair_value_signals: this.scalarNumber("SELECT COUNT(*) AS value FROM fair_value_signals"),
       replay_results: this.scalarNumber("SELECT COUNT(*) AS value FROM replay_results"),
+      short_window_signals: this.scalarNumber("SELECT COUNT(*) AS value FROM short_window_signals"),
+      short_window_replay_results: this.scalarNumber("SELECT COUNT(*) AS value FROM short_window_replay_results"),
       strategy_lab_results: this.scalarNumber("SELECT COUNT(*) AS value FROM strategy_lab_results"),
       capture_runs: this.scalarNumber("SELECT COUNT(*) AS value FROM capture_runs")
     };
@@ -338,6 +429,8 @@ class SqliteResearchStore implements ResearchDataStore {
         latestCandleCloseAt: this.scalarText("SELECT MAX(close_time) AS value FROM underlying_candles"),
         latestFairValueSignalAt: this.scalarText("SELECT MAX(signal_time) AS value FROM fair_value_signals"),
         latestReplayMetricsAt: this.scalarText("SELECT MAX(checked_at) AS value FROM replay_results"),
+        latestShortWindowSignalAt: this.scalarText("SELECT MAX(signal_time) AS value FROM short_window_signals"),
+        latestShortWindowReplayAt: this.scalarText("SELECT MAX(checked_at) AS value FROM short_window_replay_results"),
         latestStrategyLabResultAt: this.scalarText("SELECT MAX(checked_at) AS value FROM strategy_lab_results"),
         latestCaptureRunAt: this.scalarText("SELECT MAX(finished_at) AS value FROM capture_runs")
       },
@@ -350,6 +443,8 @@ class SqliteResearchStore implements ResearchDataStore {
           marketSnapshotCount: this.scalarNumber("SELECT COUNT(*) AS value FROM market_snapshots WHERE checked_at >= ?", since),
           fairValueSignalCount: this.scalarNumber("SELECT COUNT(*) AS value FROM fair_value_signals WHERE signal_time >= ?", since),
           replayResultCount: this.scalarNumber("SELECT COUNT(*) AS value FROM replay_results WHERE checked_at >= ?", since),
+          shortWindowSignalCount: this.scalarNumber("SELECT COUNT(*) AS value FROM short_window_signals WHERE signal_time >= ?", since),
+          shortWindowReplayResultCount: this.scalarNumber("SELECT COUNT(*) AS value FROM short_window_replay_results WHERE checked_at >= ?", since),
           strategyLabResultCount: this.scalarNumber("SELECT COUNT(*) AS value FROM strategy_lab_results WHERE checked_at >= ?", since)
         };
       }),
@@ -385,6 +480,36 @@ class SqliteResearchStore implements ResearchDataStore {
     return {
       record,
       response: parsePayload<SignalReplayResponse>(record.payloadJson)
+    };
+  }
+
+  async getLatestShortWindowReplayResult(input: {
+    symbol: ShortWindowReplayResultRecord["symbol"];
+    interval: ShortWindowReplayResultRecord["interval"];
+    window: ShortWindowReplayResultRecord["window"];
+    venue?: ShortWindowReplayResultRecord["venue"] | undefined;
+  }): Promise<StoredShortWindowReplayResult | null> {
+    const db = this.database();
+    const row = input.venue
+      ? db.prepare(`
+        SELECT * FROM short_window_replay_results
+        WHERE symbol = ? AND interval = ? AND window = ? AND venue = ?
+        ORDER BY checked_at DESC, id DESC
+        LIMIT 1
+      `).get(input.symbol, input.interval, input.window, input.venue)
+      : db.prepare(`
+        SELECT * FROM short_window_replay_results
+        WHERE symbol = ? AND interval = ? AND window = ?
+        ORDER BY checked_at DESC, id DESC
+        LIMIT 1
+      `).get(input.symbol, input.interval, input.window);
+    if (!row) {
+      return null;
+    }
+    const record = rowToShortWindowReplayResult(row);
+    return {
+      record,
+      response: parsePayload<ShortWindowReplayResponse>(record.payloadJson)
     };
   }
 
@@ -491,6 +616,28 @@ function rowToReplayResult(row: Record<string, unknown>): ReplayResultRecord {
     averageConfidence: numberValue(row.average_confidence),
     theoreticalPnl: numberValue(row.theoretical_pnl),
     maxDrawdown: numberValue(row.max_drawdown),
+    warningsJson: stringValue(row.warnings_json),
+    checkedAt: stringValue(row.checked_at),
+    createdAt: stringValue(row.created_at),
+    payloadJson: textValue(row.payload_json)
+  };
+}
+
+function rowToShortWindowReplayResult(row: Record<string, unknown>): ShortWindowReplayResultRecord {
+  return {
+    id: numberValue(row.id) ?? 0,
+    sourceType: sourceTypeValue(row.source_type),
+    venue: stringValue(row.venue) as ShortWindowReplayResultRecord["venue"],
+    symbol: stringValue(row.symbol) as ShortWindowReplayResultRecord["symbol"],
+    interval: stringValue(row.interval) as ShortWindowReplayResultRecord["interval"],
+    window: stringValue(row.window) as ShortWindowReplayResultRecord["window"],
+    totalEvents: numberValue(row.total_events) ?? 0,
+    actionableCount: numberValue(row.actionable_count) ?? 0,
+    winCount: numberValue(row.win_count) ?? 0,
+    lossCount: numberValue(row.loss_count) ?? 0,
+    waitCount: numberValue(row.wait_count) ?? 0,
+    rejectedCount: numberValue(row.rejected_count) ?? 0,
+    winRate: numberValue(row.win_rate),
     warningsJson: stringValue(row.warnings_json),
     checkedAt: stringValue(row.checked_at),
     createdAt: stringValue(row.created_at),

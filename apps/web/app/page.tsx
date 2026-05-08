@@ -133,6 +133,18 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
               </Link>
               <Link
                 className="inline-flex min-h-10 items-center border border-cyan-400/60 bg-cyan-400/10 px-3 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/15"
+                href={`/short-window?symbol=${filters.symbol}&interval=${filters.horizon}`}
+              >
+                Short-Window Terminal
+              </Link>
+              <Link
+                className="inline-flex min-h-10 items-center border border-cyan-400/60 bg-cyan-400/10 px-3 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/15"
+                href="/short-window"
+              >
+                5m / 10m Event Signals
+              </Link>
+              <Link
+                className="inline-flex min-h-10 items-center border border-cyan-400/60 bg-cyan-400/10 px-3 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/15"
                 href="/data-store"
               >
                 Research Data Store
@@ -206,6 +218,9 @@ export default async function Home({ searchParams }: { searchParams?: SearchPara
                   </Link>
                   <Link className="border border-cyan-400/50 bg-cyan-400/10 px-3 py-2 font-semibold text-cyan-100" href="/signals/replay">
                     Signal Replay · Win Rate Dashboard
+                  </Link>
+                  <Link className="border border-cyan-400/50 bg-cyan-400/10 px-3 py-2 font-semibold text-cyan-100" href="/short-window">
+                    Short-Window Terminal · 5m / 10m Event Signals
                   </Link>
                   <Link className="border border-cyan-400/50 bg-cyan-400/10 px-3 py-2 font-semibold text-cyan-100" href="/strategy-lab">
                     Strategy Lab · Parameter Sweep · Walk-Forward Validation

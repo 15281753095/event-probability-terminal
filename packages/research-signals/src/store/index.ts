@@ -3,6 +3,7 @@ import type {
   Candle,
   FairValueSignalResponse,
   SignalReplayResponse,
+  ShortWindowReplayResponse,
   StrategyLabReport
 } from "@ept/shared-types";
 import { stableJson, stableRawHash } from "./schema.js";
@@ -14,6 +15,8 @@ import type {
   ReplayResultRecord,
   ResearchDataStore,
   ResearchStoreProvider,
+  ShortWindowReplayResultRecord,
+  ShortWindowSignalRecord,
   StrategyLabResultRecord,
   StoredUnderlyingSymbol,
   UnderlyingCandleRecord
@@ -29,9 +32,12 @@ export type {
   ReplayResultRecord,
   ResearchDataStore,
   ResearchStoreProvider,
+  ShortWindowReplayResultRecord,
+  ShortWindowSignalRecord,
   StoreStatus,
   StrategyLabResultRecord,
   StoredReplayResult,
+  StoredShortWindowReplayResult,
   StoredSignalSymbol,
   StoredStrategyLabResult,
   UnderlyingCandleRecord
@@ -149,6 +155,46 @@ export function replayResultRecordFromResponse(response: SignalReplayResponse): 
     maxDrawdown: response.metrics.maxDrawdown,
     warningsJson: JSON.stringify(response.warnings),
     checkedAt: response.checkedAt,
+    payloadJson: stableJson(response)
+  };
+}
+
+export function shortWindowSignalRecordsFromResponse(response: ShortWindowReplayResponse): ShortWindowSignalRecord[] {
+  return response.results.map((result) => ({
+    sourceType: response.sourceType === "stored" ? "live" : response.sourceType,
+    venue: response.rule.venue,
+    symbol: result.signal.symbol,
+    interval: result.signal.interval,
+    eventId: result.signal.eventId,
+    signalTime: result.signal.signalTime,
+    side: result.signal.side,
+    confidence: result.signal.confidence,
+    score: result.signal.score,
+    startReferencePrice: result.signal.startReferencePrice,
+    currentPrice: result.signal.currentPrice,
+    resultStatus: result.outcome.status
+  }));
+}
+
+export function shortWindowReplayResultRecordFromResponse(
+  response: ShortWindowReplayResponse,
+  checkedAt: string
+): ShortWindowReplayResultRecord {
+  return {
+    sourceType: response.sourceType === "stored" ? "live" : response.sourceType,
+    venue: response.rule.venue,
+    symbol: response.metrics.symbol,
+    interval: response.metrics.interval,
+    window: response.metrics.window,
+    totalEvents: response.metrics.totalEvents,
+    actionableCount: response.metrics.actionableCount,
+    winCount: response.metrics.winCount,
+    lossCount: response.metrics.lossCount,
+    waitCount: response.metrics.waitCount,
+    rejectedCount: response.metrics.rejectedCount,
+    winRate: response.metrics.winRate,
+    warningsJson: JSON.stringify(response.warnings),
+    checkedAt,
     payloadJson: stableJson(response)
   };
 }

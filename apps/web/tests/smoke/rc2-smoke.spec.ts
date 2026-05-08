@@ -11,8 +11,8 @@ test("home renders the real-data terminal and labels smoke mock data as DEV", as
   await expect(page.getByText("Binance public").first()).toBeVisible();
   await expect(page.getByRole("link", { name: "BTC" })).toBeVisible();
   await expect(page.getByRole("link", { name: "ETH" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "5m" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "10m" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "5m", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "10m", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Binance" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Coinbase" })).toBeVisible();
   await expect(page.getByTestId("data-source-badge")).toHaveText("DEV MOCK");
@@ -138,6 +138,35 @@ test("signal replay dashboard shows deterministic mock replay metrics", async ({
   await expect(page.getByTestId("replay-marker-table")).toBeVisible();
   await expect(page.getByTestId("replay-marker-table")).toContainText("mock-btc");
   await expect(page.getByText(/BUY NOW|SELL NOW|TRADE NOW/i)).toHaveCount(0);
+});
+
+test("short-window terminal shows event signal surface without execution language", async ({ page }) => {
+  await page.goto("/short-window?symbol=BTC&interval=5m");
+
+  await expect(page.getByTestId("short-window-terminal")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Short-Window Event Contract Terminal" })).toBeVisible();
+  await expect(page.getByText("Research Only", { exact: true })).toBeVisible();
+  await expect(page.getByText("Manual Decision Support", { exact: true })).toBeVisible();
+  await expect(page.getByText("No Auto Execution", { exact: true })).toBeVisible();
+  await expect(page.getByText("No Trading API", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "BTC" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "ETH" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "5m", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "10m", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "15m", exact: true })).toBeVisible();
+  await expect(page.getByTestId("short-window-price")).toContainText(/\$[0-9,]+\.[0-9]{2}|Pending/);
+  await expect(page.getByTestId("short-window-countdown")).toContainText(/[0-9]+:[0-9]{2}/);
+  await expect(page.getByTestId("short-window-signal-card")).toContainText(/LONG_UP|LONG_DOWN|WAIT|REJECTED/);
+  await expect(page.getByTestId("short-window-signal-card")).toContainText("Manual action only");
+  await expect(page.getByTestId("short-window-chart")).toBeVisible();
+  await expect(page.getByTestId("event-signal-chart")).toBeVisible();
+  await expect(page.getByTestId("short-window-metrics")).toContainText("Historical Proxy Win Rate");
+  await expect(page.getByTestId("short-window-rule-warning")).toContainText(/Unverified Rule|Verified Mock Rule/);
+  await expect(page.getByText(/BUY NOW|SELL NOW|TRADE NOW|Guaranteed Profit|Sure Win/i)).toHaveCount(0);
+
+  await page.goto("/short-window?symbol=ETH&interval=10m");
+  await expect(page.getByTestId("short-window-terminal")).toBeVisible();
+  await expect(page.getByTestId("short-window-signal-card")).toContainText(/LONG_UP|LONG_DOWN|WAIT|REJECTED/);
 });
 
 test("strategy lab shows mock parameter sweep and walk-forward validation", async ({ page }) => {
