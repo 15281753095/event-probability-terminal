@@ -407,6 +407,28 @@ class SqliteResearchStore implements ResearchDataStore {
     return { recordsInserted: result.changes ?? 0, recordsUpdated: 0, recordsSkipped: result.changes ? 0 : 1 };
   }
 
+  async getUnderlyingCandles(input: {
+    symbol: UnderlyingCandleRecord["symbol"];
+    interval: UnderlyingCandleRecord["interval"];
+    startTime: string;
+    endTime: string;
+    provider?: UnderlyingCandleRecord["provider"] | undefined;
+  }): Promise<UnderlyingCandleRecord[]> {
+    const db = this.database();
+    const rows = input.provider
+      ? db.prepare(`
+        SELECT * FROM underlying_candles
+        WHERE symbol = ? AND interval = ? AND provider = ? AND open_time >= ? AND open_time <= ?
+        ORDER BY open_time ASC, id ASC
+      `).all(input.symbol, input.interval, input.provider, input.startTime, input.endTime)
+      : db.prepare(`
+        SELECT * FROM underlying_candles
+        WHERE symbol = ? AND interval = ? AND open_time >= ? AND open_time <= ?
+        ORDER BY open_time ASC, id ASC
+      `).all(input.symbol, input.interval, input.startTime, input.endTime);
+    return rows.map(rowToUnderlyingCandle);
+  }
+
   async getStatus(input: { asOf?: string | undefined } = {}): Promise<StoreStatus> {
     const checkedAt = input.asOf ?? new Date().toISOString();
     const counts: StoreTableCounts = {
@@ -591,6 +613,24 @@ function rowToCaptureRun(row: Record<string, unknown>): CaptureRunRecord {
     recordsSkipped: numberValue(row.records_skipped) ?? 0,
     errorMessage: textValue(row.error_message),
     warningsJson: stringValue(row.warnings_json)
+  };
+}
+
+function rowToUnderlyingCandle(row: Record<string, unknown>): UnderlyingCandleRecord {
+  return {
+    id: numberValue(row.id) ?? 0,
+    provider: stringValue(row.provider) as UnderlyingCandleRecord["provider"],
+    sourceType: sourceTypeValue(row.source_type),
+    symbol: stringValue(row.symbol) as UnderlyingCandleRecord["symbol"],
+    interval: stringValue(row.interval) as UnderlyingCandleRecord["interval"],
+    openTime: stringValue(row.open_time),
+    closeTime: stringValue(row.close_time),
+    open: numberValue(row.open) ?? 0,
+    high: numberValue(row.high) ?? 0,
+    low: numberValue(row.low) ?? 0,
+    close: numberValue(row.close) ?? 0,
+    volume: numberValue(row.volume) ?? 0,
+    createdAt: stringValue(row.created_at)
   };
 }
 

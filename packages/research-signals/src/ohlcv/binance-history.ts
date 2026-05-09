@@ -4,6 +4,7 @@ import {
   BINANCE_SPOT_PUBLIC_BASE_URL,
   BINANCE_SPOT_PUBLIC_PROVIDER,
   BINANCE_SPOT_PUBLIC_SOURCE,
+  isBinanceNativeInterval,
   binanceSpotInterval,
   binanceSpotIntervalSeconds,
   buildBinanceSpotSymbol
@@ -53,6 +54,9 @@ export async function fetchBinanceHistoricalKlines(
   const requestedAtMs = Date.parse(request.requestedAt);
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs >= endMs) {
     return emptyResult(request, productId, "Binance historical klines require a valid startTime earlier than endTime.");
+  }
+  if (!isBinanceNativeInterval(request.interval)) {
+    return emptyResult(request, productId, `Binance historical klines do not provide native interval=${request.interval}.`);
   }
   const fetcher = options.fetcher ?? (globalThis.fetch as FetchLike | undefined);
   if (!fetcher) {

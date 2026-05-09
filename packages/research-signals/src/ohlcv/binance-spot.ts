@@ -7,6 +7,7 @@ import type {
   OHLCVFetchResult,
   OHLCVFreshness,
   OhlcvInterval,
+  RealtimePriceSymbol,
   SignalSymbol
 } from "@ept/shared-types";
 import type { FetchLike, LiveMarketDataFetchRequest } from "./types.js";
@@ -39,13 +40,19 @@ type BinanceTickerResult = Pick<
 const symbolByAsset = {
   BTC: "BTCUSDT",
   ETH: "ETHUSDT"
-} satisfies Record<SignalSymbol, string>;
+} satisfies Record<SignalSymbol, RealtimePriceSymbol>;
 
 const intervalSecondsByInterval = {
   "1m": 60,
   "5m": 300,
+  "10m": 600,
   "15m": 900,
-  "1h": 3600
+  "30m": 1800,
+  "1h": 3600,
+  "4h": 14_400,
+  "1d": 86_400,
+  "1w": 604_800,
+  "1M": 2_592_000
 } satisfies Record<OhlcvInterval, number>;
 
 export async function fetchBinanceSpotCandles(
@@ -55,6 +62,9 @@ export async function fetchBinanceSpotCandles(
   const fetchedAt = request.requestedAt;
   if (request.sourceMode !== "live") {
     return emptyFailClosedBinanceOHLCVResult(request, fetchedAt, "Binance Spot public adapter only supports sourceMode=live.");
+  }
+  if (!isBinanceNativeInterval(request.interval)) {
+    return emptyFailClosedBinanceOHLCVResult(request, fetchedAt, `Binance Spot public adapter does not provide native interval=${request.interval}.`);
   }
 
   const fetcher = options.fetcher ?? (globalThis.fetch as FetchLike | undefined);
@@ -106,6 +116,12 @@ export async function fetchBinanceSpotMarketData(
       "Binance Spot public live market-data adapter only supports sourceMode=live."
     );
   }
+  if (!isBinanceNativeInterval(interval)) {
+    return emptyFailClosedBinanceMarketData(
+      request,
+      `Binance Spot public live market-data adapter does not provide native interval=${interval}.`
+    );
+  }
 
   const candleRequest: OHLCVFetchRequest = {
     symbol: request.symbol,
@@ -152,16 +168,23 @@ export async function fetchBinanceSpotMarketData(
   });
 }
 
-export function buildBinanceSpotSymbol(symbol: SignalSymbol): string {
+export function buildBinanceSpotSymbol(symbol: SignalSymbol): RealtimePriceSymbol {
   return symbolByAsset[symbol];
 }
 
-export function binanceSpotInterval(interval: OhlcvInterval): OhlcvInterval {
+export function binanceSpotInterval(interval: OhlcvInterval): string {
+  if (!isBinanceNativeInterval(interval)) {
+    throw new Error(`Binance Spot public adapter does not provide native interval=${interval}.`);
+  }
   return interval;
 }
 
 export function binanceSpotIntervalSeconds(interval: OhlcvInterval): number {
   return intervalSecondsByInterval[interval];
+}
+
+export function isBinanceNativeInterval(interval: OhlcvInterval): interval is Exclude<OhlcvInterval, "10m"> {
+  return interval !== "10m";
 }
 
 export function emptyFailClosedBinanceMarketData(

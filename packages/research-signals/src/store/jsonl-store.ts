@@ -256,6 +256,25 @@ class JsonlResearchStore implements ResearchDataStore {
     return { recordsInserted: 1, recordsUpdated: 0, recordsSkipped: 0 };
   }
 
+  async getUnderlyingCandles(input: {
+    symbol: UnderlyingCandleRecord["symbol"];
+    interval: UnderlyingCandleRecord["interval"];
+    startTime: string;
+    endTime: string;
+    provider?: UnderlyingCandleRecord["provider"] | undefined;
+  }): Promise<UnderlyingCandleRecord[]> {
+    await this.init();
+    return this.tables.underlyingCandles
+      .filter((item) =>
+        item.symbol === input.symbol &&
+        item.interval === input.interval &&
+        (!input.provider || item.provider === input.provider) &&
+        item.openTime >= input.startTime &&
+        item.openTime <= input.endTime
+      )
+      .sort((left, right) => Date.parse(left.openTime) - Date.parse(right.openTime));
+  }
+
   async getStatus(input: { asOf?: string | undefined } = {}): Promise<StoreStatus> {
     await this.init();
     const checkedAt = input.asOf ?? new Date().toISOString();

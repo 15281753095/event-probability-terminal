@@ -1,6 +1,13 @@
 import { expect, test } from "@playwright/test";
 
 const fixtureMarketId = "polymarket:mkt-btc-1h-demo";
+const mockBadge = /DEV MOCK|模拟|Mock/i;
+const shortWindowHeading = /Short-Window Event Contract Terminal|短周期事件合约终端/i;
+const researchOnlyLabel = /Research Only|仅研究用途/i;
+const manualOnlyLabel = /Manual review only|仅供人工判断/i;
+const noAutoExecutionLabel = /No Auto Execution|不做自动执行/i;
+const noTradingApiLabel = /No Trading API|不接交易 API/i;
+const historicalProxyWinRateLabel = /Historical Proxy Win Rate|历史代理胜率/i;
 
 test("home renders the real-data terminal and labels smoke mock data as DEV", async ({ page }) => {
   await page.goto("/");
@@ -16,8 +23,8 @@ test("home renders the real-data terminal and labels smoke mock data as DEV", as
   await expect(page.getByRole("link", { name: "Binance" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Coinbase" })).toBeVisible();
   await expect(page.getByTestId("data-source-badge")).toHaveText("DEV MOCK");
-  await expect(page.getByTestId("realtime-price-card-BTC")).toContainText("DEV MOCK");
-  await expect(page.getByTestId("realtime-price-card-ETH")).toContainText("DEV MOCK");
+  await expect(page.getByTestId("realtime-price-card-BTC")).toContainText(mockBadge);
+  await expect(page.getByTestId("realtime-price-card-ETH")).toContainText(mockBadge);
   await expect(page.getByTestId("realtime-price-value-BTC")).toContainText(/\$[0-9,]+\.[0-9]{2}/);
   await expect(page.getByTestId("realtime-price-value-ETH")).toContainText(/\$[0-9,]+\.[0-9]{2}/);
   await expect(page.getByTestId("realtime-price-status-BTC")).toContainText(/open|stale|connecting/i);
@@ -55,8 +62,8 @@ test("live market data page supports BTC ETH and candle intervals", async ({ pag
   await expect(page.getByTestId("live-market-data-page")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Live Market Data" })).toBeVisible();
   await expect(page.getByTestId("data-source-badge")).toHaveText("DEV MOCK");
-  await expect(page.getByTestId("realtime-price-card-BTC")).toContainText("DEV MOCK");
-  await expect(page.getByTestId("realtime-price-card-ETH")).toContainText("DEV MOCK");
+  await expect(page.getByTestId("realtime-price-card-BTC")).toContainText(mockBadge);
+  await expect(page.getByTestId("realtime-price-card-ETH")).toContainText(mockBadge);
   await expect(page.getByTestId("realtime-price-value-BTC")).toContainText(/\$[0-9,]+\.[0-9]{2}/);
   await expect(page.getByTestId("realtime-price-status-ETH")).toContainText(/open|stale|connecting/i);
   await expect(page.getByTestId("realtime-price-latency-ETH")).toContainText(/ms|Pending/);
@@ -86,8 +93,8 @@ test("signals console defaults to live mode and marks experimental output", asyn
   await expect(page.getByTestId("signals-console-page")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Signals Console" })).toBeVisible();
   await expect(page.getByTestId("data-source-badge")).toHaveText("DEV MOCK");
-  await expect(page.getByTestId("realtime-price-card-BTC")).toContainText("DEV MOCK");
-  await expect(page.getByTestId("realtime-price-card-ETH")).toContainText("DEV MOCK");
+  await expect(page.getByTestId("realtime-price-card-BTC")).toContainText(mockBadge);
+  await expect(page.getByTestId("realtime-price-card-ETH")).toContainText(mockBadge);
   await expect(page.getByTestId("realtime-price-value-BTC")).toContainText(/\$[0-9,]+\.[0-9]{2}/);
   await expect(page.getByTestId("realtime-price-status-BTC")).toContainText(/open|stale|connecting/i);
   await expect(page.getByTestId("realtime-price-latency-BTC")).toContainText(/ms|Pending/);
@@ -141,30 +148,36 @@ test("signal replay dashboard shows deterministic mock replay metrics", async ({
 });
 
 test("short-window terminal shows event signal surface without execution language", async ({ page }) => {
-  await page.goto("/short-window?symbol=BTC&interval=5m");
+  await page.goto("/short-window?symbol=BTC&interval=5m&lang=en");
 
   await expect(page.getByTestId("short-window-terminal")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Short-Window Event Contract Terminal" })).toBeVisible();
-  await expect(page.getByText("Research Only", { exact: true })).toBeVisible();
-  await expect(page.getByText("Manual Decision Support", { exact: true })).toBeVisible();
-  await expect(page.getByText("No Auto Execution", { exact: true })).toBeVisible();
-  await expect(page.getByText("No Trading API", { exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "BTC" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "ETH" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "5m", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "10m", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "15m", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: shortWindowHeading })).toBeVisible();
+  await expect(page.getByText(researchOnlyLabel, { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(manualOnlyLabel, { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(noAutoExecutionLabel, { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(noTradingApiLabel, { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "BTC" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "ETH" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "5m", exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "10m", exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "15m", exact: true }).first()).toBeVisible();
   await expect(page.getByTestId("short-window-price")).toContainText(/\$[0-9,]+\.[0-9]{2}|Pending/);
   await expect(page.getByTestId("short-window-countdown")).toContainText(/[0-9]+:[0-9]{2}/);
   await expect(page.getByTestId("short-window-signal-card")).toContainText(/LONG_UP|LONG_DOWN|WAIT|REJECTED/);
-  await expect(page.getByTestId("short-window-signal-card")).toContainText("Manual action only");
-  await expect(page.getByTestId("short-window-chart")).toBeVisible();
-  await expect(page.getByTestId("event-signal-chart")).toBeVisible();
-  await expect(page.getByTestId("short-window-metrics")).toContainText("Historical Proxy Win Rate");
-  await expect(page.getByTestId("short-window-rule-warning")).toContainText(/Unverified Rule|Verified Mock Rule/);
+  await expect(page.getByTestId("short-window-signal-card")).toContainText(manualOnlyLabel);
+  const klineChart = page.getByTestId("professional-kline-chart");
+  await expect(klineChart).toBeVisible();
+  await expect(klineChart.getByTestId("kline-symbol-selector")).toContainText("BTC");
+  await expect(klineChart.getByTestId("kline-interval-selector")).toContainText("1m");
+  await expect(klineChart.getByTestId("kline-range-selector")).toContainText("1D");
+  await expect(klineChart.getByTestId("kline-chart-canvas")).toBeVisible();
+  await expect(klineChart.getByTestId("marker-summary")).toBeVisible();
+  await expect(page.getByTestId("language-switcher")).toBeVisible();
+  await expect(page.getByTestId("short-window-metrics")).toContainText(historicalProxyWinRateLabel);
+  await expect(page.getByText(/Unverified Rule|Verified Mock Rule|未核验规则|已核验 Mock 规则/).first()).toBeVisible();
   await expect(page.getByText(/BUY NOW|SELL NOW|TRADE NOW|Guaranteed Profit|Sure Win/i)).toHaveCount(0);
 
-  await page.goto("/short-window?symbol=ETH&interval=10m");
+  await page.goto("/short-window?symbol=ETH&interval=10m&lang=en");
   await expect(page.getByTestId("short-window-terminal")).toBeVisible();
   await expect(page.getByTestId("short-window-signal-card")).toContainText(/LONG_UP|LONG_DOWN|WAIT|REJECTED/);
 });
@@ -214,8 +227,8 @@ test("polymarket active markets page shows read-only mock odds", async ({ page }
   await expect(page.getByText("READ ONLY")).toBeVisible();
   await expect(page.getByText("NO TRADING")).toBeVisible();
   await expect(page.getByText("PUBLIC MARKET DATA")).toBeVisible();
-  await expect(page.getByTestId("realtime-price-card-BTC")).toContainText("DEV MOCK");
-  await expect(page.getByTestId("realtime-price-card-ETH")).toContainText("DEV MOCK");
+  await expect(page.getByTestId("realtime-price-card-BTC")).toContainText(mockBadge);
+  await expect(page.getByTestId("realtime-price-card-ETH")).toContainText(mockBadge);
   await expect(page.getByTestId("polymarket-market-table")).toBeVisible();
   await expect(page.getByTestId("polymarket-market-row").first()).toContainText(/BTC|ETH/);
   await expect(page.getByTestId("polymarket-market-row").first()).toContainText(/bound|ambiguous|unsupported|failed/);

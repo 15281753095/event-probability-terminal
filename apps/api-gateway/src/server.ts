@@ -20,6 +20,7 @@ import {
   generateShortWindowSignal,
   buildShortWindowRuleTemplate,
   rankStrategyParameterResults,
+  loadMarketDataKlines,
   runCaptureJobByName,
   runParameterSweep,
   runShortWindowReplay,
@@ -46,6 +47,8 @@ import type {
   FairValueSnapshot,
   LiveMarketDataResponse,
   LiveMarketDataSource,
+  MarketDataKlinesResponse,
+  MarketDataRange,
   MarketDataProvenance,
   OhlcvSource,
   OhlcvInterval,
@@ -71,6 +74,7 @@ import type {
   ShortWindowReplayResponse,
   ShortWindowVenue,
   SourceProvenance,
+  StoredDataSourceType,
   StrategyLabReport,
   TradeCandidate
 } from "@ept/shared-types";
@@ -359,6 +363,68 @@ export function buildServer(options: BuildServerOptions = {}) {
         latencyMs: null
       }) satisfies LiveMarketDataResponse;
     }
+  });
+
+  server.get<{ Querystring: { symbol?: string; interval?: string; range?: string; limit?: string; source?: string } }>("/market-data/klines", async (request, reply) => {
+    const generatedAt = now();
+    const symbol = parseSignalSymbol(request.query.symbol) ?? "BTC";
+    const interval = parseMarketDataKlineInterval(request.query.interval) ?? "1m";
+    const range = parseMarketDataRange(request.query.range) ?? "1D";
+    const source = parseMarketDataKlineSource(
+      request.query.source ?? (process.env.EPT_LIVE_MARKET_DATA_MOCK === "true" ? "mock" : undefined)
+    );
+    const limit = parseOptionalInteger(request.query.limit);
+    if (request.query.symbol && !parseSignalSymbol(request.query.symbol)) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Kline history currently supports symbol=BTC or symbol=ETH only.",
+          generatedAt
+        })
+      );
+    }
+    if (request.query.interval && !parseMarketDataKlineInterval(request.query.interval)) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Kline history currently supports interval=1m, 5m, 10m, 15m, 30m, 1h, 4h, 1d, 1w, or 1M.",
+          generatedAt
+        })
+      );
+    }
+    if (request.query.range && !parseMarketDataRange(request.query.range)) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Kline history currently supports range=1D, 3D, 1W, 1M, 3M, 1Y, or ALL.",
+          generatedAt
+        })
+      );
+    }
+    if (request.query.source && !parseMarketDataKlineSource(request.query.source)) {
+      return reply.code(400).send(
+        apiError({
+          status: "unsupported",
+          error: "out_of_scope",
+          message: "Kline history currently supports source=live, source=stored, or source=mock.",
+          generatedAt
+        })
+      );
+    }
+
+    await researchStore.init();
+    return (await loadMarketDataKlines({
+      symbol,
+      interval,
+      range,
+      ...(source ? { source } : {}),
+      ...(limit !== undefined ? { limit } : {}),
+      requestedAt: generatedAt,
+      store: researchStore
+    })) satisfies MarketDataKlinesResponse;
   });
 
   server.get<{ Querystring: { symbol?: string; provider?: string; once?: string } }>("/market-data/realtime", async (request, reply) => {
@@ -1261,6 +1327,37 @@ function parseSignalSymbol(value?: string): SignalSymbol | undefined {
   return value === "BTC" || value === "ETH" ? value : undefined;
 }
 
+function parseMarketDataKlineInterval(value?: string): OhlcvInterval | undefined {
+  return value === "1m" ||
+    value === "5m" ||
+    value === "10m" ||
+    value === "15m" ||
+    value === "30m" ||
+    value === "1h" ||
+    value === "4h" ||
+    value === "1d" ||
+    value === "1w" ||
+    value === "1M"
+    ? value
+    : undefined;
+}
+
+function parseMarketDataRange(value?: string): MarketDataRange | undefined {
+  return value === "1D" ||
+    value === "3D" ||
+    value === "1W" ||
+    value === "1M" ||
+    value === "3M" ||
+    value === "1Y" ||
+    value === "ALL"
+    ? value
+    : undefined;
+}
+
+function parseMarketDataKlineSource(value?: string): Extract<StoredDataSourceType, "live" | "stored" | "mock"> | undefined {
+  return value === "live" || value === "stored" || value === "mock" ? value : undefined;
+}
+
 function parseShortWindowInterval(value?: string): ShortWindowInterval | undefined {
   return value === "5m" || value === "10m" || value === "15m" ? value : undefined;
 }
@@ -1958,7 +2055,28 @@ function withMarketDataProvenance(
 }
 
 function intervalMsFor(interval: OhlcvInterval): number {
-  return interval === "1m" ? 60_000 : interval === "5m" ? 300_000 : interval === "15m" ? 900_000 : 3_600_000;
+  switch (interval) {
+    case "1m":
+      return 60_000;
+    case "5m":
+      return 300_000;
+    case "10m":
+      return 600_000;
+    case "15m":
+      return 900_000;
+    case "30m":
+      return 1_800_000;
+    case "1h":
+      return 3_600_000;
+    case "4h":
+      return 14_400_000;
+    case "1d":
+      return 86_400_000;
+    case "1w":
+      return 604_800_000;
+    case "1M":
+      return 2_592_000_000;
+  }
 }
 
 function roundPrice(value: number): number {

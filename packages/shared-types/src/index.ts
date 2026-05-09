@@ -32,6 +32,7 @@ export type ApiResponseKind =
   | "research_signal"
   | "event_signal_console"
   | "live_market_data"
+  | "market_data_klines"
   | "polymarket_active_markets"
   | "fair_value_signal"
   | "signal_replay"
@@ -297,7 +298,13 @@ export type OhlcvSource = "fixture" | "coinbase_exchange" | "binance_spot_public
 
 export type DataSourceType = "live" | "mock" | "fixture";
 
-export type OhlcvInterval = "1m" | "5m" | "15m" | "1h";
+export type OhlcvInterval = "1m" | "5m" | "10m" | "15m" | "30m" | "1h" | "4h" | "1d" | "1w" | "1M";
+
+export type MarketDataRange = "1D" | "3D" | "1W" | "1M" | "3M" | "1Y" | "ALL";
+
+export type StoredDataSourceType = DataSourceType | "stored";
+
+export type KlineIntervalSource = "native" | "derived";
 
 export type LiveMarketDataSource = "binance-spot-public" | "coinbase-exchange";
 
@@ -1100,6 +1107,23 @@ export interface LiveMarketDataResponse {
   failClosedReasons: string[];
   provenance: MarketDataProvenance;
   providerHealth: ProviderHealth;
+}
+
+export interface MarketDataKlinesResponse {
+  symbol: SignalSymbol;
+  displaySymbol: RealtimePriceSymbol;
+  interval: OhlcvInterval;
+  intervalSource: KlineIntervalSource;
+  derivedFrom?: Exclude<OhlcvInterval, "10m"> | undefined;
+  range: MarketDataRange;
+  candles: Candle[];
+  candleCount: number;
+  providerHealth: ProviderHealth;
+  sourceType: StoredDataSourceType;
+  warnings: string[];
+  maxRangeApplied?: MarketDataRange | undefined;
+  isTruncated: boolean;
+  checkedAt: string;
 }
 
 export interface SignalFeatureSnapshot {

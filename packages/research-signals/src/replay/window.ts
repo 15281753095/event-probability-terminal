@@ -1,4 +1,4 @@
-import type { ReplayWindow, ReplayWindowId } from "@ept/shared-types";
+import type { OhlcvInterval, ReplayWindow, ReplayWindowId } from "@ept/shared-types";
 
 const windowDurationsMs = {
   "1d": 24 * 60 * 60 * 1000,
@@ -40,8 +40,29 @@ export function parseReplayWindowId(value?: string): ReplayWindowId | undefined 
     : undefined;
 }
 
-export function intervalMsForReplay(value: "1m" | "5m" | "15m" | "1h"): number {
-  return value === "1m" ? 60_000 : value === "5m" ? 300_000 : value === "15m" ? 900_000 : 3_600_000;
+export function intervalMsForReplay(value: OhlcvInterval): number {
+  switch (value) {
+    case "1m":
+      return 60_000;
+    case "5m":
+      return 300_000;
+    case "10m":
+      return 600_000;
+    case "15m":
+      return 900_000;
+    case "30m":
+      return 1_800_000;
+    case "1h":
+      return 3_600_000;
+    case "4h":
+      return 14_400_000;
+    case "1d":
+      return 86_400_000;
+    case "1w":
+      return 604_800_000;
+    case "1M":
+      return 2_592_000_000;
+  }
 }
 
 function validateCustomReplayWindow(window: ReplayWindow): ReplayWindow {

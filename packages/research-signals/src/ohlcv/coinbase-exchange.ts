@@ -39,8 +39,14 @@ type CoinbaseTickerResult = Pick<
 const granularityByInterval = {
   "1m": 60,
   "5m": 300,
+  "10m": 600,
   "15m": 900,
-  "1h": 3600
+  "30m": 1800,
+  "1h": 3600,
+  "4h": 14_400,
+  "1d": 86_400,
+  "1w": 604_800,
+  "1M": 2_592_000
 } satisfies Record<OhlcvInterval, number>;
 
 const productBySymbol = {
@@ -55,6 +61,9 @@ export async function fetchCoinbaseExchangeCandles(
   const fetchedAt = request.requestedAt;
   if (request.sourceMode !== "live") {
     return emptyFailClosedOHLCVResult(request, fetchedAt, "Coinbase Exchange adapter only supports sourceMode=live.");
+  }
+  if (!isCoinbaseSupportedInterval(request.interval)) {
+    return emptyFailClosedOHLCVResult(request, fetchedAt, `Coinbase Exchange adapter does not provide interval=${request.interval}.`);
   }
 
   const fetcher = options.fetcher ?? (globalThis.fetch as FetchLike | undefined);
@@ -104,6 +113,12 @@ export async function fetchCoinbaseExchangeMarketData(
     return emptyFailClosedLiveMarketData(
       request,
       `Coinbase Exchange live market-data adapter only supports sourceMode=live.`
+    );
+  }
+  if (!isCoinbaseSupportedInterval(interval)) {
+    return emptyFailClosedLiveMarketData(
+      request,
+      `Coinbase Exchange live market-data adapter does not provide interval=${interval}.`
     );
   }
 
@@ -231,6 +246,10 @@ export function buildCoinbaseProductId(symbol: SignalSymbol): string {
 
 export function coinbaseGranularity(interval: OhlcvInterval): number {
   return granularityByInterval[interval];
+}
+
+function isCoinbaseSupportedInterval(interval: OhlcvInterval): interval is "1m" | "5m" | "15m" | "1h" {
+  return interval === "1m" || interval === "5m" || interval === "15m" || interval === "1h";
 }
 
 export function emptyFailClosedOHLCVResult(
