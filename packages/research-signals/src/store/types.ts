@@ -259,6 +259,13 @@ export type ResearchDataStore = {
   insertShortWindowReplayResult(record: ShortWindowReplayResultRecord): Promise<InsertSummary>;
   insertStrategyLabResult(record: StrategyLabResultRecord): Promise<InsertSummary>;
   recordCaptureRun(record: CaptureRunRecord): Promise<InsertSummary>;
+  getUnderlyingCandles(input: {
+    symbol: StoredUnderlyingSymbol;
+    interval: OhlcvInterval;
+    startTime: string;
+    endTime: string;
+    provider?: UnderlyingCandleRecord["provider"] | undefined;
+  }): Promise<UnderlyingCandleRecord[]>;
   getStatus(input?: { asOf?: string }): Promise<StoreStatus>;
   getCaptureRuns(limit?: number): Promise<CaptureRunRecord[]>;
   getLatestReplayResult(input: {

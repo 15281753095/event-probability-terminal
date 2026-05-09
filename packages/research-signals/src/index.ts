@@ -142,6 +142,13 @@ export type {
   PolymarketSymbolFilter
 } from "./polymarket/types.js";
 export {
+  aggregateCandlesToInterval,
+  intervalMsForOhlcv
+} from "./ohlcv/aggregate.js";
+export type {
+  AggregateCandlesResult
+} from "./ohlcv/aggregate.js";
+export {
   BINANCE_SPOT_PUBLIC_PROVIDER,
   BINANCE_SPOT_PUBLIC_SOURCE,
   binanceSpotInterval,
@@ -150,7 +157,8 @@ export {
   emptyFailClosedBinanceMarketData,
   emptyFailClosedBinanceOHLCVResult,
   fetchBinanceSpotCandles,
-  fetchBinanceSpotMarketData
+  fetchBinanceSpotMarketData,
+  isBinanceNativeInterval
 } from "./ohlcv/binance-spot.js";
 export type { BinanceSpotOptions } from "./ohlcv/binance-spot.js";
 export {
@@ -162,6 +170,13 @@ export type {
   BinanceHistoricalKlinesResult,
   BinanceHistoryLookback
 } from "./ohlcv/binance-history.js";
+export {
+  loadMarketDataKlines,
+  resolveRangeForInterval
+} from "./ohlcv/market-data-klines.js";
+export type {
+  MarketDataKlinesRequest
+} from "./ohlcv/market-data-klines.js";
 export {
   BINANCE_SPOT_PUBLIC_WS_BASE_URL,
   BinanceSpotRealtimeClient,
